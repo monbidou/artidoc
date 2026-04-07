@@ -19,16 +19,11 @@ const METIER_OPTIONS = [
   'Autre',
 ]
 
-const UNIT_OPTIONS = ['Unité', 'Heure', 'Jour', 'm²', 'm³', 'ml', 'Forfait', 'Lot']
-
-const TVA_OPTIONS = ['0', '5.5', '10', '20']
-
 const STEP_LABELS = [
   'Métier',
   'Entreprise',
   'Banque',
   'Import',
-  'Prestation',
 ]
 
 export default function OnboardingPage() {
@@ -50,16 +45,13 @@ export default function OnboardingPage() {
   const [iban, setIban] = useState('')
   const [bic, setBic] = useState('')
 
-  // Step 5
-  const [designation, setDesignation] = useState('')
-  const [unite, setUnite] = useState('')
-  const [prixHT, setPrixHT] = useState('')
-  const [tva, setTva] = useState('20')
+  // Step 4 — import choice
+  const [showImport, setShowImport] = useState(false)
 
   const inputClasses =
     'w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] placeholder:text-gray-400 focus:border-sky focus:ring-1 focus:ring-sky outline-none transition'
 
-  const next = () => setStep((s) => Math.min(s + 1, 5))
+  const next = () => setStep((s) => Math.min(s + 1, 4))
   const prev = () => setStep((s) => Math.max(s - 1, 1))
 
   return (
@@ -208,6 +200,9 @@ export default function OnboardingPage() {
                       PNG, JPG jusqu&apos;à 2 Mo
                     </p>
                   </div>
+                  <p className="text-xs text-gray-400 font-manrope mt-2">
+                    Optionnel &mdash; vous pourrez l&apos;ajouter plus tard depuis votre profil
+                  </p>
                 </div>
               </div>
             </div>
@@ -251,105 +246,69 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 4 */}
+          {/* Step 4 — Import */}
           {step === 4 && (
             <div>
-              <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-8">
-                Importez vos données
+              <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-4">
+                Souhaitez-vous importer des données existantes ?
               </h1>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Depuis Obat', desc: 'Importez vos données Obat' },
-                  { label: 'Depuis Excel', desc: 'Fichier .xlsx ou .csv' },
-                  { label: 'Je commence de zéro', desc: 'Démarrer un nouveau projet' },
-                ].map((option) => (
-                  <button
-                    key={option.label}
-                    onClick={next}
-                    className="border border-gray-200 rounded-xl p-6 text-center hover:border-sky hover:bg-sky/5 transition flex flex-col items-center gap-2"
-                  >
-                    <span className="font-syne font-bold text-sm text-[#1a1a2e]">
-                      {option.label}
-                    </span>
-                    <span className="text-xs text-gray-500 font-manrope">
-                      {option.desc}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+              <p className="text-sm text-gray-500 font-manrope mb-8">
+                Vous pourrez toujours importer vos données plus tard depuis les paramètres.
+              </p>
 
-          {/* Step 5 */}
-          {step === 5 && (
-            <div>
-              <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-8">
-                Créez votre première prestation
-              </h1>
-              <div className="space-y-5">
-                <div>
-                  <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-                    Désignation
-                  </label>
-                  <input
-                    type="text"
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    placeholder="Ex: Pose de carrelage au sol"
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-                    Unité
-                  </label>
-                  <select
-                    value={unite}
-                    onChange={(e) => setUnite(e.target.value)}
-                    className={`${inputClasses} ${!unite ? 'text-gray-400' : ''}`}
+              {!showImport ? (
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <button
+                    onClick={() => setShowImport(true)}
+                    className="flex-1 border border-gray-200 rounded-xl p-6 text-center hover:border-sky hover:bg-sky/5 transition"
                   >
-                    <option value="" disabled>
-                      Sélectionnez une unité
-                    </option>
-                    {UNIT_OPTIONS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
+                    <span className="font-syne font-bold text-base text-[#1a1a2e]">
+                      Oui, importer mes données
+                    </span>
+                    <p className="text-xs text-gray-500 font-manrope mt-1">
+                      Depuis Obat, Excel ou CSV
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => router.push('/dashboard')}
+                    className="flex-1 border border-gray-200 rounded-xl p-6 text-center hover:border-sky hover:bg-sky/5 transition"
+                  >
+                    <span className="font-syne font-bold text-base text-[#1a1a2e]">
+                      Non, je commence de zéro
+                    </span>
+                    <p className="text-xs text-gray-500 font-manrope mt-1">
+                      Démarrer un nouveau projet
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: 'Depuis Obat', desc: 'Importez vos données Obat' },
+                      { label: 'Depuis Excel / CSV', desc: 'Fichier .xlsx ou .csv' },
+                    ].map((option) => (
+                      <button
+                        key={option.label}
+                        className="border border-gray-200 rounded-xl p-6 text-center hover:border-sky hover:bg-sky/5 transition flex flex-col items-center gap-2"
+                      >
+                        <span className="font-syne font-bold text-sm text-[#1a1a2e]">
+                          {option.label}
+                        </span>
+                        <span className="text-xs text-gray-500 font-manrope">
+                          {option.desc}
+                        </span>
+                      </button>
                     ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-                      Prix HT
-                    </label>
-                    <input
-                      type="number"
-                      value={prixHT}
-                      onChange={(e) => setPrixHT(e.target.value)}
-                      placeholder="0.00"
-                      step="0.01"
-                      className={inputClasses}
-                    />
                   </div>
-                  <div>
-                    <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-                      Taux de TVA
-                    </label>
-                    <select
-                      value={tva}
-                      onChange={(e) => setTva(e.target.value)}
-                      className={inputClasses}
-                    >
-                      {TVA_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {t} %
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <button
+                    onClick={() => setShowImport(false)}
+                    className="text-sm text-gray-500 font-manrope hover:text-[#1a1a2e] transition"
+                  >
+                    &larr; Revenir au choix
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -366,7 +325,7 @@ export default function OnboardingPage() {
               <div />
             )}
 
-            {step < 5 && step !== 4 && (
+            {step < 4 && (
               <button
                 onClick={next}
                 className="h-[52px] px-8 bg-[#e87a2a] hover:bg-[#f09050] text-white font-syne font-bold text-base rounded-xl transition"
@@ -375,7 +334,16 @@ export default function OnboardingPage() {
               </button>
             )}
 
-            {step === 5 && (
+            {step === 4 && !showImport && (
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="h-[52px] px-8 bg-[#e87a2a] hover:bg-[#f09050] text-white font-syne font-bold text-base rounded-xl transition"
+              >
+                Terminer &rarr;
+              </button>
+            )}
+
+            {step === 4 && showImport && (
               <button
                 onClick={() => router.push('/dashboard')}
                 className="h-[52px] px-8 bg-[#e87a2a] hover:bg-[#f09050] text-white font-syne font-bold text-base rounded-xl transition"

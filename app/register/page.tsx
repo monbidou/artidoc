@@ -7,21 +7,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-const METIER_OPTIONS = [
-  'Plombier',
-  'Électricien',
-  'Maçon',
-  'Menuisier',
-  'Peintre',
-  'Couvreur',
-  'Carreleur',
-  'Chauffagiste',
-  'Paysagiste',
-  'Plaquiste',
-  'Multi-services',
-  'Autre',
-]
-
 function getPasswordStrength(password: string) {
   let score = 0
   if (password.length >= 8) score++
@@ -39,7 +24,6 @@ export default function RegisterPage() {
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [entreprise, setEntreprise] = useState('')
-  const [metier, setMetier] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -58,7 +42,7 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        data: { prenom, nom, entreprise, metier },
+        data: { prenom, nom, entreprise },
       },
     })
 
@@ -153,28 +137,6 @@ export default function RegisterPage() {
                 required
                 className={inputClasses}
               />
-            </div>
-
-            {/* Métier */}
-            <div>
-              <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-                Votre métier
-              </label>
-              <select
-                value={metier}
-                onChange={(e) => setMetier(e.target.value)}
-                required
-                className={`${inputClasses} ${!metier ? 'text-gray-400' : ''}`}
-              >
-                <option value="" disabled>
-                  Sélectionnez votre métier
-                </option>
-                {METIER_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Email */}
