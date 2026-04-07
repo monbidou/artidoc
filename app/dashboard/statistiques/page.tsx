@@ -1,25 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useFactures, useDevis, useChantiers, LoadingSkeleton } from "@/lib/hooks";
 
-// --- Demo chart data ---
-const chartData = [
-  { month: "Jan", facture: 8200, encaisse: 6500 },
-  { month: "F\u00e9v", facture: 9100, encaisse: 7800 },
-  { month: "Mar", facture: 11400, encaisse: 9200 },
-  { month: "Avr", facture: 10800, encaisse: 8900 },
-  { month: "Mai", facture: 13200, encaisse: 10500 },
-  { month: "Jun", facture: 12100, encaisse: 11200 },
-  { month: "Jul", facture: 9500, encaisse: 8800 },
-  { month: "Ao\u00fb", facture: 4200, encaisse: 3900 },
-  { month: "Sep", facture: 14800, encaisse: 12100 },
-  { month: "Oct", facture: 15200, encaisse: 13400 },
-  { month: "Nov", facture: 13800, encaisse: 11900 },
-  { month: "D\u00e9c", facture: 14200, encaisse: 9800 },
+// --- Month names with correct Unicode ---
+const MONTH_NAMES = [
+  "Jan", "F\u00e9v", "Mar", "Avr", "Mai", "Jun",
+  "Jul", "Ao\u00fb", "Sep", "Oct", "Nov", "D\u00e9c",
 ];
 
-const maxChartValue = Math.max(...chartData.map((d) => d.facture));
-const yAxisValues = [0, 5000, 10000, 15000];
+function formatCurrency(n: number): string {
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " \u20AC";
+}
 
 // --- Stat card component ---
 function StatCard({
@@ -61,6 +53,119 @@ export default function StatistiquesPage() {
   const [period, setPeriod] = useState("Mois");
   const periods = ["Semaine", "Mois", "Trimestre", "Ann\u00e9e"];
 
+  const { data: factures, loading: loadingF } = useFactures();
+  const { data: devis, loading: loadingD } = useDevis();
+  const { data: chantiers, loading: loadingCh } = useChantiers();
+
+  const loading = loadingF || loadingD || loadingCh;
+
+  // Computed stats
+  const stats = useMemo(() => {
+    const facs = factures.map((f) => f as Record<string, unknown>);
+    const devs = devis.map((d) => d as Record<string, unknown>);
+    const chants = chantiers.map((c) => c as Record<string, unknown>);
+
+    // --- CA ---
+    const paidFactures = facs.filter((f) => (f.statut as string) === "payee");
+    const totalCA = paidFactures.reduce((s, f) => s + ((f.montant_ttc as number) ?? 0), 0);
+
+    // Monthly chart: group factures by month of date_facture
+    const monthlyFacture: number[] = new Array(12).fill(0);
+    const monthlyEncaisse: number[] = new Array(12).fill(0);
+    const currentYear = new Date().getFullYear();
+
+    for (const f of facs) {
+      const dateStr = f.date_facture as string | null;
+      if (!dateStr) continue;
+      const d = new Date(dateStr);
+      if (d.getFullYear() !== currentYear) continue;
+      const month = d.getMonth();
+      monthlyFacture[month] += (f.montant_ttc as number) ?? 0;
+      if ((f.statut as string) === "payee") {
+        monthlyEncaisse[month] += (f.montant_ttc as number) ?? 0;
+      }
+    }
+
+    const chartData = MONTH_NAMES.map((name, i) => ({
+      month: name,
+      facture: monthlyFacture[i],
+      encaisse: monthlyEncaisse[i],
+    }));
+
+    const maxChartValue = Math.max(...chartData.map((d) => d.facture), 1);
+
+    // Round up to nice y-axis
+    const yMax = Math.ceil(maxChartValue / 5000) * 5000;
+    const yAxisValues = [0, Math.round(yMax / 3), Math.round((yMax * 2) / 3), yMax];
+
+    // --- Devis ---
+    const totalDevis = devs.length;
+    const signedDevis = devs.filter((d) => {
+      const s = (d.statut as string) ?? "";
+      return s === "signe" || s === "facture";
+    }).length;
+    const tauxTransformation = totalDevis > 0 ? Math.round((signedDevis / totalDevis) * 100) : 0;
+
+    const devisMontants = devs
+      .map((d) => (d.montant_ttc as number) ?? 0)
+      .filter((m) => m > 0);
+    const montantMoyenDevis = devisMontants.length > 0
+      ? Math.round(devisMontants.reduce((a, b) => a + b, 0) / devisMontants.length)
+      : 0;
+
+    // --- Factures stats ---
+    const totalFacturesHT = facs.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0);
+    const impayees = facs.filter((f) => {
+      const s = (f.statut as string) ?? "";
+      return s === "en_retard" || s === "en_attente" || s === "partielle";
+    });
+    const montantImpaye = impayees.reduce((s, f) => {
+      const ttc = (f.montant_ttc as number) ?? 0;
+      const paye = (f.montant_paye as number) ?? 0;
+      return s + (ttc - paye);
+    }, 0);
+    const facturesEnRetard = facs.filter((f) => (f.statut as string) === "en_retard").length;
+
+    const totalFacturesTTC = facs.reduce((s, f) => s + ((f.montant_ttc as number) ?? 0), 0);
+    const totalPaye = facs.reduce((s, f) => s + ((f.montant_paye as number) ?? 0), 0);
+    const tauxEncaissement = totalFacturesTTC > 0
+      ? Math.round((totalPaye / totalFacturesTTC) * 100)
+      : 0;
+
+    // --- Planning ---
+    const chantiersActifs = chants.filter((c) => {
+      const s = (c.statut as string) ?? "";
+      return s === "en_cours" || s === "planifie";
+    }).length;
+
+    return {
+      totalCA,
+      chartData,
+      maxChartValue: yMax || 1,
+      yAxisValues,
+      tauxTransformation,
+      montantMoyenDevis,
+      totalFacturesHT,
+      montantImpaye,
+      facturesEnRetard,
+      tauxEncaissement,
+      chantiersActifs,
+    };
+  }, [factures, devis, chantiers]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-8">
+            Statistiques
+          </h1>
+          <LoadingSkeleton rows={8} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -82,9 +187,8 @@ export default function StatistiquesPage() {
                 Total CA ann&eacute;e
               </p>
               <p className="font-syne font-bold text-3xl text-[#1a1a2e]">
-                136 500 &euro; HT
+                {formatCurrency(stats.totalCA)} HT
               </p>
-              <p className="text-sm text-[#22c55e] mt-1">+18% vs 2025</p>
             </div>
             <div className="flex rounded-lg border border-gray-200 overflow-hidden self-start">
               {periods.map((p) => (
@@ -121,7 +225,7 @@ export default function StatistiquesPage() {
           <div className="flex items-end gap-1">
             {/* Y-axis */}
             <div className="flex flex-col justify-between h-[280px] mr-3 pb-6">
-              {[...yAxisValues].reverse().map((v) => (
+              {[...stats.yAxisValues].reverse().map((v) => (
                 <span key={v} className="text-xs text-[#6b7280] leading-none">
                   {v === 0 ? "0" : `${(v / 1000).toFixed(0)}k`}
                 </span>
@@ -130,9 +234,9 @@ export default function StatistiquesPage() {
 
             {/* Bars */}
             <div className="flex-1 flex items-end gap-2">
-              {chartData.map((d) => {
-                const barH = (d.facture / maxChartValue) * 280;
-                const greenH = (d.encaisse / maxChartValue) * 280;
+              {stats.chartData.map((d) => {
+                const barH = (d.facture / stats.maxChartValue) * 280;
+                const greenH = (d.encaisse / stats.maxChartValue) * 280;
                 return (
                   <div
                     key={d.month}
@@ -178,15 +282,15 @@ export default function StatistiquesPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Taux de transformation"
-            value="68%"
+            value={`${stats.tauxTransformation}%`}
             valueColor="text-[#22c55e]"
             size="3xl"
           />
-          <StatCard label="D\u00e9lai moyen signature" value="4,2 jours" />
-          <StatCard label="Montant moyen" value="3 350 \u20AC" />
+          <StatCard label="D\u00e9lai moyen signature" value="\u2014" />
+          <StatCard label="Montant moyen" value={formatCurrency(stats.montantMoyenDevis)} />
           <StatCard
-            label="Top client"
-            value="SARL Renov33 \u2014 12 400 \u20AC"
+            label="Devis sign\u00e9s"
+            value={`${devis.filter((d) => { const s = ((d as Record<string, unknown>).statut as string) ?? ''; return s === 'signe' || s === 'facture'; }).length}`}
           />
         </div>
 
@@ -195,18 +299,18 @@ export default function StatistiquesPage() {
         {/* ===================== */}
         <SectionHeader title="Factures" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="D\u00e9lai moyen paiement" value="22 jours" />
+          <StatCard label="D\u00e9lai moyen paiement" value="\u2014" />
           <StatCard
             label="Montant impay\u00e9"
-            value="4 400 \u20AC"
+            value={formatCurrency(stats.montantImpaye)}
             valueColor="text-[#e87a2a]"
           />
           <StatCard
             label="Factures en retard"
-            value="2"
+            value={String(stats.facturesEnRetard)}
             valueColor="text-[#ef4444]"
           />
-          <StatCard label="Taux encaissement" value="89%" />
+          <StatCard label="Taux encaissement" value={`${stats.tauxEncaissement}%`} />
         </div>
 
         {/* ===================== */}
@@ -214,9 +318,9 @@ export default function StatistiquesPage() {
         {/* ===================== */}
         <SectionHeader title="Planning" />
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          <StatCard label="Taux occupation" value="78%" />
-          <StatCard label="Jour le plus charg\u00e9" value="Mercredi" />
-          <StatCard label="Chantiers ce mois" value="12" />
+          <StatCard label="Taux occupation" value="\u2014" />
+          <StatCard label="Jour le plus charg\u00e9" value="\u2014" />
+          <StatCard label="Chantiers actifs" value={String(stats.chantiersActifs)} />
         </div>
       </div>
     </div>

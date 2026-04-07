@@ -18,45 +18,38 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react'
+import { useFactures, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types & Data
+// Types
 // -------------------------------------------------------------------
 
-type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard'
+type FactureFilter = 'Toutes' | 'Encaiss\u00e9es' | 'Partielles' | 'En attente' | 'En retard'
 
-interface Facture {
-  id: string
-  numero: string
-  paidPercent: number
-  client: string
-  chantier: string
-  modifie: string
-  date: string
-  netAPayer: string
-  netValue: number
-  restant?: string
-  retard?: string
+const FILTER_OPTIONS: string[] = ['Toutes', 'Encaiss\u00e9es', 'Partielles', 'En attente', 'En retard']
+
+function getFactureCategory(f: Record<string, unknown>): FactureFilter {
+  const statut = (f.statut as string) ?? ''
+  if (statut === 'payee') return 'Encaiss\u00e9es'
+  if (statut === 'partielle') return 'Partielles'
+  if (statut === 'en_retard') return 'En retard'
+  return 'En attente'
 }
 
-const DEMO_FACTURES: Facture[] = [
-  { id: '067', numero: 'F2026-067', paidPercent: 100, client: 'Mme Martin', chantier: 'Plomberie complète', modifie: '06/04', date: '28/03', netAPayer: '5 280 €', netValue: 5280 },
-  { id: '066', numero: 'F2026-066', paidPercent: 100, client: 'M. Petit', chantier: 'Extension terrasse', modifie: '05/04', date: '25/03', netAPayer: '5 610 €', netValue: 5610 },
-  { id: '065', numero: 'F2026-065', paidPercent: 50, client: 'SARL Renov33', chantier: 'Extension', modifie: '04/04', date: '20/03', netAPayer: '9 350 €', netValue: 9350, restant: '4 675 € restants' },
-  { id: '064', numero: 'F2026-064', paidPercent: 0, client: 'M. Leroy', chantier: 'Toiture', modifie: '02/04', date: '15/03', netAPayer: '13 200 €', netValue: 13200, retard: 'En retard 23j' },
-  { id: '063', numero: 'F2026-063', paidPercent: 100, client: 'M. Bernard', chantier: 'Carrelage', modifie: '01/04', date: '10/03', netAPayer: '3 410 €', netValue: 3410 },
-  { id: '062', numero: 'F2026-062', paidPercent: 30, client: 'Mme Girard', chantier: 'Électricité', modifie: '28/03', date: '05/03', netAPayer: '3 520 €', netValue: 3520 },
-  { id: '061', numero: 'F2026-061', paidPercent: 0, client: 'M. Dupont', chantier: 'SDB', modifie: '25/03', date: '01/03', netAPayer: '2 695 €', netValue: 2695, retard: 'En retard 37j' },
-  { id: '060', numero: 'F2026-060', paidPercent: 100, client: 'M. Moreau', chantier: 'Peinture', modifie: '20/03', date: '25/02', netAPayer: '2 145 €', netValue: 2145 },
-]
+function formatCurrency(n: number): string {
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' \u20AC'
+}
 
-const FILTER_OPTIONS: string[] = ['Toutes', 'Encaissées', 'Partielles', 'En attente', 'En retard']
+function formatDate(iso: string | null): string {
+  if (!iso) return '\u2014'
+  const d = new Date(iso)
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
 
-function getFactureCategory(f: Facture): FactureFilter {
-  if (f.paidPercent === 100) return 'Encaissées'
-  if (f.retard) return 'En retard'
-  if (f.paidPercent > 0) return 'Partielles'
-  return 'En attente'
+function daysOverdue(dateEcheance: string | null): number {
+  if (!dateEcheance) return 0
+  const diff = Date.now() - new Date(dateEcheance).getTime()
+  return Math.max(0, Math.floor(diff / 86400000))
 }
 
 // -------------------------------------------------------------------
@@ -65,31 +58,87 @@ function getFactureCategory(f: Facture): FactureFilter {
 
 export default function FacturesListPage() {
   const router = useRouter()
+  const { data: factures, loading: loadingF, error: errorF, refetch: refetchF } = useFactures()
+  const { data: clients, loading: loadingC } = useClients()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Toutes')
   const [openActions, setOpenActions] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
-  const filtered = DEMO_FACTURES.filter((f) => {
-    if (filter !== 'Toutes' && getFactureCategory(f) !== filter) return false
+  const loading = loadingF || loadingC
+
+  // Build a client map for quick lookup
+  const clientMap = new Map<string, string>()
+  for (const c of clients) {
+    const cl = c as Record<string, unknown>
+    const nom = [cl.nom, cl.prenom].filter(Boolean).join(' ') || (cl.raison_sociale as string) || ''
+    clientMap.set(cl.id as string, nom)
+  }
+
+  const enriched = factures.map((f) => {
+    const fac = f as Record<string, unknown>
+    const montantTtc = (fac.montant_ttc as number) ?? 0
+    const montantPaye = (fac.montant_paye as number) ?? 0
+    const paidPercent = montantTtc > 0 ? Math.round((montantPaye / montantTtc) * 100) : 0
+    const overdue = daysOverdue(fac.date_echeance as string | null)
+    const category = getFactureCategory(fac)
+    const clientName = clientMap.get(fac.client_id as string) ?? '\u2014'
+    return { ...fac, paidPercent, overdue, category, clientName, montantTtc, montantPaye }
+  })
+
+  const filtered = enriched.filter((f) => {
+    if (filter !== 'Toutes' && f.category !== filter) return false
     if (search) {
       const q = search.toLowerCase()
       return (
-        f.numero.toLowerCase().includes(q) ||
-        f.client.toLowerCase().includes(q) ||
-        f.chantier.toLowerCase().includes(q)
+        ((f.numero as string) ?? '').toLowerCase().includes(q) ||
+        f.clientName.toLowerCase().includes(q) ||
+        ((f.objet as string) ?? '').toLowerCase().includes(q)
       )
     }
     return true
   })
 
+  // Compute stats
+  const totalCount = enriched.length
+  const totalHT = enriched.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const encaissees = enriched.filter((f) => f.category === 'Encaiss\u00e9es')
+  const encaisseesHT = encaissees.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const resteList = enriched.filter((f) => f.category === 'Partielles' || f.category === 'En attente')
+  const resteHT = resteList.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const retardList = enriched.filter((f) => f.category === 'En retard')
+  const retardHT = retardList.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer cette facture ?')) return
+    setDeleting(id)
+    try {
+      await deleteRow('factures', id)
+      refetchF()
+    } catch (err) {
+      alert('Erreur lors de la suppression : ' + (err as Error).message)
+    } finally {
+      setDeleting(null)
+      setOpenActions(null)
+    }
+  }
+
+  if (errorF) {
+    return <ErrorBanner message={errorF} onRetry={refetchF} />
+  }
+
+  if (loading) {
+    return <LoadingSkeleton rows={6} />
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<FileText size={20} />} label="Toutes" value="18" sub="62 400 € HT" accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Encaissées" value="12" sub="41 200 € HT" accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="Reste à encaisser" value="4" sub="16 800 € HT" accent="#e87a2a" />
-        <StatCard icon={<AlertTriangle size={20} />} label="En retard" value="2" sub="4 400 € HT" accent="#ef4444" bg="bg-red-50" />
+        <StatCard icon={<FileText size={20} />} label="Toutes" value={String(totalCount)} sub={`${formatCurrency(totalHT)} HT`} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Encaiss\u00e9es" value={String(encaissees.length)} sub={`${formatCurrency(encaisseesHT)} HT`} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="Reste \u00e0 encaisser" value={String(resteList.length)} sub={`${formatCurrency(resteHT)} HT`} accent="#e87a2a" />
+        <StatCard icon={<AlertTriangle size={20} />} label="En retard" value={String(retardList.length)} sub={`${formatCurrency(retardHT)} HT`} accent="#ef4444" bg="bg-red-50" />
       </div>
 
       {/* Action bar */}
@@ -135,7 +184,7 @@ export default function FacturesListPage() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Numéro', 'Règlements', 'Client / Chantier', 'Modifié', 'Date', 'Net à payer', 'Actions'].map((col) => (
+              {['Num\u00e9ro', 'R\u00e8glements', 'Client / Chantier', 'Modifi\u00e9', 'Date', 'Net \u00e0 payer', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -146,74 +195,117 @@ export default function FacturesListPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((facture, idx) => (
-              <tr
-                key={facture.id}
-                onClick={() => router.push(`/dashboard/factures/${facture.id}`)}
-                className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                }`}
-              >
-                <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
-                  {facture.numero}
-                </td>
-                <td className="px-4 py-3">
-                  <PaymentBar percent={facture.paidPercent} restant={facture.restant} retard={facture.retard} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{facture.client}</div>
-                  <div className="text-xs font-manrope text-gray-500">{facture.chantier}</div>
-                </td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{facture.modifie}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{facture.date}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{facture.netAPayer}</td>
-                <td className="px-4 py-3">
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setOpenActions(openActions === facture.id ? null : facture.id)
-                      }}
-                      className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                    >
-                      <MoreHorizontal size={16} className="text-gray-500" />
-                    </button>
-                    {openActions === facture.id && (
-                      <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
-                        {[
-                          { label: 'Voir', icon: Eye },
-                          { label: 'Modifier', icon: Pencil },
-                          { label: 'Dupliquer', icon: Copy },
-                          { label: 'Envoyer', icon: SendHorizonal },
-                          { label: 'Supprimer', icon: Trash2, danger: true },
-                        ].map((action) => (
+            {filtered.map((facture, idx) => {
+              const id = facture.id as string
+              const restant = facture.montantTtc - facture.montantPaye
+              const restantLabel = facture.paidPercent > 0 && facture.paidPercent < 100
+                ? `${formatCurrency(restant)} restants`
+                : undefined
+              const retardLabel = facture.category === 'En retard' && facture.overdue > 0
+                ? `En retard ${facture.overdue}j`
+                : undefined
+
+              return (
+                <tr
+                  key={id}
+                  onClick={() => router.push(`/dashboard/factures/${id}`)}
+                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
+                    {(facture.numero as string) ?? '\u2014'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <PaymentBar percent={facture.paidPercent} restant={restantLabel} retard={retardLabel} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{facture.clientName}</div>
+                    <div className="text-xs font-manrope text-gray-500">{(facture.objet as string) ?? ''}</div>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(facture.updated_at as string | null)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(facture.date_facture as string | null)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(facture.montantTtc)}</td>
+                  <td className="px-4 py-3">
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenActions(openActions === id ? null : id)
+                        }}
+                        className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      >
+                        <MoreHorizontal size={16} className="text-gray-500" />
+                      </button>
+                      {openActions === id && (
+                        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
                           <button
-                            key={action.label}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenActions(null)
+                              router.push(`/dashboard/factures/${id}`)
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <Eye size={14} />
+                            Voir
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenActions(null)
+                              router.push(`/dashboard/factures/${id}/modifier`)
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <Pencil size={14} />
+                            Modifier
+                          </button>
+                          <button
                             onClick={(e) => {
                               e.stopPropagation()
                               setOpenActions(null)
                             }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors ${
-                              action.danger ? 'text-red-600' : 'text-[#1a1a2e]'
-                            }`}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
                           >
-                            <action.icon size={14} />
-                            {action.label}
+                            <Copy size={14} />
+                            Dupliquer
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenActions(null)
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <SendHorizonal size={14} />
+                            Envoyer
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(id)
+                            }}
+                            disabled={deleting === id}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"
+                          >
+                            <Trash2 size={14} />
+                            {deleting === id ? 'Suppression...' : 'Supprimer'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucune facture trouvée</p>
+            <p className="text-sm font-manrope text-gray-500">Aucune facture trouv\u00e9e</p>
           </div>
         )}
       </div>

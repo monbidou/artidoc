@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   GripVertical,
   Trash2,
@@ -9,6 +10,11 @@ import {
   ChevronDown,
   ArrowLeft,
 } from 'lucide-react'
+import {
+  useClients,
+  insertRow,
+  LoadingSkeleton,
+} from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types
@@ -23,32 +29,21 @@ interface LineItem {
   tva: number
 }
 
-interface Client {
+interface ClientRecord {
   id: string
-  name: string
-  address: string
+  nom: string
+  adresse?: string
 }
 
 // -------------------------------------------------------------------
 // Constants
 // -------------------------------------------------------------------
 
-const UNITS = ['m²', 'ml', 'U', 'h', 'Fft', 'kg', 'ens']
+const UNITS = ['m\u00b2', 'ml', 'U', 'h', 'Fft', 'kg', 'ens']
 const TVA_RATES = [5.5, 10, 20]
 
-const DEMO_CLIENTS: Client[] = [
-  { id: '1', name: 'M. Jean Dupont', address: '45 allée des Pins, 33700 Mérignac' },
-  { id: '2', name: 'Mme Sophie Martin', address: '12 rue des Lilas, 33000 Bordeaux' },
-  { id: '3', name: 'M. Pierre Bernard', address: '8 avenue Thiers, 33100 Bordeaux' },
-  { id: '4', name: 'Mme Claire Girard', address: '22 rue Sainte-Catherine, 33000 Bordeaux' },
-  { id: '5', name: 'SARL Renov33', address: '150 cours de la Marne, 33800 Bordeaux' },
-]
-
 const INITIAL_LINES: LineItem[] = [
-  { id: 1, designation: 'Fourniture et pose chauffe-eau thermodynamique 200L', qty: 1, unit: 'U', priceHT: 650, tva: 10 },
-  { id: 2, designation: 'Dépose ancien chauffe-eau + évacuation', qty: 1, unit: 'Fft', priceHT: 180, tva: 10 },
-  { id: 3, designation: 'Remplacement robinetterie', qty: 3, unit: 'U', priceHT: 85, tva: 10 },
-  { id: 4, designation: 'Débouchage canalisation', qty: 1, unit: 'Fft', priceHT: 220, tva: 20 },
+  { id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, tva: 10 },
 ]
 
 // -------------------------------------------------------------------
@@ -56,7 +51,7 @@ const INITIAL_LINES: LineItem[] = [
 // -------------------------------------------------------------------
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'
 }
 
 let nextId = 100
@@ -66,21 +61,31 @@ let nextId = 100
 // -------------------------------------------------------------------
 
 export default function NouveauDevisPage() {
+  const router = useRouter()
+  const { data: clientsRaw, loading: loadingClients } = useClients()
+  const clients = clientsRaw as unknown as ClientRecord[]
+
   const [showPreview, setShowPreview] = useState(false)
   const [lines, setLines] = useState<LineItem[]>(INITIAL_LINES)
-  const [selectedClient, setSelectedClient] = useState<Client | null>(DEMO_CLIENTS[0])
+  const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
   const [description, setDescription] = useState('')
-  const [dateDevis, setDateDevis] = useState('2026-04-07')
-  const [dateValidite, setDateValidite] = useState('2026-05-07')
+  const [dateDevis, setDateDevis] = useState(new Date().toISOString().slice(0, 10))
+  const [dateValidite, setDateValidite] = useState(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + 1)
+    return d.toISOString().slice(0, 10)
+  })
   const [dateTravaux, setDateTravaux] = useState('')
   const [duree, setDuree] = useState('')
   const [conditions, setConditions] = useState('30% à la commande, solde à la réception des travaux')
   const [paymentMethods, setPaymentMethods] = useState({ cheque: true, virement: true, cb: false })
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // --- Line operations ---
   function updateLine(id: number, field: keyof LineItem, value: string | number) {
@@ -122,9 +127,55 @@ export default function NouveauDevisPage() {
   const totalTTC = totalHT + totalTVA
 
   // --- Filtered clients ---
-  const filteredClients = DEMO_CLIENTS.filter((c) =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase())
+  const filteredClients = clients.filter((c) =>
+    (c.nom ?? '').toLowerCase().includes(clientSearch.toLowerCase())
   )
+
+  // --- Save devis ---
+  async function handleSave(finalize: boolean) {
+    if (!selectedClient) {
+      setError('Veuillez sélectionner un client.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const devis = await insertRow('devis', {
+        client_id: selectedClient.id,
+        statut: finalize ? 'Envoyé' : 'Brouillon',
+        date_devis: dateDevis,
+        date_validite: dateValidite,
+        date_travaux: dateTravaux || null,
+        duree: duree || null,
+        description: description || null,
+        conditions_paiement: conditions,
+        notes: notes || null,
+        total_ht: totalHT,
+        total_tva: totalTVA,
+        total_ttc: totalTTC,
+      })
+
+      // Insert lines
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i]
+        if (!l.designation && l.priceHT === 0) continue
+        await insertRow('devis_lignes', {
+          devis_id: (devis as { id: string }).id,
+          designation: l.designation,
+          quantite: l.qty,
+          unite: l.unit,
+          prix_unitaire_ht: l.priceHT,
+          taux_tva: l.tva,
+          ordre: i + 1,
+        })
+      }
+
+      router.push(`/dashboard/devis/${(devis as { id: string }).id}`)
+    } catch (err) {
+      setError((err as Error).message)
+      setSaving(false)
+    }
+  }
 
   // ===================================================================
   // PREVIEW MODE
@@ -133,7 +184,7 @@ export default function NouveauDevisPage() {
     return (
       <div className="min-h-screen">
         {/* Top bar */}
-        <TopBar showPreview={showPreview} setShowPreview={setShowPreview} />
+        <TopBar showPreview={showPreview} setShowPreview={setShowPreview} saving={saving} onSave={() => handleSave(false)} onFinalize={() => handleSave(true)} />
 
         <div className="p-6 flex justify-center">
           <div className="max-w-[800px] w-full bg-white shadow-xl rounded-xl p-12">
@@ -149,7 +200,7 @@ export default function NouveauDevisPage() {
                 </p>
               </div>
               <div className="text-right">
-                <h3 className="font-syne font-bold text-lg text-[#0f1a3a]">DEVIS N° D2026-090</h3>
+                <h3 className="font-syne font-bold text-lg text-[#0f1a3a]">DEVIS</h3>
                 <p className="text-sm font-manrope text-[#6b7280] mt-1">
                   Date : {new Date(dateDevis).toLocaleDateString('fr-FR')}<br />
                   Validité : {new Date(dateValidite).toLocaleDateString('fr-FR')}<br />
@@ -162,10 +213,10 @@ export default function NouveauDevisPage() {
             <div className="mb-8 p-4 bg-gray-50 rounded-lg">
               <p className="text-xs font-manrope font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Client</p>
               <p className="text-sm font-manrope text-[#1a1a2e] font-medium">
-                {selectedClient ? selectedClient.name : 'Non sélectionné'}
+                {selectedClient ? selectedClient.nom : 'Non sélectionné'}
               </p>
-              {selectedClient && (
-                <p className="text-sm font-manrope text-[#6b7280]">{selectedClient.address}</p>
+              {selectedClient?.adresse && (
+                <p className="text-sm font-manrope text-[#6b7280]">{selectedClient.adresse}</p>
               )}
             </div>
 
@@ -252,22 +303,19 @@ export default function NouveauDevisPage() {
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <TopBar showPreview={showPreview} setShowPreview={setShowPreview} />
+      <TopBar showPreview={showPreview} setShowPreview={setShowPreview} saving={saving} onSave={() => handleSave(false)} onFinalize={() => handleSave(true)} />
 
       <div className="p-6">
-        {/* Document header — 2 columns */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6">
+            <p className="text-sm text-red-600 font-manrope">{error}</p>
+          </div>
+        )}
+
+        {/* Document header -- 2 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left card */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Numéro</label>
-              <input
-                type="text"
-                readOnly
-                value="D2026-090"
-                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope bg-gray-50 text-[#6b7280] outline-none"
-              />
-            </div>
             <div>
               <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date</label>
               <input
@@ -325,64 +373,71 @@ export default function NouveauDevisPage() {
             )}
           </div>
 
-          {/* Right card — Client */}
+          {/* Right card -- Client */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <div>
               <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Client</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={selectedClient ? '' : clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value)
-                    setSelectedClient(null)
-                    setClientDropdownOpen(true)
-                  }}
-                  onFocus={() => setClientDropdownOpen(true)}
-                  placeholder="Rechercher un client..."
-                  className={`w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] transition-colors ${selectedClient ? 'hidden' : ''}`}
-                />
-                {selectedClient && (
-                  <button
-                    onClick={() => {
+              {loadingClients ? (
+                <div className="h-10"><LoadingSkeleton rows={1} /></div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedClient ? '' : clientSearch}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value)
                       setSelectedClient(null)
-                      setClientSearch('')
                       setClientDropdownOpen(true)
                     }}
-                    className="w-full h-auto min-h-[40px] rounded-lg border border-gray-200 px-3 py-2 text-left text-sm font-manrope text-[#1a1a2e] hover:bg-gray-50 transition-colors flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="font-medium">{selectedClient.name}</span>
-                      <span className="text-[#6b7280]"> — {selectedClient.address}</span>
+                    onFocus={() => setClientDropdownOpen(true)}
+                    placeholder="Rechercher un client..."
+                    className={`w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] transition-colors ${selectedClient ? 'hidden' : ''}`}
+                  />
+                  {selectedClient && (
+                    <button
+                      onClick={() => {
+                        setSelectedClient(null)
+                        setClientSearch('')
+                        setClientDropdownOpen(true)
+                      }}
+                      className="w-full h-auto min-h-[40px] rounded-lg border border-gray-200 px-3 py-2 text-left text-sm font-manrope text-[#1a1a2e] hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="font-medium">{selectedClient.nom}</span>
+                        {selectedClient.adresse && <span className="text-[#6b7280]"> — {selectedClient.adresse}</span>}
+                      </div>
+                      <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+                    </button>
+                  )}
+                  {clientDropdownOpen && !selectedClient && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 max-h-60 overflow-y-auto">
+                      {filteredClients.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedClient(c)
+                            setClientDropdownOpen(false)
+                            setClientSearch('')
+                          }}
+                          className="w-full text-left px-3 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+                        >
+                          <span className="font-medium text-[#1a1a2e]">{c.nom}</span>
+                          {c.adresse && <span className="text-[#6b7280]"> — {c.adresse}</span>}
+                        </button>
+                      ))}
+                      {filteredClients.length === 0 && (
+                        <p className="px-3 py-3 text-sm font-manrope text-[#6b7280]">Aucun client trouvé</p>
+                      )}
                     </div>
-                    <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
-                  </button>
-                )}
-                {clientDropdownOpen && !selectedClient && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 max-h-60 overflow-y-auto">
-                    {filteredClients.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          setSelectedClient(c)
-                          setClientDropdownOpen(false)
-                          setClientSearch('')
-                        }}
-                        className="w-full text-left px-3 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
-                      >
-                        <span className="font-medium text-[#1a1a2e]">{c.name}</span>
-                        <span className="text-[#6b7280]"> — {c.address}</span>
-                      </button>
-                    ))}
-                    {filteredClients.length === 0 && (
-                      <p className="px-3 py-3 text-sm font-manrope text-[#6b7280]">Aucun client trouvé</p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <button className="mt-2 text-sm font-manrope text-[#5ab4e0] hover:underline">
+                  )}
+                </div>
+              )}
+              <Link
+                href="/dashboard/clients/nouveau"
+                className="mt-2 inline-block text-sm font-manrope text-[#5ab4e0] hover:underline"
+              >
                 + Nouveau client
-              </button>
+              </Link>
             </div>
 
             <div>
@@ -594,9 +649,15 @@ export default function NouveauDevisPage() {
 function TopBar({
   showPreview,
   setShowPreview,
+  saving,
+  onSave,
+  onFinalize,
 }: {
   showPreview: boolean
   setShowPreview: (v: boolean) => void
+  saving: boolean
+  onSave: () => void
+  onFinalize: () => void
 }) {
   return (
     <div className="sticky top-0 bg-white border-b border-gray-200 z-10 py-3 px-6 flex items-center justify-between">
@@ -608,7 +669,7 @@ function TopBar({
         <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Nouveau devis</h2>
       </div>
 
-      {/* Center — toggle */}
+      {/* Center -- toggle */}
       <div className="hidden sm:flex items-center bg-gray-100 rounded-lg p-0.5">
         <button
           onClick={() => setShowPreview(false)}
@@ -636,10 +697,18 @@ function TopBar({
         >
           Annuler
         </Link>
-        <button className="px-4 py-2 text-sm font-syne font-bold bg-gray-200 text-[#6b7280] rounded-lg hover:bg-gray-300 transition-colors">
-          Enregistrer
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-syne font-bold bg-gray-200 text-[#6b7280] rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-60"
+        >
+          {saving ? 'Enregistrement...' : 'Enregistrer'}
         </button>
-        <button className="px-4 py-2 text-sm font-syne font-bold bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] transition-colors">
+        <button
+          onClick={onFinalize}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-syne font-bold bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] transition-colors disabled:opacity-60"
+        >
           Finaliser et envoyer
         </button>
       </div>

@@ -13,53 +13,35 @@ import {
   Trash2,
   Copy,
 } from 'lucide-react'
+import { usePrestations, insertRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types & Data
+// Types & Constants
 // -------------------------------------------------------------------
 
-type Categorie = 'Toutes' | 'Fournitures' | "Main d'œuvre" | 'Ouvrages' | 'Déplacements'
-type CategorieValue = 'Fournitures' | "Main d'œuvre" | 'Ouvrages' | 'Déplacements'
+type Categorie = 'Toutes' | 'Fournitures' | "Main d'\u0153uvre" | 'Ouvrages' | 'D\u00e9placements'
+type CategorieValue = 'Fournitures' | "Main d'\u0153uvre" | 'Ouvrages' | 'D\u00e9placements'
 
-interface Prestation {
-  id: string
-  designation: string
-  unite: string
-  prixHT: number
-  tva: number
-  categorie: CategorieValue
-  utilisations: number
-  derniereMAJ: string
-}
+const CATEGORY_FILTERS: Categorie[] = ['Toutes', 'Fournitures', "Main d'\u0153uvre", 'Ouvrages', 'D\u00e9placements']
 
-const DEMO_PRESTATIONS: Prestation[] = [
-  { id: '1', designation: 'Fourniture et pose chauffe-eau thermodynamique 200L', unite: 'U', prixHT: 650, tva: 10, categorie: 'Ouvrages', utilisations: 8, derniereMAJ: '01/04/2026' },
-  { id: '2', designation: 'Dépose ancien chauffe-eau + évacuation', unite: 'Fft', prixHT: 180, tva: 10, categorie: "Main d'œuvre", utilisations: 5, derniereMAJ: '15/03/2026' },
-  { id: '3', designation: 'Remplacement robinetterie standard', unite: 'U', prixHT: 85, tva: 10, categorie: 'Fournitures', utilisations: 12, derniereMAJ: '01/04/2026' },
-  { id: '4', designation: 'Débouchage canalisation', unite: 'Fft', prixHT: 220, tva: 20, categorie: "Main d'œuvre", utilisations: 15, derniereMAJ: '20/03/2026' },
-  { id: '5', designation: 'Pose carrelage sol 60x60', unite: 'm²', prixHT: 45, tva: 10, categorie: "Main d'œuvre", utilisations: 22, derniereMAJ: '10/03/2026' },
-  { id: '6', designation: 'Carrelage grès cérame (fourniture)', unite: 'm²', prixHT: 35, tva: 20, categorie: 'Fournitures', utilisations: 18, derniereMAJ: '10/03/2026' },
-  { id: '7', designation: 'Peinture acrylique 2 couches', unite: 'm²', prixHT: 18, tva: 10, categorie: "Main d'œuvre", utilisations: 30, derniereMAJ: '25/02/2026' },
-  { id: '8', designation: 'Câblage électrique standard', unite: 'ml', prixHT: 12, tva: 10, categorie: 'Fournitures', utilisations: 25, derniereMAJ: '01/03/2026' },
-  { id: '9', designation: 'Déplacement et mise en place', unite: 'Fft', prixHT: 80, tva: 20, categorie: 'Déplacements', utilisations: 45, derniereMAJ: '01/04/2026' },
-  { id: '10', designation: 'Raccordement plomberie', unite: 'U', prixHT: 120, tva: 10, categorie: "Main d'œuvre", utilisations: 10, derniereMAJ: '15/03/2026' },
-]
-
-const CATEGORY_FILTERS: Categorie[] = ['Toutes', 'Fournitures', "Main d'œuvre", 'Ouvrages', 'Déplacements']
-
-const CATEGORY_STYLES: Record<CategorieValue, string> = {
+const CATEGORY_STYLES: Record<string, string> = {
   'Fournitures': 'bg-blue-50 text-blue-700',
-  "Main d'œuvre": 'bg-green-50 text-green-700',
+  "Main d'\u0153uvre": 'bg-green-50 text-green-700',
   'Ouvrages': 'bg-violet-50 text-violet-700',
-  'Déplacements': 'bg-orange-50 text-orange-700',
+  'D\u00e9placements': 'bg-orange-50 text-orange-700',
 }
 
-function isOlderThan6Months(dateStr: string): boolean {
-  const [day, month, year] = dateStr.split('/').map(Number)
-  const date = new Date(year, month - 1, day)
-  const sixMonthsAgo = new Date(2026, 3, 7) // April 7, 2026
+function isOlderThan6Months(dateStr: string | null): boolean {
+  if (!dateStr) return false
+  const date = new Date(dateStr)
+  const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
   return date < sixMonthsAgo
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '\u2014'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 // -------------------------------------------------------------------
@@ -67,10 +49,13 @@ function isOlderThan6Months(dateStr: string): boolean {
 // -------------------------------------------------------------------
 
 export default function BibliothequePage() {
+  const { data: prestations, loading, error, refetch } = usePrestations()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Categorie>('Toutes')
   const [showModal, setShowModal] = useState(false)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Modal state
   const [modalDesignation, setModalDesignation] = useState('')
@@ -89,19 +74,65 @@ export default function BibliothequePage() {
     setModalTags('')
   }
 
-  const filtered = DEMO_PRESTATIONS.filter((p) => {
-    if (filter !== 'Toutes' && p.categorie !== filter) return false
+  const handleSave = async () => {
+    if (!modalDesignation.trim() || !modalPrix) return
+    setSaving(true)
+    try {
+      await insertRow('prestations', {
+        designation: modalDesignation.trim(),
+        unite: modalUnite,
+        prix_unitaire_ht: parseFloat(modalPrix),
+        taux_tva: parseFloat(modalTva),
+        categorie: modalCategorie,
+      })
+      setShowModal(false)
+      resetModal()
+      refetch()
+    } catch (err) {
+      alert('Erreur : ' + (err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer cette prestation ?')) return
+    setDeletingId(id)
+    try {
+      await deleteRow('prestations', id)
+      refetch()
+    } catch (err) {
+      alert('Erreur : ' + (err as Error).message)
+    } finally {
+      setDeletingId(null)
+      setOpenActionId(null)
+    }
+  }
+
+  const items = prestations.map((p) => p as Record<string, unknown>)
+
+  const filtered = items.filter((p) => {
+    const cat = (p.categorie as string) ?? ''
+    if (filter !== 'Toutes' && cat !== filter) return false
     if (search) {
       const q = search.toLowerCase()
       return (
-        p.designation.toLowerCase().includes(q) ||
-        p.categorie.toLowerCase().includes(q)
+        ((p.designation as string) ?? '').toLowerCase().includes(q) ||
+        cat.toLowerCase().includes(q)
       )
     }
     return true
   })
 
-  const needsUpdate = DEMO_PRESTATIONS.filter((p) => isOlderThan6Months(p.derniereMAJ)).length
+  const needsUpdate = items.filter((p) => isOlderThan6Months(p.updated_at as string | null)).length
+
+  if (error) {
+    return <ErrorBanner message={error} onRetry={refetch} />
+  }
+
+  if (loading) {
+    return <LoadingSkeleton rows={6} />
+  }
 
   return (
     <div className="space-y-6">
@@ -147,12 +178,12 @@ export default function BibliothequePage() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
           <BookOpen size={16} className="text-[#5ab4e0]" />
-          <span className="text-sm font-manrope font-semibold text-[#0f1a3a]">147 prestations</span>
+          <span className="text-sm font-manrope font-semibold text-[#0f1a3a]">{items.length} prestation{items.length > 1 ? 's' : ''}</span>
         </div>
         {needsUpdate > 0 && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50">
             <AlertTriangle size={14} className="text-amber-500" />
-            <span className="text-sm font-manrope font-medium text-amber-700">{needsUpdate} à mettre à jour</span>
+            <span className="text-sm font-manrope font-medium text-amber-700">{needsUpdate} \u00e0 mettre \u00e0 jour</span>
           </div>
         )}
       </div>
@@ -162,7 +193,7 @@ export default function BibliothequePage() {
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Désignation', 'Unité', 'Prix HT', 'TVA', 'Catégorie', 'Utilisations', 'Dernière MAJ', 'Actions'].map((col) => (
+              {['D\u00e9signation', 'Unit\u00e9', 'Prix HT', 'TVA', 'Cat\u00e9gorie', 'Derni\u00e8re MAJ', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -174,31 +205,35 @@ export default function BibliothequePage() {
           </thead>
           <tbody>
             {filtered.map((prestation, idx) => {
-              const outdated = isOlderThan6Months(prestation.derniereMAJ)
+              const id = prestation.id as string
+              const updatedAt = (prestation.updated_at as string | null)
+              const outdated = isOlderThan6Months(updatedAt)
+              const prixHT = (prestation.prix_unitaire_ht as number) ?? 0
+              const tva = (prestation.taux_tva as number) ?? 0
+              const cat = (prestation.categorie as string) ?? ''
               return (
                 <tr
-                  key={prestation.id}
+                  key={id}
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
                     idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
                   }`}
                 >
                   <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e] max-w-[300px]">
-                    {prestation.designation}
+                    {(prestation.designation as string) ?? ''}
                   </td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{prestation.unite}</td>
-                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{prestation.prixHT.toLocaleString('fr-FR')}&nbsp;€</td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{prestation.tva}%</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{(prestation.unite as string) ?? ''}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{prixHT.toLocaleString('fr-FR')}&nbsp;\u20AC</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{tva}%</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${CATEGORY_STYLES[prestation.categorie]}`}>
-                      {prestation.categorie}
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${CATEGORY_STYLES[cat] ?? 'bg-gray-50 text-gray-700'}`}>
+                      {cat}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{prestation.utilisations}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-manrope text-gray-600">{prestation.derniereMAJ}</span>
+                      <span className="text-sm font-manrope text-gray-600">{formatDate(updatedAt)}</span>
                       {outdated && (
-                        <span className="flex items-center gap-1 text-amber-500" title="Prix à vérifier">
+                        <span className="flex items-center gap-1 text-amber-500" title="Prix \u00e0 v\u00e9rifier">
                           <AlertTriangle size={14} />
                         </span>
                       )}
@@ -207,24 +242,34 @@ export default function BibliothequePage() {
                   <td className="px-4 py-3">
                     <div className="relative">
                       <button
-                        onClick={() => setOpenActionId(openActionId === prestation.id ? null : prestation.id)}
+                        onClick={() => setOpenActionId(openActionId === id ? null : id)}
                         className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                       >
                         <MoreHorizontal size={16} />
                       </button>
-                      {openActionId === prestation.id && (
+                      {openActionId === id && (
                         <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1 w-36">
-                          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50">
+                          <button
+                            onClick={() => setOpenActionId(null)}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
+                          >
                             <Pencil size={14} />
                             Modifier
                           </button>
-                          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50">
+                          <button
+                            onClick={() => setOpenActionId(null)}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
+                          >
                             <Copy size={14} />
                             Dupliquer
                           </button>
-                          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-red-600 hover:bg-red-50">
+                          <button
+                            onClick={() => handleDelete(id)}
+                            disabled={deletingId === id}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-red-600 hover:bg-red-50"
+                          >
                             <Trash2 size={14} />
-                            Supprimer
+                            {deletingId === id ? 'Suppression...' : 'Supprimer'}
                           </button>
                         </div>
                       )}
@@ -239,7 +284,7 @@ export default function BibliothequePage() {
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <BookOpen size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucune prestation trouvée</p>
+            <p className="text-sm font-manrope text-gray-500">Aucune prestation trouv\u00e9e</p>
           </div>
         )}
       </div>
@@ -256,9 +301,9 @@ export default function BibliothequePage() {
               </button>
             </div>
 
-            {/* Désignation */}
+            {/* D\u00e9signation */}
             <div>
-              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Désignation</label>
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">D\u00e9signation</label>
               <input
                 type="text"
                 value={modalDesignation}
@@ -268,19 +313,19 @@ export default function BibliothequePage() {
               />
             </div>
 
-            {/* Unité + Prix HT */}
+            {/* Unit\u00e9 + Prix HT */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Unité</label>
+                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Unit\u00e9</label>
                 <select
                   value={modalUnite}
                   onChange={(e) => setModalUnite(e.target.value)}
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 >
-                  <option value="U">U (Unité)</option>
+                  <option value="U">U (Unit\u00e9)</option>
                   <option value="Fft">Fft (Forfait)</option>
-                  <option value="m²">m²</option>
-                  <option value="ml">ml (Mètre linéaire)</option>
+                  <option value="m\u00b2">m\u00b2</option>
+                  <option value="ml">ml (M\u00e8tre lin\u00e9aire)</option>
                   <option value="h">h (Heure)</option>
                 </select>
               </div>
@@ -290,13 +335,13 @@ export default function BibliothequePage() {
                   type="number"
                   value={modalPrix}
                   onChange={(e) => setModalPrix(e.target.value)}
-                  placeholder="0,00 €"
+                  placeholder="0,00 \u20AC"
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 />
               </div>
             </div>
 
-            {/* TVA + Catégorie */}
+            {/* TVA + Cat\u00e9gorie */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">TVA</label>
@@ -311,16 +356,16 @@ export default function BibliothequePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Catégorie</label>
+                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Cat\u00e9gorie</label>
                 <select
                   value={modalCategorie}
                   onChange={(e) => setModalCategorie(e.target.value as CategorieValue)}
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 >
                   <option value="Fournitures">Fournitures</option>
-                  <option value="Main d'œuvre">Main d&apos;œuvre</option>
+                  <option value="Main d&apos;\u0153uvre">Main d&apos;\u0153uvre</option>
                   <option value="Ouvrages">Ouvrages</option>
-                  <option value="Déplacements">Déplacements</option>
+                  <option value="D\u00e9placements">D\u00e9placements</option>
                 </select>
               </div>
             </div>
@@ -346,10 +391,11 @@ export default function BibliothequePage() {
                 Annuler
               </button>
               <button
-                onClick={() => setShowModal(false)}
-                className="px-5 h-10 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
+                onClick={handleSave}
+                disabled={saving || !modalDesignation.trim() || !modalPrix}
+                className="px-5 h-10 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
               >
-                Enregistrer
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </div>

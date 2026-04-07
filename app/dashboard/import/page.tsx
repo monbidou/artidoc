@@ -9,6 +9,7 @@ import {
   FileText,
   Receipt,
   BookOpen,
+  Info,
 } from 'lucide-react'
 
 // -------------------------------------------------------------------
@@ -26,10 +27,10 @@ const SOURCES: SourceOption[] = [
   { id: 'tolteck', name: 'Tolteck', format: 'Format CSV Tolteck' },
   { id: 'batappli', name: 'Batappli', format: 'Format CSV/Excel' },
   { id: 'henrri', name: 'Henrri', format: 'Format CSV' },
-  { id: 'excel', name: 'Excel / CSV', format: 'Import générique' },
+  { id: 'excel', name: 'Excel / CSV', format: 'Import generique' },
 ]
 
-const STEP_LABELS = ['Source', 'Fichiers', 'Vérification']
+const STEP_LABELS = ['Source', 'Fichiers', 'Verification']
 
 const SIMULATED_FILES = [
   { name: 'clients.csv', size: '47 Ko' },
@@ -96,7 +97,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 }
 
 // -------------------------------------------------------------------
-// Step 1 — Source selection
+// Step 1 -- Source selection
 // -------------------------------------------------------------------
 
 function Step1({
@@ -111,10 +112,10 @@ function Step1({
   return (
     <div>
       <h2 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-2">
-        D&apos;où venez-vous ?
+        D&apos;ou venez-vous ?
       </h2>
       <p className="font-manrope text-[#6b7280] mb-8">
-        Sélectionnez votre logiciel actuel pour importer vos données
+        Selectionnez votre logiciel actuel pour importer vos donnees
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -160,7 +161,7 @@ function Step1({
 }
 
 // -------------------------------------------------------------------
-// Step 2 — File upload
+// Step 2 -- File upload
 // -------------------------------------------------------------------
 
 function Step2({
@@ -179,13 +180,13 @@ function Step2({
   return (
     <div>
       <h2 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-2">
-        Déposez vos fichiers
+        Deposez vos fichiers
       </h2>
 
       {selectedSource === 'obat' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="font-manrope text-sm text-blue-800 font-medium mb-2">
-            Exportez depuis Obat &rarr; Paramètres &rarr; Exporter mes données
+            Exportez depuis Obat &rarr; Parametres &rarr; Exporter mes donnees
           </p>
           <p className="font-manrope text-sm text-blue-700">
             Fichiers attendus : clients.csv, devis.csv, factures.csv, prestations.csv
@@ -207,7 +208,7 @@ function Step2({
             Parcourir
           </span>
           <p className="font-manrope text-xs text-[#6b7280] mt-4">
-            Formats acceptés : .csv, .xlsx, .xls
+            Formats acceptes : .csv, .xlsx, .xls
           </p>
         </div>
       ) : (
@@ -251,77 +252,22 @@ function Step2({
 }
 
 // -------------------------------------------------------------------
-// Step 3 — Verification & import
+// Step 3 -- Verification & import
 // -------------------------------------------------------------------
 
 function Step3({
-  importing,
-  importComplete,
-  onImport,
   onBack,
 }: {
-  importing: boolean
-  importComplete: boolean
-  onImport: () => void
   onBack: () => void
 }) {
   const [importMode, setImportMode] = useState<'all' | 'partial'>('all')
   const [duplicateChecked, setDuplicateChecked] = useState(false)
-
-  if (importComplete) {
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-green-500 mx-auto mb-4 flex items-center justify-center">
-          <Check size={32} className="text-white" />
-        </div>
-        <h3 className="font-syne font-bold text-xl text-green-800 mb-2">
-          Import terminé avec succès
-        </h3>
-        <p className="font-manrope text-green-700 mb-6">
-          47 clients &middot; 183 devis &middot; 94 factures &middot; 67 prestations importés
-        </p>
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 font-syne font-bold text-[#5ab4e0] hover:underline"
-        >
-          Accéder à mes données &rarr;
-        </Link>
-      </div>
-    )
-  }
-
-  if (importing) {
-    return (
-      <div className="text-center py-12">
-        <p className="font-syne font-bold text-lg text-[#1a1a2e] mb-6">
-          Import en cours...
-        </p>
-        <div className="w-full max-w-md mx-auto h-4 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#e87a2a] rounded-full animate-import-progress"
-            style={{
-              animation: 'importProgress 3s ease-in-out forwards',
-            }}
-          />
-        </div>
-        <style jsx>{`
-          @keyframes importProgress {
-            from {
-              width: 0%;
-            }
-            to {
-              width: 100%;
-            }
-          }
-        `}</style>
-      </div>
-    )
-  }
+  const [showDevMessage, setShowDevMessage] = useState(false)
 
   return (
     <div>
       <h2 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-6">
-        Vérification et import
+        Verification et import
       </h2>
 
       {/* Summary cards */}
@@ -351,11 +297,11 @@ function Step3({
           onClick={() => setDuplicateChecked(true)}
           className="h-10 px-6 rounded-lg font-manrope text-sm font-medium border border-gray-200 text-[#1a1a2e] hover:bg-gray-50 transition-colors"
         >
-          Vérifier les doublons
+          Verifier les doublons
         </button>
         {duplicateChecked && (
           <span className="ml-3 font-manrope text-sm text-green-600 font-medium">
-            Aucun doublon détecté &#10003;
+            Aucun doublon detecte &#10003;
           </span>
         )}
       </div>
@@ -384,11 +330,35 @@ function Step3({
               className="w-4 h-4 accent-[#5ab4e0]"
             />
             <span className="font-manrope text-sm text-[#1a1a2e]">
-              Sélection partielle
+              Selection partielle
             </span>
           </label>
         </div>
       </div>
+
+      {/* Development notice */}
+      {showDevMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-8">
+          <div className="flex items-start gap-3">
+            <Info size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-syne font-bold text-amber-800 mb-1">
+                Fonctionnalite en cours de developpement
+              </h3>
+              <p className="font-manrope text-sm text-amber-700">
+                L&apos;import automatique de donnees sera disponible prochainement.
+                En attendant, contactez notre equipe support pour un accompagnement personnalise dans la migration de vos donnees.
+              </p>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 mt-4 font-syne font-bold text-sm text-[#5ab4e0] hover:underline"
+              >
+                Retour au tableau de bord &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between">
         <button
@@ -398,8 +368,9 @@ function Step3({
           &larr; Retour
         </button>
         <button
-          onClick={onImport}
-          className="h-14 px-10 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-lg"
+          onClick={() => setShowDevMessage(true)}
+          disabled={showDevMessage}
+          className="h-14 px-10 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Lancer l&apos;import
         </button>
@@ -416,16 +387,6 @@ export default function ImportPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [importComplete, setImportComplete] = useState(false)
-
-  function handleImport() {
-    setImporting(true)
-    setTimeout(() => {
-      setImporting(false)
-      setImportComplete(true)
-    }, 3000)
-  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -451,9 +412,6 @@ export default function ImportPage() {
 
       {currentStep === 3 && (
         <Step3
-          importing={importing}
-          importComplete={importComplete}
-          onImport={handleImport}
           onBack={() => setCurrentStep(2)}
         />
       )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Building2,
   FileText,
@@ -10,6 +10,11 @@ import {
   CreditCard,
   Camera,
 } from 'lucide-react'
+import {
+  useEntreprise,
+  useUser,
+  LoadingSkeleton,
+} from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types & constants
@@ -44,13 +49,15 @@ const NAV_ITEMS: NavItem[] = [
 
 function InputField({
   label,
-  defaultValue = '',
+  value = '',
+  onChange,
   type = 'text',
   readOnly = false,
   placeholder = '',
 }: {
   label: string
-  defaultValue?: string
+  value?: string
+  onChange?: (v: string) => void
   type?: string
   readOnly?: boolean
   placeholder?: string
@@ -62,7 +69,8 @@ function InputField({
       </label>
       <input
         type={type}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
         readOnly={readOnly}
         placeholder={placeholder}
         className={`w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors ${
@@ -75,18 +83,19 @@ function InputField({
 
 function ToggleSwitch({
   label,
-  defaultChecked = false,
+  checked = false,
+  onChange,
 }: {
   label: string
-  defaultChecked?: boolean
+  checked?: boolean
+  onChange?: (v: boolean) => void
 }) {
-  const [checked, setChecked] = useState(defaultChecked)
   return (
     <div className="flex items-center justify-between py-3">
       <span className="font-manrope text-sm text-[#1a1a2e]">{label}</span>
       <button
         type="button"
-        onClick={() => setChecked(!checked)}
+        onClick={() => onChange?.(!checked)}
         className={`relative w-11 h-6 rounded-full transition-colors ${
           checked ? 'bg-[#5ab4e0]' : 'bg-gray-300'
         }`}
@@ -103,11 +112,13 @@ function ToggleSwitch({
 
 function TextAreaField({
   label,
-  defaultValue = '',
+  value = '',
+  onChange,
   rows = 3,
 }: {
   label: string
-  defaultValue?: string
+  value?: string
+  onChange?: (v: string) => void
   rows?: number
 }) {
   return (
@@ -116,10 +127,43 @@ function TextAreaField({
         {label}
       </label>
       <textarea
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
         rows={rows}
         className="w-full rounded-lg border border-gray-200 px-4 py-3 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors resize-none"
       />
+    </div>
+  )
+}
+
+function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean }) {
+  return (
+    <div className="mt-8 flex justify-end">
+      <button
+        onClick={onClick}
+        disabled={saving}
+        className="h-12 px-8 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+      </button>
+    </div>
+  )
+}
+
+function SuccessMessage({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="mt-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+      <p className="text-sm text-green-700 font-manrope">{message}</p>
+    </div>
+  )
+}
+
+function ErrorMessage({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+      <p className="text-sm text-red-600 font-manrope">{message}</p>
     </div>
   )
 }
@@ -128,7 +172,68 @@ function TextAreaField({
 // Sections
 // -------------------------------------------------------------------
 
-function EntrepriseSection() {
+function EntrepriseSection({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const [nom, setNom] = useState('')
+  const [siret, setSiret] = useState('')
+  const [tva, setTva] = useState('')
+  const [naf, setNaf] = useState('')
+  const [adresse, setAdresse] = useState('')
+  const [codePostal, setCodePostal] = useState('')
+  const [ville, setVille] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [email, setEmail] = useState('')
+  const [iban, setIban] = useState('')
+  const [bic, setBic] = useState('')
+  const [decennale, setDecennale] = useState('')
+  const [rge, setRge] = useState(false)
+  const [metier, setMetier] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (entreprise) {
+      setNom((entreprise.nom as string) ?? '')
+      setSiret((entreprise.siret as string) ?? '')
+      setTva((entreprise.tva_intracommunautaire as string) ?? '')
+      setNaf((entreprise.code_naf as string) ?? '')
+      setAdresse((entreprise.adresse as string) ?? '')
+      setCodePostal((entreprise.code_postal as string) ?? '')
+      setVille((entreprise.ville as string) ?? '')
+      setTelephone((entreprise.telephone as string) ?? '')
+      setEmail((entreprise.email as string) ?? '')
+      setIban((entreprise.iban as string) ?? '')
+      setBic((entreprise.bic as string) ?? '')
+      setDecennale((entreprise.decennale_numero as string) ?? '')
+      setRge(!!entreprise.rge)
+      setMetier((entreprise.metier as string) ?? '')
+    }
+  }, [entreprise])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSuccess(null)
+    setErrorMsg(null)
+    try {
+      await update({
+        nom, siret, tva_intracommunautaire: tva, code_naf: naf,
+        adresse, code_postal: codePostal, ville, telephone, email,
+        iban, bic, decennale_numero: decennale, rge, metier,
+      })
+      setSuccess('Informations de l\'entreprise enregistrees avec succes.')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
       <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-6">
@@ -137,8 +242,13 @@ function EntrepriseSection() {
 
       {/* Logo upload */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
-          <Camera size={24} className="text-[#6b7280]" />
+        <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+          {entreprise.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={entreprise.logo_url as string} alt="Logo" className="w-full h-full object-cover rounded-full" />
+          ) : (
+            <Camera size={24} className="text-[#6b7280]" />
+          )}
         </div>
         <button className="font-manrope text-sm text-[#5ab4e0] font-medium hover:underline">
           Modifier le logo
@@ -146,33 +256,75 @@ function EntrepriseSection() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InputField label="Nom de l'entreprise" defaultValue="SARL Plomberie Martin" />
-        <InputField label="SIRET" defaultValue="123 456 789 00012" />
-        <InputField label="N° TVA intracommunautaire" placeholder="FR 12 345678901" />
-        <InputField label="Code NAF" placeholder="4322A" />
-        <InputField label="Adresse" defaultValue="12 rue des Artisans" />
-        <InputField label="Code postal" defaultValue="33000" />
-        <InputField label="Ville" defaultValue="Bordeaux" />
-        <InputField label="Téléphone" defaultValue="06 12 34 56 78" />
-        <InputField label="Email" defaultValue="contact@plomberie-martin.fr" />
-        <InputField label="IBAN" type="password" defaultValue="FR7630001007941234567890185" />
-        <InputField label="N° assurance décennale" placeholder="POL-2024-XXXXX" />
+        <InputField label="Nom de l'entreprise" value={nom} onChange={setNom} />
+        <InputField label="SIRET" value={siret} onChange={setSiret} />
+        <InputField label="N° TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
+        <InputField label="Code NAF" value={naf} onChange={setNaf} placeholder="4322A" />
+        <InputField label="Adresse" value={adresse} onChange={setAdresse} />
+        <InputField label="Code postal" value={codePostal} onChange={setCodePostal} />
+        <InputField label="Ville" value={ville} onChange={setVille} />
+        <InputField label="Telephone" value={telephone} onChange={setTelephone} />
+        <InputField label="Email" value={email} onChange={setEmail} />
+        <InputField label="IBAN" type="password" value={iban} onChange={setIban} />
+        <InputField label="BIC" value={bic} onChange={setBic} />
+        <InputField label="Metier" value={metier} onChange={setMetier} />
+        <InputField label="N° assurance decennale" value={decennale} onChange={setDecennale} placeholder="POL-2024-XXXXX" />
         <div className="flex items-end">
-          <ToggleSwitch label="Certification RGE" defaultChecked={false} />
+          <ToggleSwitch label="Certification RGE" checked={rge} onChange={setRge} />
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <button className="h-12 px-8 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors">
-          Enregistrer les modifications
-        </button>
-      </div>
+      <SaveButton onClick={handleSave} saving={saving} />
+      <SuccessMessage message={success} />
+      <ErrorMessage message={errorMsg} />
     </div>
   )
 }
 
-function DocumentsSection() {
+function DocumentsSection({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const [prefixDevis, setPrefixDevis] = useState('D')
+  const [prefixFactures, setPrefixFactures] = useState('F')
+  const [conditionsPaiement, setConditionsPaiement] = useState('')
+  const [mentionsLegales, setMentionsLegales] = useState('')
   const [docColor, setDocColor] = useState('#5ab4e0')
+  const [logoOnDocs, setLogoOnDocs] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (entreprise) {
+      setPrefixDevis((entreprise.prefix_devis as string) ?? 'D')
+      setPrefixFactures((entreprise.prefix_factures as string) ?? 'F')
+      setConditionsPaiement((entreprise.conditions_paiement as string) ?? '')
+      setDocColor((entreprise.couleur_principale as string) ?? '#5ab4e0')
+    }
+  }, [entreprise])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSuccess(null)
+    setErrorMsg(null)
+    try {
+      await update({
+        prefix_devis: prefixDevis,
+        prefix_factures: prefixFactures,
+        conditions_paiement: conditionsPaiement,
+        couleur_principale: docColor,
+      })
+      setSuccess('Parametres de documents enregistres avec succes.')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
@@ -181,56 +333,62 @@ function DocumentsSection() {
       </h2>
 
       <div className="space-y-6">
-        {/* Numérotation devis */}
+        {/* Numerotation devis */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Numérotation devis
+            Numerotation devis
           </label>
           <div className="flex items-center gap-3">
-            <span className="font-manrope text-sm text-[#6b7280]">Préfixe :</span>
+            <span className="font-manrope text-sm text-[#6b7280]">Prefixe :</span>
             <input
               type="text"
-              defaultValue="D"
+              value={prefixDevis}
+              onChange={(e) => setPrefixDevis(e.target.value)}
               className="w-20 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] text-center focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
             />
             <span className="font-manrope text-sm text-[#6b7280]">Format :</span>
             <input
               type="text"
               defaultValue="YYYY-NNNNN"
-              className="w-40 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              readOnly
+              className="w-40 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-gray-50"
             />
           </div>
         </div>
 
-        {/* Numérotation factures */}
+        {/* Numerotation factures */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Numérotation factures
+            Numerotation factures
           </label>
           <div className="flex items-center gap-3">
-            <span className="font-manrope text-sm text-[#6b7280]">Préfixe :</span>
+            <span className="font-manrope text-sm text-[#6b7280]">Prefixe :</span>
             <input
               type="text"
-              defaultValue="F"
+              value={prefixFactures}
+              onChange={(e) => setPrefixFactures(e.target.value)}
               className="w-20 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] text-center focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
             />
             <span className="font-manrope text-sm text-[#6b7280]">Format :</span>
             <input
               type="text"
               defaultValue="YYYY-NNNNN"
-              className="w-40 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              readOnly
+              className="w-40 h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-gray-50"
             />
           </div>
         </div>
 
         <TextAreaField
-          label="Conditions de paiement par défaut"
-          defaultValue="Paiement à 30 jours à compter de la date de facturation."
+          label="Conditions de paiement par defaut"
+          value={conditionsPaiement}
+          onChange={setConditionsPaiement}
         />
 
         <TextAreaField
-          label="Mentions légales personnalisées"
-          defaultValue=""
+          label="Mentions legales personnalisees"
+          value={mentionsLegales}
+          onChange={setMentionsLegales}
         />
 
         {/* Couleur principale */}
@@ -249,19 +407,56 @@ function DocumentsSection() {
           </div>
         </div>
 
-        <ToggleSwitch label="Logo sur les documents" defaultChecked={true} />
+        <ToggleSwitch label="Logo sur les documents" checked={logoOnDocs} onChange={setLogoOnDocs} />
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <button className="h-12 px-8 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors">
-          Enregistrer les modifications
-        </button>
-      </div>
+      <SaveButton onClick={handleSave} saving={saving} />
+      <SuccessMessage message={success} />
+      <ErrorMessage message={errorMsg} />
     </div>
   )
 }
 
-function FacturationSection() {
+function FacturationSection({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const [tvaDefaut, setTvaDefaut] = useState('20')
+  const [delaiPaiement, setDelaiPaiement] = useState('30')
+  const [penalites, setPenalites] = useState("3 fois le taux d'interet legal")
+  const [indemnite, setIndemnite] = useState('40 EUR')
+  const [escompte, setEscompte] = useState('Aucun escompte accorde')
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (entreprise) {
+      setTvaDefaut(String(entreprise.tva_defaut ?? '20'))
+      setDelaiPaiement(String(entreprise.delai_paiement_defaut ?? '30'))
+    }
+  }, [entreprise])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSuccess(null)
+    setErrorMsg(null)
+    try {
+      await update({
+        tva_defaut: parseFloat(tvaDefaut),
+        delai_paiement_defaut: parseInt(delaiPaiement, 10),
+      })
+      setSuccess('Parametres de facturation enregistres avec succes.')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
       <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-6">
@@ -269,13 +464,14 @@ function FacturationSection() {
       </h2>
 
       <div className="space-y-6">
-        {/* TVA par défaut */}
+        {/* TVA par defaut */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            TVA par défaut
+            TVA par defaut
           </label>
           <select
-            defaultValue="20"
+            value={tvaDefaut}
+            onChange={(e) => setTvaDefaut(e.target.value)}
             className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-white"
           >
             <option value="5.5">5,5 %</option>
@@ -284,16 +480,17 @@ function FacturationSection() {
           </select>
         </div>
 
-        {/* Délai de paiement */}
+        {/* Delai de paiement */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Délai de paiement par défaut
+            Delai de paiement par defaut
           </label>
           <select
-            defaultValue="30"
+            value={delaiPaiement}
+            onChange={(e) => setDelaiPaiement(e.target.value)}
             className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-white"
           >
-            <option value="0">À réception</option>
+            <option value="0">A reception</option>
             <option value="15">15 jours</option>
             <option value="30">30 jours</option>
             <option value="45">45 jours</option>
@@ -301,31 +498,39 @@ function FacturationSection() {
         </div>
 
         <InputField
-          label="Pénalités de retard"
-          defaultValue="3 fois le taux d'intérêt légal"
+          label="Penalites de retard"
+          value={penalites}
+          onChange={setPenalites}
         />
 
         <InputField
-          label="Indemnité forfaitaire"
-          defaultValue="40 €"
+          label="Indemnite forfaitaire"
+          value={indemnite}
+          onChange={setIndemnite}
         />
 
         <InputField
           label="Escompte"
-          defaultValue="Aucun escompte accordé"
+          value={escompte}
+          onChange={setEscompte}
         />
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <button className="h-12 px-8 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors">
-          Enregistrer les modifications
-        </button>
-      </div>
+      <SaveButton onClick={handleSave} saving={saving} />
+      <SuccessMessage message={success} />
+      <ErrorMessage message={errorMsg} />
     </div>
   )
 }
 
 function NotificationsSection() {
+  const [devisSigne, setDevisSigne] = useState(true)
+  const [facturePayee, setFacturePayee] = useState(true)
+  const [rappelImpaye, setRappelImpaye] = useState(true)
+  const [modifPlanning, setModifPlanning] = useState(true)
+  const [nouveauMessage, setNouveauMessage] = useState(true)
+  const [rapportHebdo, setRapportHebdo] = useState(false)
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
       <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-6">
@@ -333,12 +538,12 @@ function NotificationsSection() {
       </h2>
 
       <div className="divide-y divide-gray-100">
-        <ToggleSwitch label="Devis signé" defaultChecked={true} />
-        <ToggleSwitch label="Facture payée" defaultChecked={true} />
-        <ToggleSwitch label="Rappel impayé" defaultChecked={true} />
-        <ToggleSwitch label="Modification planning" defaultChecked={true} />
-        <ToggleSwitch label="Nouveau message équipe" defaultChecked={true} />
-        <ToggleSwitch label="Rapport hebdomadaire par email" defaultChecked={false} />
+        <ToggleSwitch label="Devis signe" checked={devisSigne} onChange={setDevisSigne} />
+        <ToggleSwitch label="Facture payee" checked={facturePayee} onChange={setFacturePayee} />
+        <ToggleSwitch label="Rappel impaye" checked={rappelImpaye} onChange={setRappelImpaye} />
+        <ToggleSwitch label="Modification planning" checked={modifPlanning} onChange={setModifPlanning} />
+        <ToggleSwitch label="Nouveau message equipe" checked={nouveauMessage} onChange={setNouveauMessage} />
+        <ToggleSwitch label="Rapport hebdomadaire par email" checked={rapportHebdo} onChange={setRapportHebdo} />
       </div>
 
       <div className="mt-8 flex justify-end">
@@ -350,7 +555,7 @@ function NotificationsSection() {
   )
 }
 
-function CompteSection() {
+function CompteSection({ userEmail }: { userEmail: string }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
       <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-6">
@@ -360,7 +565,7 @@ function CompteSection() {
       <div className="space-y-6">
         <InputField
           label="Email"
-          defaultValue="jean.dupont@email.fr"
+          value={userEmail}
           readOnly
         />
 
@@ -394,7 +599,7 @@ function AbonnementSection() {
               Artidoc &mdash; 25 &euro; / mois HT
             </h3>
             <p className="font-manrope text-sm text-[#6b7280] mt-1">
-              Toutes les fonctionnalités incluses
+              Toutes les fonctionnalites incluses
             </p>
           </div>
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 font-manrope text-xs font-medium">
@@ -411,7 +616,7 @@ function AbonnementSection() {
             Modifier le moyen de paiement
           </button>
           <button className="font-manrope text-sm text-red-500 hover:text-red-700 hover:underline text-left">
-            Résilier l&apos;abonnement
+            Resilier l&apos;abonnement
           </button>
         </div>
       </div>
@@ -425,6 +630,21 @@ function AbonnementSection() {
 
 export default function ParametresPage() {
   const [activeSection, setActiveSection] = useState<Section>('entreprise')
+  const { entreprise, loading: loadingEntreprise, update } = useEntreprise()
+  const { user, loading: loadingUser } = useUser()
+
+  if (loadingEntreprise || loadingUser) {
+    return (
+      <div className="flex flex-col md:flex-row gap-6">
+        <aside className="w-full md:w-64 flex-shrink-0">
+          <LoadingSkeleton rows={6} />
+        </aside>
+        <div className="flex-1 min-w-0">
+          <LoadingSkeleton rows={8} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col md:flex-row gap-6">
@@ -456,11 +676,11 @@ export default function ParametresPage() {
 
       {/* Content area */}
       <div className="flex-1 min-w-0">
-        {activeSection === 'entreprise' && <EntrepriseSection />}
-        {activeSection === 'documents' && <DocumentsSection />}
-        {activeSection === 'facturation' && <FacturationSection />}
+        {activeSection === 'entreprise' && entreprise && <EntrepriseSection entreprise={entreprise} update={update} />}
+        {activeSection === 'documents' && entreprise && <DocumentsSection entreprise={entreprise} update={update} />}
+        {activeSection === 'facturation' && entreprise && <FacturationSection entreprise={entreprise} update={update} />}
         {activeSection === 'notifications' && <NotificationsSection />}
-        {activeSection === 'compte' && <CompteSection />}
+        {activeSection === 'compte' && <CompteSection userEmail={user?.email ?? ''} />}
         {activeSection === 'abonnement' && <AbonnementSection />}
       </div>
     </div>

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useUser, useEntreprise } from '@/lib/hooks'
 import {
   Home,
   ClipboardList,
@@ -54,15 +55,15 @@ const NAV_GROUPS: NavItem[][] = [
   [
     { label: 'Clients', href: '/dashboard/clients', icon: Users },
     { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Building2 },
-    { label: 'Mon\u00a0\u00e9quipe', href: '/dashboard/equipe', icon: HardHat },
+    { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: HardHat },
   ],
   [
-    { label: 'Biblioth\u00e8que', href: '/dashboard/bibliotheque', icon: BookOpen },
+    { label: 'Bibliothèque', href: '/dashboard/bibliotheque', icon: BookOpen },
     { label: 'Statistiques', href: '/dashboard/statistiques', icon: BarChart3 },
   ],
   [
     { label: 'Importer', href: '/dashboard/import', icon: Download },
-    { label: 'Param\u00e8tres', href: '/dashboard/parametres', icon: Settings },
+    { label: 'Paramètres', href: '/dashboard/parametres', icon: Settings },
   ],
 ]
 
@@ -77,11 +78,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/planning': 'Planning',
   '/dashboard/clients': 'Clients',
   '/dashboard/fournisseurs': 'Fournisseurs',
-  '/dashboard/equipe': 'Mon \u00e9quipe',
-  '/dashboard/bibliotheque': 'Biblioth\u00e8que',
+  '/dashboard/equipe': 'Mon équipe',
+  '/dashboard/bibliotheque': 'Bibliothèque',
   '/dashboard/statistiques': 'Statistiques',
-  '/dashboard/import': 'Importer des donn\u00e9es',
-  '/dashboard/parametres': 'Param\u00e8tres',
+  '/dashboard/import': 'Importer des données',
+  '/dashboard/parametres': 'Paramètres',
 }
 
 const CREATE_OPTIONS = [
@@ -120,6 +121,19 @@ function getPageTitle(pathname: string): string {
   return 'Tableau de bord'
 }
 
+function getInitials(prenom?: string, nom?: string): string {
+  const first = prenom?.charAt(0)?.toUpperCase() || ''
+  const last = nom?.charAt(0)?.toUpperCase() || ''
+  return first + last || '?'
+}
+
+function getDisplayName(prenom?: string, nom?: string, email?: string): string {
+  if (prenom && nom) return `${prenom} ${nom}`
+  if (prenom) return prenom
+  if (nom) return nom
+  return email || ''
+}
+
 // -------------------------------------------------------------------
 // Sidebar component
 // -------------------------------------------------------------------
@@ -129,11 +143,21 @@ function Sidebar({
   mobileOpen,
   onCloseMobile,
   pathname,
+  userInitials,
+  userName,
+  entrepriseNom,
+  entrepriseMetier,
+  userLoading,
 }: {
   collapsed: boolean
   mobileOpen: boolean
   onCloseMobile: () => void
   pathname: string
+  userInitials: string
+  userName: string
+  entrepriseNom: string
+  entrepriseMetier: string
+  userLoading: boolean
 }) {
   const router = useRouter()
   const [createOpen, setCreateOpen] = useState(false)
@@ -199,11 +223,18 @@ function Sidebar({
         {/* Company info */}
         {!collapsed && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-white/60 leading-tight">
-              Mon Entreprise
-              <br />
-              Plombier
-            </p>
+            {userLoading ? (
+              <div className="space-y-1 animate-pulse">
+                <div className="h-3 w-28 bg-white/10 rounded" />
+                <div className="h-3 w-20 bg-white/10 rounded" />
+              </div>
+            ) : (
+              <p className="text-xs text-white/60 leading-tight">
+                {entrepriseNom || 'Mon Entreprise'}
+                <br />
+                {entrepriseMetier || ''}
+              </p>
+            )}
           </div>
         )}
 
@@ -218,7 +249,7 @@ function Sidebar({
             `}
           >
             <span className="text-lg leading-none">+</span>
-            {!collapsed && <span>Cr\u00e9er</span>}
+            {!collapsed && <span>Créer</span>}
           </button>
 
           {createOpen && (
@@ -250,7 +281,7 @@ function Sidebar({
               />
               <input
                 type="text"
-                placeholder="Acc\u00e8s rapide..."
+                placeholder="Accès rapide..."
                 className="w-full h-10 rounded-lg bg-white/[0.08] pl-9 pr-3 text-sm text-white placeholder:text-white/40 outline-none focus:bg-white/[0.12] transition-colors duration-100"
               />
             </div>
@@ -294,18 +325,31 @@ function Sidebar({
         <div className={`mt-auto border-t border-white/[0.08] p-4 ${collapsed ? 'flex flex-col items-center px-2' : ''}`}>
           <div className={`flex items-center gap-3 ${collapsed ? 'flex-col' : ''}`}>
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#5ab4e0] flex items-center justify-center">
-              <span className="text-white text-sm font-syne font-bold">JD</span>
+              {userLoading ? (
+                <div className="w-5 h-3 bg-white/30 rounded animate-pulse" />
+              ) : (
+                <span className="text-white text-sm font-syne font-bold">{userInitials}</span>
+              )}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-medium truncate">Jean Dupont</p>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors duration-100"
-                >
-                  <LogOut size={12} />
-                  Se d\u00e9connecter
-                </button>
+                {userLoading ? (
+                  <div className="space-y-1 animate-pulse">
+                    <div className="h-4 w-24 bg-white/10 rounded" />
+                    <div className="h-3 w-20 bg-white/10 rounded" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-white font-medium truncate">{userName}</p>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors duration-100"
+                    >
+                      <LogOut size={12} />
+                      Se déconnecter
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -322,9 +366,13 @@ function Sidebar({
 function DashboardHeader({
   title,
   onMenuClick,
+  userInitials,
+  userLoading,
 }: {
   title: string
   onMenuClick: () => void
+  userInitials: string
+  userLoading: boolean
 }) {
   return (
     <header className="sticky top-0 z-30 h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
@@ -346,7 +394,11 @@ function DashboardHeader({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
         <div className="w-8 h-8 rounded-full bg-[#5ab4e0] flex items-center justify-center">
-          <span className="text-white text-xs font-syne font-bold">JD</span>
+          {userLoading ? (
+            <div className="w-4 h-2 bg-white/30 rounded animate-pulse" />
+          ) : (
+            <span className="text-white text-xs font-syne font-bold">{userInitials}</span>
+          )}
         </div>
       </div>
     </header>
@@ -415,6 +467,23 @@ export default function DashboardLayout({
   const [collapsed, setCollapsed] = useState(false)
   const [hovered, setHovered] = useState(false)
 
+  const { user, loading: userLoading } = useUser()
+  const { entreprise, loading: entrepriseLoading } = useEntreprise()
+
+  const isLoading = userLoading || entrepriseLoading
+
+  const userInitials = getInitials(
+    user?.user_metadata?.prenom,
+    user?.user_metadata?.nom
+  )
+  const userName = getDisplayName(
+    user?.user_metadata?.prenom,
+    user?.user_metadata?.nom,
+    user?.email
+  )
+  const entrepriseNom = (entreprise?.nom as string) || ''
+  const entrepriseMetier = (entreprise?.metier as string) || ''
+
   // Determine responsive state
   // collapsed = true on tablet (768-1024), false on desktop
   useEffect(() => {
@@ -458,6 +527,11 @@ export default function DashboardLayout({
           mobileOpen={false}
           onCloseMobile={() => {}}
           pathname={pathname}
+          userInitials={userInitials}
+          userName={userName}
+          entrepriseNom={entrepriseNom}
+          entrepriseMetier={entrepriseMetier}
+          userLoading={isLoading}
         />
       </div>
 
@@ -468,6 +542,11 @@ export default function DashboardLayout({
           mobileOpen={false}
           onCloseMobile={() => {}}
           pathname={pathname}
+          userInitials={userInitials}
+          userName={userName}
+          entrepriseNom={entrepriseNom}
+          entrepriseMetier={entrepriseMetier}
+          userLoading={isLoading}
         />
       </div>
 
@@ -478,6 +557,11 @@ export default function DashboardLayout({
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
           pathname={pathname}
+          userInitials={userInitials}
+          userName={userName}
+          entrepriseNom={entrepriseNom}
+          entrepriseMetier={entrepriseMetier}
+          userLoading={isLoading}
         />
       </div>
 
@@ -488,6 +572,8 @@ export default function DashboardLayout({
         <DashboardHeader
           title={pageTitle}
           onMenuClick={() => setMobileOpen(true)}
+          userInitials={userInitials}
+          userLoading={isLoading}
         />
 
         <main className="p-4 lg:p-6 pb-20 md:pb-6">

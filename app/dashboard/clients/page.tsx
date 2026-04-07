@@ -8,38 +8,32 @@ import {
   Users,
   Plus,
   ChevronDown,
+  X,
 } from 'lucide-react'
+import { useClients, insertRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types & Data
+// Types
 // -------------------------------------------------------------------
 
-type ClientType = 'Particulier' | 'Professionnel'
-
-interface Client {
+interface ClientRow {
   id: string
+  type: 'particulier' | 'professionnel'
+  prenom: string
   nom: string
-  type: ClientType
+  raison_sociale: string | null
   email: string
   telephone: string
-  modifie: string
-  creation: string
-  resume: string
-  solde: number
+  adresse: string
+  code_postal: string
+  ville: string
+  siret: string | null
+  notes_internes: string | null
+  actif: boolean
+  created_at: string
 }
 
-const DEMO_CLIENTS: Client[] = [
-  { id: '1', nom: 'M. Jean Dupont', type: 'Particulier', email: 'jean.dupont@email.fr', telephone: '06 12 34 56 78', modifie: '07/04', creation: '15/01', resume: '1 chantier \u00b7 0 facture en attente', solde: 2695 },
-  { id: '2', nom: 'Mme Sophie Martin', type: 'Particulier', email: 's.martin@email.fr', telephone: '06 23 45 67 89', modifie: '06/04', creation: '10/12', resume: '1 chantier \u00b7 0 en attente', solde: 0 },
-  { id: '3', nom: 'M. Pierre Bernard', type: 'Particulier', email: 'p.bernard@gmail.com', telephone: '06 34 56 78 90', modifie: '04/04', creation: '05/02', resume: '1 chantier \u00b7 0 en attente', solde: 0 },
-  { id: '4', nom: 'SARL Renov33', type: 'Professionnel', email: 'contact@renov33.fr', telephone: '05 56 00 00 00', modifie: '02/04', creation: '20/11', resume: '1 chantier \u00b7 1 en attente', solde: 4675 },
-  { id: '5', nom: 'Mme Claire Girard', type: 'Particulier', email: 'c.girard@email.fr', telephone: '06 45 67 89 01', modifie: '01/04', creation: '08/01', resume: '1 chantier \u00b7 1 en attente', solde: 2464 },
-  { id: '6', nom: 'M. Thomas Petit', type: 'Particulier', email: 't.petit@email.fr', telephone: '06 56 78 90 12', modifie: '28/03', creation: '15/11', resume: '1 chantier \u00b7 0 en attente', solde: 0 },
-  { id: '7', nom: 'M. Marc Leroy', type: 'Particulier', email: 'm.leroy@email.fr', telephone: '06 67 89 01 23', modifie: '25/03', creation: '03/03', resume: '1 chantier \u00b7 1 en attente', solde: 13200 },
-  { id: '8', nom: 'Mme Anne Moreau', type: 'Particulier', email: 'a.moreau@email.fr', telephone: '06 78 90 12 34', modifie: '20/03', creation: '22/02', resume: '1 chantier \u00b7 0 en attente', solde: 0 },
-]
-
-const FILTER_OPTIONS = ['Tous', 'Particuliers', 'Professionnels', 'Archiv\u00e9s']
+const FILTER_OPTIONS = ['Tous', 'Particuliers', 'Professionnels', 'Archivés']
 
 // -------------------------------------------------------------------
 // Page
@@ -47,23 +41,113 @@ const FILTER_OPTIONS = ['Tous', 'Particuliers', 'Professionnels', 'Archiv\u00e9s
 
 export default function ClientsPage() {
   const router = useRouter()
+  const { data, loading, error, refetch } = useClients()
+  const clients = data as unknown as ClientRow[]
+
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Tous')
+  const [showModal, setShowModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
-  const filtered = DEMO_CLIENTS.filter((c) => {
-    if (filter === 'Particuliers' && c.type !== 'Particulier') return false
-    if (filter === 'Professionnels' && c.type !== 'Professionnel') return false
-    if (filter === 'Archiv\u00e9s') return false
+  // New client form state
+  const [form, setForm] = useState({
+    type: 'particulier' as 'particulier' | 'professionnel',
+    prenom: '',
+    nom: '',
+    raison_sociale: '',
+    email: '',
+    telephone: '',
+    adresse: '',
+    code_postal: '',
+    ville: '',
+    siret: '',
+    notes_internes: '',
+  })
+
+  const resetForm = () => {
+    setForm({
+      type: 'particulier',
+      prenom: '',
+      nom: '',
+      raison_sociale: '',
+      email: '',
+      telephone: '',
+      adresse: '',
+      code_postal: '',
+      ville: '',
+      siret: '',
+      notes_internes: '',
+    })
+    setFormError(null)
+  }
+
+  const handleCreate = async () => {
+    setSaving(true)
+    setFormError(null)
+    try {
+      const values: Record<string, unknown> = {
+        type: form.type,
+        prenom: form.prenom,
+        nom: form.nom,
+        email: form.email || null,
+        telephone: form.telephone || null,
+        adresse: form.adresse || null,
+        code_postal: form.code_postal || null,
+        ville: form.ville || null,
+        siret: form.siret || null,
+        notes_internes: form.notes_internes || null,
+        actif: true,
+      }
+      if (form.type === 'professionnel') {
+        values.raison_sociale = form.raison_sociale || null
+      }
+      await insertRow('clients', values)
+      setShowModal(false)
+      resetForm()
+      refetch()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Erreur lors de la création')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string, displayName: string) => {
+    if (!confirm(`Supprimer le client "${displayName}" ? Cette action est irréversible.`)) return
+    try {
+      await deleteRow('clients', id)
+      refetch()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur lors de la suppression')
+    }
+  }
+
+  const displayName = (c: ClientRow) =>
+    c.type === 'professionnel' && c.raison_sociale
+      ? c.raison_sociale
+      : `${c.prenom} ${c.nom}`.trim()
+
+  const filtered = clients.filter((c) => {
+    if (filter === 'Particuliers' && c.type !== 'particulier') return false
+    if (filter === 'Professionnels' && c.type !== 'professionnel') return false
+    if (filter === 'Archivés') return !c.actif
+    if (!c.actif) return false
     if (search) {
       const q = search.toLowerCase()
       return (
-        c.nom.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.telephone.includes(q)
+        displayName(c).toLowerCase().includes(q) ||
+        (c.email ?? '').toLowerCase().includes(q) ||
+        (c.telephone ?? '').includes(q)
       )
     }
     return true
   })
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+  }
 
   return (
     <div className="space-y-6">
@@ -113,6 +197,7 @@ export default function ClientsPage() {
 
         {/* New client button */}
         <button
+          onClick={() => { resetForm(); setShowModal(true) }}
           className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
         >
           <Plus size={16} />
@@ -120,68 +205,231 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <table className="w-full min-w-[1000px]">
-          <thead>
-            <tr className="bg-gray-50">
-              {['Nom', 'Type', 'Email', 'T\u00e9l\u00e9phone', 'Modifi\u00e9', 'Cr\u00e9ation', 'R\u00e9sum\u00e9', 'Solde'].map((col) => (
-                <th
-                  key={col}
-                  className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((client, idx) => (
-              <tr
-                key={client.id}
-                onClick={() => router.push(`/dashboard/clients/${client.id}`)}
-                className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                }`}
-              >
-                <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
-                  {client.nom}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${
-                    client.type === 'Professionnel'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {client.type}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.email}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.telephone}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.modifie}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.creation}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-500">{client.resume}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-bold">
-                  {client.solde === 0 ? (
-                    <span className="text-green-600">Sold\u00e9</span>
-                  ) : client.solde >= 10000 ? (
-                    <span className="text-red-600">{client.solde.toLocaleString('fr-FR')}\u00a0\u20ac</span>
-                  ) : (
-                    <span className="text-[#e87a2a]">{client.solde.toLocaleString('fr-FR')}\u00a0\u20ac</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Loading / Error */}
+      {loading && <LoadingSkeleton rows={5} />}
+      {error && <ErrorBanner message={error} onRetry={refetch} />}
 
-        {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <Users size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun client trouv\u00e9</p>
+      {/* Table */}
+      {!loading && !error && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-[1000px]">
+            <thead>
+              <tr className="bg-gray-50">
+                {['Nom', 'Type', 'Email', 'Téléphone', 'Ville', 'Création', 'Actions'].map((col) => (
+                  <th
+                    key={col}
+                    className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((client, idx) => (
+                <tr
+                  key={client.id}
+                  onClick={() => router.push(`/dashboard/clients/${client.id}`)}
+                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
+                    {displayName(client)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${
+                      client.type === 'professionnel'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {client.type === 'professionnel' ? 'Professionnel' : 'Particulier'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.email}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.telephone}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.ville}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(client.created_at)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(client.id, displayName(client)) }}
+                      className="text-red-500 hover:text-red-700 text-xs font-medium"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {filtered.length === 0 && (
+            <div className="py-12 text-center">
+              <Users size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-sm font-manrope text-gray-500">Aucun client trouvé</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* New client modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouveau client</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {formError && <ErrorBanner message={formError} />}
+
+              {/* Type */}
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as 'particulier' | 'professionnel' })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                >
+                  <option value="particulier">Particulier</option>
+                  <option value="professionnel">Professionnel</option>
+                </select>
+              </div>
+
+              {/* Raison sociale (pro only) */}
+              {form.type === 'professionnel' && (
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Raison sociale</label>
+                  <input
+                    type="text"
+                    value={form.raison_sociale}
+                    onChange={(e) => setForm({ ...form, raison_sociale: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Prénom / Nom */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Prénom</label>
+                  <input
+                    type="text"
+                    value={form.prenom}
+                    onChange={(e) => setForm({ ...form, prenom: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Nom</label>
+                  <input
+                    type="text"
+                    value={form.nom}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Email / Téléphone */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Téléphone</label>
+                  <input
+                    type="text"
+                    value={form.telephone}
+                    onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Adresse */}
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Adresse</label>
+                <input
+                  type="text"
+                  value={form.adresse}
+                  onChange={(e) => setForm({ ...form, adresse: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                />
+              </div>
+
+              {/* Code postal / Ville */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Code postal</label>
+                  <input
+                    type="text"
+                    value={form.code_postal}
+                    onChange={(e) => setForm({ ...form, code_postal: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Ville</label>
+                  <input
+                    type="text"
+                    value={form.ville}
+                    onChange={(e) => setForm({ ...form, ville: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* SIRET (pro) */}
+              {form.type === 'professionnel' && (
+                <div>
+                  <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">SIRET</label>
+                  <input
+                    type="text"
+                    value={form.siret}
+                    onChange={(e) => setForm({ ...form, siret: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 uppercase tracking-wider mb-1">Notes internes</label>
+                <textarea
+                  value={form.notes_internes}
+                  onChange={(e) => setForm({ ...form, notes_internes: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowModal(false)}
+                className="h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.nom}
+                className="h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
+              >
+                {saving ? 'Création...' : 'Créer le client'}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

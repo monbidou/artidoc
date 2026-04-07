@@ -22,15 +22,15 @@ type SlotData = PlanningEntry | null;
 const planningData: { am: SlotData[]; pm: SlotData[] } = {
   am: [
     { poseur: "Michel R.", client: "M. Dupont", objet: "Instal. chauffe-eau", color: "#5ab4e0" },
-    { poseur: "Thomas B.", client: "Mme Martin", objet: "R\u00e9nov. salle de bain", color: "#e87a2a" },
+    { poseur: "Thomas B.", client: "Mme Martin", objet: "Rénov. salle de bain", color: "#e87a2a" },
     { poseur: "Michel R.", client: "M. Bernard", objet: "Pose carrelage", color: "#22c55e" },
     { poseur: "Lucas D.", client: "M. Petit", objet: "Extension terrasse", color: "#f5c842" },
-    { poseur: "Thomas B.", client: "Mme Girard", objet: "\u00c9lectricit\u00e9 cuisine", color: "#f43f5e" },
+    { poseur: "Thomas B.", client: "Mme Girard", objet: "Électricité cuisine", color: "#f43f5e" },
   ],
   pm: [
     { poseur: "Michel R.", client: "M. Dupont", objet: "Instal. chauffe-eau", color: "#5ab4e0" },
-    { poseur: "Thomas B.", client: "Mme Martin", objet: "R\u00e9nov. salle de bain", color: "#e87a2a" },
-    { poseur: "Lucas D.", client: "Mme Moreau", objet: "Peinture fa\u00e7ade", color: "#8b5cf6" },
+    { poseur: "Thomas B.", client: "Mme Martin", objet: "Rénov. salle de bain", color: "#e87a2a" },
+    { poseur: "Lucas D.", client: "Mme Moreau", objet: "Peinture façade", color: "#8b5cf6" },
     { poseur: "Lucas D.", client: "M. Petit", objet: "Extension terrasse", color: "#f5c842" },
     null,
   ],
@@ -45,20 +45,20 @@ const conflictCard: PlanningEntry = {
 
 const advantages = [
   {
-    title: "Glissez-d\u00e9posez vos interventions",
-    subtitle: "Aussi simple qu\u0027un agenda",
+    title: "Glissez-déposez vos interventions",
+    subtitle: "Aussi simple qu'un agenda",
   },
   {
-    title: "Alerte imm\u00e9diate si un artisan est d\u00e9j\u00e0 occup\u00e9",
+    title: "Alerte immédiate si un artisan est déjà occupé",
     subtitle: "Plus aucun conflit de planning",
   },
   {
-    title: "Vos \u00e9quipiers re\u00e7oivent leur planning sur leur t\u00e9l\u00e9phone",
-    subtitle: "Toujours \u00e0 jour, sans appeler",
+    title: "Vos équipiers reçoivent leur planning sur leur téléphone",
+    subtitle: "Toujours à jour, sans appeler",
   },
   {
-    title: "Un chantier d\u00e9cal\u00e9 \u2192 la facture se met \u00e0 jour automatiquement",
-    subtitle: "Tout reste synchronis\u00e9",
+    title: "Un chantier décalé → la facture se met à jour automatiquement",
+    subtitle: "Tout reste synchronisé",
   },
 ];
 

@@ -86,7 +86,7 @@ export default function BlogPage() {
             {posts.map((post, i) => (
               <a
                 key={i}
-                href="#"
+                href="/register"
                 className="group flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-md transition hover:shadow-lg"
               >
                 <span
@@ -124,7 +124,7 @@ export default function BlogPage() {
             Rejoignez les artisans qui gagnent du temps avec Artidoc.
           </p>
           <a
-            href="#"
+            href="/register"
             className="mt-8 inline-block rounded-xl bg-[#e87a2a] px-8 py-4 font-syne text-lg font-bold text-white transition hover:bg-[#f09050]"
           >
             Essayez Artidoc gratuitement

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Search,
   Plus,
@@ -15,46 +15,38 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
+import {
+  useAchats,
+  useFournisseurs,
+  useChantiers,
+  insertRow,
+  updateRow,
+  deleteRow,
+  LoadingSkeleton,
+  ErrorBanner,
+} from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types & Data
+// Types
 // -------------------------------------------------------------------
 
 type FilterPeriod = 'Tous' | 'Ce mois' | 'Ce trimestre'
-
-interface Achat {
-  id: string
-  date: string
-  fournisseur: string
-  description: string
-  montantHT: number
-  tva: number
-  montantTTC: number
-  chantier: string
-  justificatif: boolean
-}
-
-const DEMO_ACHATS: Achat[] = [
-  { id: '1', date: '05/04/2026', fournisseur: 'Point.P', description: 'Tubes cuivre + raccords', montantHT: 320, tva: 20, montantTTC: 384, chantier: 'M. Dupont / SDB', justificatif: true },
-  { id: '2', date: '03/04/2026', fournisseur: 'Cedeo', description: 'Chauffe-eau thermodynamique 200L', montantHT: 890, tva: 20, montantTTC: 1068, chantier: 'M. Dupont / SDB', justificatif: true },
-  { id: '3', date: '01/04/2026', fournisseur: 'Leroy Merlin Pro', description: 'Carrelage grès cérame 25m²', montantHT: 450, tva: 20, montantTTC: 540, chantier: 'M. Bernard / Carrelage', justificatif: true },
-  { id: '4', date: '28/03/2026', fournisseur: 'Point.P', description: 'Joint silicone + colle carrelage', montantHT: 85, tva: 20, montantTTC: 102, chantier: 'M. Bernard / Carrelage', justificatif: false },
-  { id: '5', date: '25/03/2026', fournisseur: 'Brossette', description: 'Robinetterie salle de bain', montantHT: 210, tva: 20, montantTTC: 252, chantier: 'Mme Martin / SDB', justificatif: true },
-  { id: '6', date: '20/03/2026', fournisseur: 'Cedeo', description: 'Tuyaux PVC évacuation', montantHT: 145, tva: 20, montantTTC: 174, chantier: 'Stock général', justificatif: false },
-]
-
-const FOURNISSEURS = ['Point.P', 'Cedeo', 'Leroy Merlin Pro', 'Brossette']
-const CHANTIERS = ['M. Dupont / SDB', 'M. Bernard / Carrelage', 'Mme Martin / SDB', 'Stock général']
 
 // -------------------------------------------------------------------
 // Page
 // -------------------------------------------------------------------
 
 export default function AchatsPage() {
+  const { data: achats, loading: achatsLoading, error: achatsError, refetch: refetchAchats } = useAchats()
+  const { data: fournisseurs, loading: fournisseursLoading } = useFournisseurs()
+  const { data: chantiers, loading: chantiersLoading } = useChantiers()
+
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<FilterPeriod>('Tous')
   const [showModal, setShowModal] = useState(false)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // Modal state
   const [modalFournisseur, setModalFournisseur] = useState('')
@@ -71,19 +63,165 @@ export default function AchatsPage() {
     setModalTva('20')
     setModalDescription('')
     setModalChantier('')
+    setEditingId(null)
   }
 
-  const filtered = DEMO_ACHATS.filter((a) => {
-    if (search) {
-      const q = search.toLowerCase()
-      return (
-        a.fournisseur.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q) ||
-        a.chantier.toLowerCase().includes(q)
-      )
+  // Name resolution maps
+  const fournisseurMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const f of fournisseurs) {
+      const rec = f as Record<string, unknown>
+      map[rec.id as string] = (rec.nom ?? rec.name ?? '') as string
     }
-    return true
-  })
+    return map
+  }, [fournisseurs])
+
+  const chantierMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const c of chantiers) {
+      const rec = c as Record<string, unknown>
+      map[rec.id as string] = (rec.nom ?? rec.name ?? '') as string
+    }
+    return map
+  }, [chantiers])
+
+  // Computed stats
+  const stats = useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    let depensesMois = 0
+    let totalAnnee = 0
+    const fournisseursActifs = new Set<string>()
+
+    for (const a of achats) {
+      const rec = a as Record<string, unknown>
+      const dateStr = rec.date_achat as string | undefined
+      const montant = Number(rec.montant_ht ?? 0)
+      if (dateStr) {
+        const d = new Date(dateStr)
+        if (d.getFullYear() === currentYear) {
+          totalAnnee += montant
+          if (d.getMonth() === currentMonth) {
+            depensesMois += montant
+          }
+        }
+      }
+      if (rec.fournisseur_id) fournisseursActifs.add(rec.fournisseur_id as string)
+    }
+
+    return {
+      depensesMois,
+      totalAnnee,
+      nbFournisseurs: fournisseursActifs.size,
+    }
+  }, [achats])
+
+  // Filtering
+  const filtered = useMemo(() => {
+    return achats.filter((a) => {
+      const rec = a as Record<string, unknown>
+      const dateStr = rec.date_achat as string | undefined
+
+      // Period filter
+      if (filter !== 'Tous' && dateStr) {
+        const d = new Date(dateStr)
+        const now = new Date()
+        if (filter === 'Ce mois') {
+          if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false
+        }
+        if (filter === 'Ce trimestre') {
+          const currentQ = Math.floor(now.getMonth() / 3)
+          const itemQ = Math.floor(d.getMonth() / 3)
+          if (itemQ !== currentQ || d.getFullYear() !== now.getFullYear()) return false
+        }
+      }
+
+      // Search
+      if (search) {
+        const q = search.toLowerCase()
+        const fournisseurNom = fournisseurMap[rec.fournisseur_id as string] ?? ''
+        const chantierNom = chantierMap[rec.chantier_id as string] ?? ''
+        const description = ((rec.description ?? '') as string).toLowerCase()
+        return (
+          fournisseurNom.toLowerCase().includes(q) ||
+          description.includes(q) ||
+          chantierNom.toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [achats, search, filter, fournisseurMap, chantierMap])
+
+  const handleSave = async () => {
+    if (!modalMontant || !modalDate) return
+    setSaving(true)
+    try {
+      const values: Record<string, unknown> = {
+        fournisseur_id: modalFournisseur || null,
+        date_achat: modalDate,
+        montant_ht: parseFloat(modalMontant),
+        taux_tva: parseFloat(modalTva),
+        description: modalDescription,
+        chantier_id: modalChantier || null,
+      }
+      if (editingId) {
+        await updateRow('achats', editingId, values)
+      } else {
+        await insertRow('achats', values)
+      }
+      refetchAchats()
+      setShowModal(false)
+      resetModal()
+    } catch (err) {
+      alert((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEdit = (achat: Record<string, unknown>) => {
+    setEditingId(achat.id as string)
+    setModalFournisseur((achat.fournisseur_id ?? '') as string)
+    setModalDate((achat.date_achat ?? '') as string)
+    setModalMontant(String(achat.montant_ht ?? ''))
+    setModalTva(String(achat.taux_tva ?? '20'))
+    setModalDescription((achat.description ?? '') as string)
+    setModalChantier((achat.chantier_id ?? '') as string)
+    setOpenActionId(null)
+    setShowModal(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer cet achat ?')) return
+    try {
+      await deleteRow('achats', id)
+      refetchAchats()
+    } catch (err) {
+      alert((err as Error).message)
+    }
+    setOpenActionId(null)
+  }
+
+  const loading = achatsLoading || fournisseursLoading || chantiersLoading
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <LoadingSkeleton rows={6} />
+      </div>
+    )
+  }
+
+  if (achatsError) {
+    return <ErrorBanner message={achatsError} onRetry={refetchAchats} />
+  }
 
   return (
     <div className="space-y-6">
@@ -95,8 +233,8 @@ export default function AchatsPage() {
               <ShoppingCart size={20} className="text-[#5ab4e0]" />
             </div>
             <div>
-              <p className="text-xs font-manrope text-[#6b7280] uppercase tracking-wider">Dépenses ce mois</p>
-              <p className="text-xl font-syne font-bold text-[#0f1a3a]">3 450 € HT</p>
+              <p className="text-xs font-manrope text-[#6b7280] uppercase tracking-wider">D&eacute;penses ce mois</p>
+              <p className="text-xl font-syne font-bold text-[#0f1a3a]">{stats.depensesMois.toLocaleString('fr-FR')}&nbsp;&euro; HT</p>
             </div>
           </div>
         </div>
@@ -106,8 +244,8 @@ export default function AchatsPage() {
               <Euro size={20} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-xs font-manrope text-[#6b7280] uppercase tracking-wider">Total année</p>
-              <p className="text-xl font-syne font-bold text-[#0f1a3a]">28 200 € HT</p>
+              <p className="text-xs font-manrope text-[#6b7280] uppercase tracking-wider">Total ann&eacute;e</p>
+              <p className="text-xl font-syne font-bold text-[#0f1a3a]">{stats.totalAnnee.toLocaleString('fr-FR')}&nbsp;&euro; HT</p>
             </div>
           </div>
         </div>
@@ -118,7 +256,7 @@ export default function AchatsPage() {
             </div>
             <div>
               <p className="text-xs font-manrope text-[#6b7280] uppercase tracking-wider">Fournisseurs actifs</p>
-              <p className="text-xl font-syne font-bold text-[#0f1a3a]">4</p>
+              <p className="text-xl font-syne font-bold text-[#0f1a3a]">{stats.nbFournisseurs}</p>
             </div>
           </div>
         </div>
@@ -178,76 +316,94 @@ export default function AchatsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((achat, idx) => (
-              <tr
-                key={achat.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                  idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                }`}
-              >
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{achat.date}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{achat.fournisseur}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{achat.description}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{achat.montantHT.toLocaleString('fr-FR')}&nbsp;€</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{achat.tva}%</td>
-                <td className="px-4 py-3 text-sm font-manrope font-bold text-[#0f1a3a]">{achat.montantTTC.toLocaleString('fr-FR')}&nbsp;€</td>
-                <td className="px-4 py-3">
-                  <span className="inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium bg-gray-100 text-gray-600">
-                    {achat.chantier}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  {achat.justificatif ? (
-                    <span className="inline-flex items-center gap-1 text-[#5ab4e0]">
-                      <Paperclip size={14} />
+            {filtered.map((a, idx) => {
+              const achat = a as Record<string, unknown>
+              const id = achat.id as string
+              const montantHT = Number(achat.montant_ht ?? 0)
+              const tauxTva = Number(achat.taux_tva ?? 20)
+              const montantTTC = Number(achat.montant_ttc ?? montantHT * (1 + tauxTva / 100))
+              const dateStr = achat.date_achat as string | undefined
+              const dateFormatted = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR') : ''
+              const fournisseurNom = fournisseurMap[achat.fournisseur_id as string] ?? '\u2014'
+              const chantierNom = chantierMap[achat.chantier_id as string] ?? '\u2014'
+
+              return (
+                <tr
+                  key={id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{dateFormatted}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{fournisseurNom}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{(achat.description ?? '') as string}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{montantHT.toLocaleString('fr-FR')}&nbsp;&euro;</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{tauxTva}%</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-bold text-[#0f1a3a]">{montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;&euro;</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium bg-gray-100 text-gray-600">
+                      {chantierNom}
                     </span>
-                  ) : (
-                    <span className="text-sm text-gray-300">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="relative">
-                    <button
-                      onClick={() => setOpenActionId(openActionId === achat.id ? null : achat.id)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
-                    {openActionId === achat.id && (
-                      <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1 w-36">
-                        <button className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50">
-                          <Pencil size={14} />
-                          Modifier
-                        </button>
-                        <button className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-red-600 hover:bg-red-50">
-                          <Trash2 size={14} />
-                          Supprimer
-                        </button>
-                      </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {achat.justificatif_url ? (
+                      <span className="inline-flex items-center gap-1 text-[#5ab4e0]">
+                        <Paperclip size={14} />
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-300">&mdash;</span>
                     )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenActionId(openActionId === id ? null : id)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                      {openActionId === id && (
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1 w-36">
+                          <button
+                            onClick={() => handleEdit(achat)}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
+                          >
+                            <Pencil size={14} />
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => handleDelete(id)}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 size={14} />
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <ShoppingCart size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun achat trouvé</p>
+            <p className="text-sm font-manrope text-gray-500">Aucun achat trouv&eacute;</p>
           </div>
         )}
       </div>
 
-      {/* Add achat modal */}
+      {/* Add/Edit achat modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5">
             {/* Modal header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouvel achat</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">{editingId ? 'Modifier l\u0027achat' : 'Nouvel achat'}</h2>
+              <button onClick={() => { setShowModal(false); resetModal() }} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -260,10 +416,15 @@ export default function AchatsPage() {
                 onChange={(e) => setModalFournisseur(e.target.value)}
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               >
-                <option value="">Sélectionner un fournisseur...</option>
-                {FOURNISSEURS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
+                <option value="">S&eacute;lectionner un fournisseur...</option>
+                {fournisseurs.map((f) => {
+                  const rec = f as Record<string, unknown>
+                  return (
+                    <option key={rec.id as string} value={rec.id as string}>
+                      {(rec.nom ?? rec.name ?? '') as string}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
@@ -284,7 +445,7 @@ export default function AchatsPage() {
                   type="number"
                   value={modalMontant}
                   onChange={(e) => setModalMontant(e.target.value)}
-                  placeholder="0,00 €"
+                  placeholder="0,00 &euro;"
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 />
               </div>
@@ -324,10 +485,15 @@ export default function AchatsPage() {
                 onChange={(e) => setModalChantier(e.target.value)}
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               >
-                <option value="">Sélectionner un chantier...</option>
-                {CHANTIERS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                <option value="">S&eacute;lectionner un chantier...</option>
+                {chantiers.map((c) => {
+                  const rec = c as Record<string, unknown>
+                  return (
+                    <option key={rec.id as string} value={rec.id as string}>
+                      {(rec.nom ?? rec.name ?? '') as string}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
@@ -344,16 +510,17 @@ export default function AchatsPage() {
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); resetModal() }}
                 className="px-5 h-10 rounded-lg border border-gray-200 text-sm font-syne font-bold text-[#6b7280] hover:text-[#1a1a2e] hover:border-gray-300 transition-colors"
               >
                 Annuler
               </button>
               <button
-                onClick={() => setShowModal(false)}
-                className="px-5 h-10 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
+                onClick={handleSave}
+                disabled={saving}
+                className="px-5 h-10 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors disabled:opacity-50"
               >
-                Enregistrer
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </div>

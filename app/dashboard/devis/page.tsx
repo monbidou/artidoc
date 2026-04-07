@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -18,48 +18,64 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react'
+import {
+  useDevis,
+  useClients,
+  useChantiers,
+  deleteRow,
+  insertRow,
+  updateRow,
+  LoadingSkeleton,
+  ErrorBanner,
+} from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types & Data
+// Types & Constants
 // -------------------------------------------------------------------
 
-type DevisStatus = 'Brouillon' | 'Envoyé' | 'Finalisé' | 'Signé' | 'Refusé' | 'Expiré'
+type DevisStatus = 'brouillon' | 'envoye' | 'finalise' | 'signe' | 'refuse' | 'expire' | 'facture'
 
-interface Devis {
-  id: string
-  numero: string
-  statut: DevisStatus
-  client: string
-  chantier: string
-  modifie: string
-  date: string
-  valable: string
-  totalHT: string
-  totalTTC: string
+const STATUS_LABELS: Record<DevisStatus, string> = {
+  brouillon: 'Brouillon',
+  envoye: 'Envoye',
+  finalise: 'Finalise',
+  signe: 'Signe',
+  refuse: 'Refuse',
+  expire: 'Expire',
+  facture: 'Facture',
 }
-
-const DEMO_DEVIS: Devis[] = [
-  { id: '089', numero: 'D2026-089', statut: 'Envoyé', client: 'M. Dupont', chantier: 'Rénovation SDB', modifie: '07/04', date: '07/04', valable: '07/05', totalHT: '2 450 €', totalTTC: '2 695 €' },
-  { id: '088', numero: 'D2026-088', statut: 'Signé', client: 'Mme Girard', chantier: 'Électricité cuisine', modifie: '05/04', date: '03/04', valable: '03/05', totalHT: '3 200 €', totalTTC: '3 520 €' },
-  { id: '087', numero: 'D2026-087', statut: 'Brouillon', client: 'M. Moreau', chantier: 'Peinture façade', modifie: '04/04', date: '04/04', valable: '-', totalHT: '1 950 €', totalTTC: '2 145 €' },
-  { id: '086', numero: 'D2026-086', statut: 'Envoyé', client: 'SARL Renov33', chantier: 'Extension', modifie: '02/04', date: '01/04', valable: '01/05', totalHT: '8 500 €', totalTTC: '9 350 €' },
-  { id: '085', numero: 'D2026-085', statut: 'Signé', client: 'Mme Martin', chantier: 'Plomberie complète', modifie: '28/03', date: '25/03', valable: '25/04', totalHT: '4 800 €', totalTTC: '5 280 €' },
-  { id: '084', numero: 'D2026-084', statut: 'Refusé', client: 'M. Leroy', chantier: 'Toiture', modifie: '25/03', date: '20/03', valable: '20/04', totalHT: '12 000 €', totalTTC: '13 200 €' },
-  { id: '083', numero: 'D2026-083', statut: 'Signé', client: 'M. Bernard', chantier: 'Carrelage', modifie: '22/03', date: '18/03', valable: '18/04', totalHT: '3 100 €', totalTTC: '3 410 €' },
-  { id: '082', numero: 'D2026-082', statut: 'Expiré', client: 'Mme Petit', chantier: 'Isolation', modifie: '15/03', date: '10/03', valable: '10/04', totalHT: '6 200 €', totalTTC: '6 820 €' },
-]
 
 const STATUS_STYLES: Record<DevisStatus, string> = {
-  Brouillon: 'bg-gray-100 text-gray-600',
-  Envoyé: 'bg-blue-50 text-blue-700',
-  Finalisé: 'bg-violet-50 text-violet-700',
-  Signé: 'bg-green-50 text-green-700',
-  Refusé: 'bg-red-50 text-red-700',
-  Expiré: 'bg-orange-50 text-orange-700',
+  brouillon: 'bg-gray-100 text-gray-600',
+  envoye: 'bg-blue-50 text-blue-700',
+  finalise: 'bg-violet-50 text-violet-700',
+  signe: 'bg-green-50 text-green-700',
+  refuse: 'bg-red-50 text-red-700',
+  expire: 'bg-orange-50 text-orange-700',
+  facture: 'bg-emerald-50 text-emerald-700',
 }
 
-const FILTER_OPTIONS: DevisStatus[] | ['Tous'] = ['Tous', 'Brouillon', 'Envoyé', 'Signé', 'Refusé', 'Expiré'] as any
+const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoye', 'Signe', 'Refuse', 'Expire']
+const FILTER_TO_STATUS: Record<string, DevisStatus> = {
+  Brouillon: 'brouillon',
+  Envoye: 'envoye',
+  Signe: 'signe',
+  Refuse: 'refuse',
+  Expire: 'expire',
+}
+
 const SORT_OPTIONS = ['Date', 'Montant', 'Client']
+
+function formatCurrency(n: number | null | undefined): string {
+  if (n == null) return '0,00 \u20AC'
+  return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20AC'
+}
+
+function formatDate(d: string | null | undefined): string {
+  if (!d) return '-'
+  const date = new Date(d)
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
 
 // -------------------------------------------------------------------
 // Page
@@ -67,32 +83,150 @@ const SORT_OPTIONS = ['Date', 'Montant', 'Client']
 
 export default function DevisListPage() {
   const router = useRouter()
+  const { data: devisList, loading: loadingDevis, error: errorDevis, refetch: refetchDevis } = useDevis()
+  const { data: clients, loading: loadingClients } = useClients()
+  const { data: chantiers } = useChantiers()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Tous')
   const [sort, setSort] = useState('Date')
   const [openActions, setOpenActions] = useState<string | null>(null)
 
-  const filtered = DEMO_DEVIS.filter((d) => {
-    if (filter !== 'Tous' && d.statut !== filter) return false
+  // Build lookup maps
+  const clientMap = useMemo(() => {
+    const map: Record<string, Record<string, unknown>> = {}
+    clients.forEach((c: Record<string, unknown>) => { map[c.id as string] = c })
+    return map
+  }, [clients])
+
+  const chantierMap = useMemo(() => {
+    const map: Record<string, Record<string, unknown>> = {}
+    chantiers.forEach((c: Record<string, unknown>) => { map[c.id as string] = c })
+    return map
+  }, [chantiers])
+
+  function getClientName(clientId: string | null): string {
+    if (!clientId) return '-'
+    const c = clientMap[clientId]
+    if (!c) return '-'
+    const parts = [c.prenom, c.nom].filter(Boolean).join(' ')
+    return (c.raison_sociale as string) || parts || '-'
+  }
+
+  function getChantierTitre(chantierId: string | null): string {
+    if (!chantierId) return '-'
+    const c = chantierMap[chantierId]
+    return (c?.titre as string) || '-'
+  }
+
+  // Stats
+  const stats = useMemo(() => {
+    const all = devisList.length
+    const envoyes = devisList.filter((d: Record<string, unknown>) => d.statut === 'envoye')
+    const signes = devisList.filter((d: Record<string, unknown>) => d.statut === 'signe')
+    const enAttente = devisList.filter((d: Record<string, unknown>) => d.statut === 'brouillon' || d.statut === 'finalise')
+    return {
+      all,
+      envoyesCount: envoyes.length,
+      envoyesHT: envoyes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+      signesCount: signes.length,
+      signesHT: signes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+      attenteCount: enAttente.length,
+      attenteHT: enAttente.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+    }
+  }, [devisList])
+
+  // Filter & sort
+  const filtered = useMemo(() => {
+    let list = [...devisList] as Record<string, unknown>[]
+
+    // Status filter
+    if (filter !== 'Tous') {
+      const targetStatus = FILTER_TO_STATUS[filter]
+      if (targetStatus) {
+        list = list.filter((d) => d.statut === targetStatus)
+      }
+    }
+
+    // Search
     if (search) {
       const q = search.toLowerCase()
-      return (
-        d.numero.toLowerCase().includes(q) ||
-        d.client.toLowerCase().includes(q) ||
-        d.chantier.toLowerCase().includes(q)
-      )
+      list = list.filter((d) => {
+        const numero = ((d.numero as string) || '').toLowerCase()
+        const clientName = getClientName(d.client_id as string | null).toLowerCase()
+        const chantierName = getChantierTitre(d.chantier_id as string | null).toLowerCase()
+        return numero.includes(q) || clientName.includes(q) || chantierName.includes(q)
+      })
     }
-    return true
-  })
+
+    // Sort
+    if (sort === 'Date') {
+      list.sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
+    } else if (sort === 'Montant') {
+      list.sort((a, b) => Number(b.montant_ttc || 0) - Number(a.montant_ttc || 0))
+    } else if (sort === 'Client') {
+      list.sort((a, b) => getClientName(a.client_id as string | null).localeCompare(getClientName(b.client_id as string | null)))
+    }
+
+    return list
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisList, filter, search, sort, clientMap, chantierMap])
+
+  // Actions
+  async function handleDelete(id: string) {
+    if (!confirm('Supprimer ce devis ? Cette action est irreversible.')) return
+    try {
+      await deleteRow('devis', id)
+      refetchDevis()
+    } catch (err: unknown) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec de la suppression'))
+    }
+  }
+
+  async function handleDuplicate(devis: Record<string, unknown>) {
+    try {
+      const { id, created_at, updated_at, user_id, numero, ...rest } = devis
+      const newNumero = (numero as string) + '-copie'
+      await insertRow('devis', { ...rest, numero: newNumero, statut: 'brouillon' })
+      refetchDevis()
+    } catch (err: unknown) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec de la duplication'))
+    }
+  }
+
+  async function handleSend(devis: Record<string, unknown>) {
+    try {
+      await updateRow('devis', devis.id as string, { statut: 'envoye', date_envoi: new Date().toISOString() })
+      refetchDevis()
+    } catch (err: unknown) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec'))
+    }
+  }
+
+  const loading = loadingDevis || loadingClients
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
+        </div>
+        <LoadingSkeleton rows={6} />
+      </div>
+    )
+  }
+
+  if (errorDevis) {
+    return <ErrorBanner message={errorDevis} onRetry={refetchDevis} />
+  }
 
   return (
     <div className="space-y-6">
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<FileText size={20} />} label="Tous" value="24" accent="#5ab4e0" />
-        <StatCard icon={<Send size={20} />} label="Envoyés" value="8" sub="18 200 €" accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Signés" value="12" sub="42 300 €" accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="En attente" value="4" sub="9 800 €" accent="#e87a2a" />
+        <StatCard icon={<FileText size={20} />} label="Tous" value={String(stats.all)} accent="#5ab4e0" />
+        <StatCard icon={<Send size={20} />} label="Envoyes" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Signes" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="En attente" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
       </div>
 
       {/* Action bar */}
@@ -116,7 +250,7 @@ export default function DevisListPage() {
             onChange={(e) => setFilter(e.target.value)}
             className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none appearance-none bg-white cursor-pointer"
           >
-            {(FILTER_OPTIONS as string[]).map((opt) => (
+            {FILTER_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
@@ -152,7 +286,7 @@ export default function DevisListPage() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Numéro', 'Statut', 'Client / Chantier', 'Modifié', 'Date', 'Valable jusqu\'au', 'Total HT', 'Total TTC', 'Actions'].map((col) => (
+              {['Numero', 'Statut', 'Client / Chantier', 'Modifie', 'Date', 'Valable jusqu\'au', 'Total HT', 'Total TTC', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -163,78 +297,90 @@ export default function DevisListPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((devis, idx) => (
-              <tr
-                key={devis.id}
-                onClick={() => router.push(`/dashboard/devis/${devis.id}`)}
-                className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                }`}
-              >
-                <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
-                  {devis.numero}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[devis.statut]}`}>
-                    {devis.statut}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{devis.client}</div>
-                  <div className="text-xs font-manrope text-gray-500">{devis.chantier}</div>
-                </td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{devis.modifie}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{devis.date}</td>
-                <td className="px-4 py-3 text-sm font-manrope text-gray-600">{devis.valable}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{devis.totalHT}</td>
-                <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{devis.totalTTC}</td>
-                <td className="px-4 py-3">
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setOpenActions(openActions === devis.id ? null : devis.id)
-                      }}
-                      className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                    >
-                      <MoreHorizontal size={16} className="text-gray-500" />
-                    </button>
-                    {openActions === devis.id && (
-                      <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
-                        {[
-                          { label: 'Voir', icon: Eye },
-                          { label: 'Modifier', icon: Pencil },
-                          { label: 'Dupliquer', icon: Copy },
-                          { label: 'Envoyer', icon: SendHorizonal },
-                          { label: 'Supprimer', icon: Trash2, danger: true },
-                        ].map((action) => (
+            {filtered.map((devis, idx) => {
+              const statut = (devis.statut as DevisStatus) || 'brouillon'
+              return (
+                <tr
+                  key={devis.id as string}
+                  onClick={() => router.push(`/dashboard/devis/${devis.id}`)}
+                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
+                    {devis.numero as string}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[statut] || 'bg-gray-100 text-gray-600'}`}>
+                      {STATUS_LABELS[statut] || statut}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{getClientName(devis.client_id as string | null)}</div>
+                    <div className="text-xs font-manrope text-gray-500">{getChantierTitre(devis.chantier_id as string | null)}</div>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.updated_at as string)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_emission as string)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_validite as string)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatCurrency(devis.montant_ht as number)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</td>
+                  <td className="px-4 py-3">
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenActions(openActions === (devis.id as string) ? null : (devis.id as string))
+                        }}
+                        className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      >
+                        <MoreHorizontal size={16} className="text-gray-500" />
+                      </button>
+                      {openActions === (devis.id as string) && (
+                        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
                           <button
-                            key={action.label}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setOpenActions(null)
-                            }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors ${
-                              action.danger ? 'text-red-600' : 'text-[#1a1a2e]'
-                            }`}
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
                           >
-                            <action.icon size={14} />
-                            {action.label}
+                            <Eye size={14} /> Voir
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?edit=1`) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <Pencil size={14} /> Modifier
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDuplicate(devis) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <Copy size={14} /> Dupliquer
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleSend(devis) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+                          >
+                            <SendHorizonal size={14} /> Envoyer
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDelete(devis.id as string) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"
+                          >
+                            <Trash2 size={14} /> Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun devis trouvé</p>
+            <p className="text-sm font-manrope text-gray-500">Aucun devis trouve</p>
           </div>
         )}
       </div>

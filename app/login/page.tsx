@@ -174,7 +174,7 @@ function LoginForm() {
               {mode === 'login' && (
                 <div className="flex justify-end mt-1.5">
                   <Link
-                    href="#"
+                    href="/forgot-password"
                     className="text-xs text-sky font-manrope hover:underline"
                   >
                     Mot de passe oublié ?
