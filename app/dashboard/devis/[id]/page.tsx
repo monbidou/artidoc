@@ -259,8 +259,19 @@ export default function DevisDetailPage() {
             {/* Client */}
             <div className="mb-8 p-4 bg-gray-50 rounded-lg">
               <p className="text-xs font-manrope font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Client</p>
-              <p className="text-sm font-manrope text-[#1a1a2e] font-medium">{client?.nom ?? 'Non renseigné'}</p>
-              {client?.adresse && <p className="text-sm font-manrope text-[#6b7280]">{client.adresse}</p>}
+              {devis.notes_client ? (
+                <>
+                  <p className="text-sm font-manrope text-[#1a1a2e] font-medium">{devis.notes_client.split(' | ')[0]}</p>
+                  {devis.notes_client.split(' | ').slice(1).map((info: string, i: number) => (
+                    <p key={i} className="text-sm font-manrope text-[#6b7280]">{info}</p>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-manrope text-[#1a1a2e] font-medium">{client?.nom ?? 'Non renseigné'}</p>
+                  {client?.adresse && <p className="text-sm font-manrope text-[#6b7280]">{client.adresse}</p>}
+                </>
+              )}
             </div>
 
             {/* Table */}
