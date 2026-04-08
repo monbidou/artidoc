@@ -316,8 +316,8 @@ export default function DevisListPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{getClientName(devis.client_id as string | null)}</div>
-                    <div className="text-xs font-manrope text-gray-500">{getChantierTitre(devis.chantier_id as string | null)}</div>
+                    <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{(devis.notes_client as string)?.split(' | ')[0] || getClientName(devis.client_id as string | null)}</div>
+                    <div className="text-xs font-manrope text-gray-500">{(devis.objet as string) || (devis.description as string) || getChantierTitre(devis.chantier_id as string | null)}</div>
                   </td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.updated_at as string)}</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_emission as string)}</td>
@@ -344,16 +344,16 @@ export default function DevisListPage() {
                             <Eye size={14} /> Voir
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?edit=1`) }}
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}/modifier`) }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
                           >
                             <Pencil size={14} /> Modifier
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDuplicate(devis) }}
+                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?convert=1`) }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
                           >
-                            <Copy size={14} /> Dupliquer
+                            <FileText size={14} /> Convertir en facture
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleSend(devis) }}

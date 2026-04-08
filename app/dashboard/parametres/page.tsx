@@ -810,7 +810,7 @@ function SignatureSection({
         Ma signature
       </h2>
       <p className="font-manrope text-sm text-gray-500 mb-6">
-        Cette signature apparaîtra automatiquement sur vos devis et factures.
+        Cette signature apparaîtra automatiquement sur vos devis.
       </p>
 
       {/* Current saved signature */}
