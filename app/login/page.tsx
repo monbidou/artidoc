@@ -106,6 +106,7 @@ function LoginForm() {
             width={192}
             height={192}
             quality={100}
+            priority
             className="h-24 w-auto object-contain"
           />
           <span className="font-syne font-extrabold text-3xl text-navy">Artidoc</span>
