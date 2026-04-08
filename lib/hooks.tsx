@@ -65,7 +65,10 @@ function useSupabaseRecord<T>(table: string, id: string | null): SingleState<T> 
     async function fetch() {
       setLoading(true)
       const supabase = createClient()
-      const { data: row, error: err } = await supabase.from(table).select('*').eq('id', id).single()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setError('Non connecté'); setLoading(false); return }
+      // Double sécurité : filtre user_id côté client + RLS côté Supabase
+      const { data: row, error: err } = await supabase.from(table).select('*').eq('id', id).eq('user_id', user.id).single()
       if (err) { setError(err.message); setLoading(false); return }
       setData(row as T)
       setLoading(false)
@@ -89,14 +92,18 @@ async function insertRow(table: string, values: Record<string, unknown>) {
 
 async function updateRow(table: string, id: string, values: Record<string, unknown>) {
   const supabase = createClient()
-  const { data, error } = await supabase.from(table).update(values).eq('id', id).select().single()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const { data, error } = await supabase.from(table).update(values).eq('id', id).eq('user_id', user.id).select().single()
   if (error) throw new Error(error.message)
   return data
 }
 
 async function deleteRow(table: string, id: string) {
   const supabase = createClient()
-  const { error } = await supabase.from(table).delete().eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const { error } = await supabase.from(table).delete().eq('id', id).eq('user_id', user.id)
   if (error) throw new Error(error.message)
 }
 
