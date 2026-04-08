@@ -301,7 +301,8 @@ function NouveauDevisPage() {
     const numero = `D-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
 
     try {
-      const devis = await insertRow('devis', {
+      const clientDisplay = `${clientCivilite ? clientCivilite + ' ' : ''}${clientNom || ''}`.trim()
+      const devisData: Record<string, unknown> = {
         numero,
         statut,
         date_emission: dateDevis,
@@ -312,11 +313,12 @@ function NouveauDevisPage() {
         description: chantierDesc || null,
         conditions_paiement: conditionsStr,
         notes_internes: notes || null,
-        notes_client: `${clientCivilite ? clientCivilite + ' ' : ''}${clientNom || ''}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
+        notes_client: `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
         montant_ht: totalHT,
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
-      })
+      }
+      const devis = await insertRow('devis', devisData)
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i]
         if (l.type !== 'line' && !l.designation) continue
