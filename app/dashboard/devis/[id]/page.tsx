@@ -11,10 +11,14 @@ import {
   SendHorizonal,
   Download,
   FileText,
+  Trash2,
 } from 'lucide-react'
 import {
   useSupabaseRecord,
   useDevisLignes,
+  useEntreprise,
+  insertRow,
+  deleteRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
 
@@ -86,7 +90,50 @@ export default function DevisDetailPage() {
   const { data: lignesRaw, loading: loadingLignes } = useDevisLignes(id)
   const { data: client, loading: loadingClient } = useSupabaseRecord<ClientRecord>('clients', devis?.client_id ?? null)
 
+  const { entreprise } = useEntreprise()
   const [actionsOpen, setActionsOpen] = useState(false)
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
+
+  async function handleConvertToFacture() {
+    if (!devis) return
+    try {
+      const now = new Date()
+      const numero = `F-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
+      const facture = await insertRow('factures', {
+        client_id: devis.client_id || null,
+        devis_id: devis.id,
+        numero,
+        statut: 'brouillon',
+        montant_ht: totalHT,
+        montant_tva: totalTVA,
+        montant_ttc: totalTTC,
+      })
+      // Copy lignes
+      for (const l of lignes) {
+        await insertRow('facture_lignes', {
+          facture_id: (facture as { id: string }).id,
+          designation: l.designation,
+          quantite: l.quantite,
+          unite: l.unite,
+          prix_unitaire_ht: l.prix_unitaire_ht,
+          ordre: l.ordre,
+        })
+      }
+      router.push(`/dashboard/factures/${(facture as { id: string }).id}`)
+    } catch (err) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
+    }
+  }
+
+  async function handleDeleteDevis() {
+    if (!devis || !confirm('Supprimer ce devis ? Cette action est irréversible.')) return
+    try {
+      await deleteRow('devis', devis.id)
+      router.push('/dashboard/devis')
+    } catch (err) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
+    }
+  }
 
   const loading = loadingDevis || loadingLignes || loadingClient
 
@@ -98,6 +145,8 @@ export default function DevisDetailPage() {
     )
   }
 
+  const lignes = (lignesRaw ?? []) as unknown as LigneRecord[]
+
   if (!devis) {
     return (
       <div className="min-h-screen p-6">
@@ -108,8 +157,6 @@ export default function DevisDetailPage() {
       </div>
     )
   }
-
-  const lignes = lignesRaw as unknown as LigneRecord[]
 
   // Computations
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
@@ -154,16 +201,15 @@ export default function DevisDetailPage() {
           {actionsOpen && (
             <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20">
               {[
-                { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`) },
-                { label: 'Dupliquer', icon: Copy, action: () => {} },
-                { label: 'Envoyer', icon: SendHorizonal, action: () => {} },
-                { label: 'Télécharger PDF', icon: Download, action: () => {} },
-                { label: 'Transformer en facture', icon: FileText, action: () => {} },
+                { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
+                { label: 'Convertir en facture', icon: FileText, action: handleConvertToFacture, danger: false },
+                { label: 'Envoyer par email', icon: SendHorizonal, action: () => { setToastMsg('Fonctionnalité bientôt disponible'); setTimeout(() => setToastMsg(null), 3000) }, danger: false },
+                { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
               ].map((action) => (
                 <button
                   key={action.label}
                   onClick={() => { action.action(); setActionsOpen(false) }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope text-[#1a1a2e] hover:bg-gray-50 transition-colors"
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors ${action.danger ? 'text-red-600' : 'text-[#1a1a2e]'}`}
                 >
                   <action.icon size={14} className="text-[#6b7280]" />
                   {action.label}
@@ -182,18 +228,22 @@ export default function DevisDetailPage() {
             {/* Company / Devis header */}
             <div className="flex justify-between items-start mb-10">
               <div>
-                <h2 className="font-syne font-bold text-xl text-[#0f1a3a]">SARL Plomberie Martin</h2>
+                {Boolean(entreprise?.logo_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise?.logo_url as string} alt="Logo" className="h-12 w-auto object-contain mb-2" />
+                )}
+                <h2 className="font-syne font-bold text-xl text-[#0f1a3a]">{(entreprise?.nom as string) || 'Mon Entreprise'}</h2>
                 <p className="text-sm font-manrope text-[#6b7280] mt-1 leading-relaxed">
-                  15 rue des Artisans<br />
-                  33000 Bordeaux<br />
-                  SIRET : 123 456 789 00012<br />
-                  Tél. : 05 56 00 00 00
+                  {Boolean(entreprise?.adresse) && <>{entreprise?.adresse as string}<br /></>}
+                  {Boolean(entreprise?.code_postal || entreprise?.ville) && <>{entreprise?.code_postal as string} {entreprise?.ville as string}<br /></>}
+                  {Boolean(entreprise?.siret) && <>SIRET : {entreprise?.siret as string}<br /></>}
+                  {Boolean(entreprise?.telephone) && <>Tél. : {entreprise?.telephone as string}</>}
                 </p>
               </div>
               <div className="text-right">
                 <h3 className="font-syne font-bold text-lg text-[#0f1a3a]">DEVIS N° {devis.numero}</h3>
                 <p className="text-sm font-manrope text-[#6b7280] mt-1">
-                  Date : {formatDate(devis.date_devis || devis.created_at)}<br />
+                  Date : {formatDate(devis.created_at || devis.created_at)}<br />
                   {devis.date_validite && <>Validité : {formatDate(devis.date_validite)}<br /></>}
                   <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${statutStyle}`}>{devis.statut}</span>
                 </p>
@@ -316,6 +366,21 @@ export default function DevisDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Signature + Tampon (devis uniquement) */}
+      {(Boolean(entreprise?.signature_base64) || Boolean(entreprise?.logo_url)) && (
+        <div className="bg-white shadow-xl rounded-xl p-8 mt-6 flex justify-end gap-8">
+          {Boolean(entreprise?.signature_base64) && (
+            <div className="text-center">
+              <p className="text-xs font-manrope text-[#6b7280] mb-2">Signature</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={entreprise?.signature_base64 as string} alt="Signature" className="h-16 w-auto object-contain" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {toastMsg && <div className="fixed bottom-6 right-6 bg-[#1a1a2e] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-manrope z-50">{toastMsg}</div>}
     </div>
   )
 }
