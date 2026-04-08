@@ -10,23 +10,23 @@ interface EmptyDashboardProps {
 const actionCards = [
   {
     icon: '📄',
-    title: 'Créer mon premier devis',
+    title: 'Nouveau devis',
     href: '/dashboard/devis/nouveau',
   },
   {
+    icon: '🧾',
+    title: 'Nouvelle facture',
+    href: '/dashboard/factures/nouveau',
+  },
+  {
     icon: '👤',
-    title: 'Ajouter un client',
-    href: '/dashboard/clients?new=true',
+    title: 'Nouveau client',
+    href: '/dashboard/clients/nouveau',
   },
   {
-    icon: '⬇️',
-    title: 'Importer mes données',
-    href: '/dashboard/import',
-  },
-  {
-    icon: '⚙️',
-    title: 'Configurer mon profil',
-    href: '/dashboard/parametres',
+    icon: '📅',
+    title: 'Planning',
+    href: '/dashboard/planning',
   },
 ]
 
@@ -43,7 +43,7 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
         />
 
         <h1 className="font-syne font-extrabold text-2xl text-[#1a1a2e] mt-6">
-          Bienvenue sur NexArtis, {userName || 'et bienvenue'} !
+          Bienvenue sur NexArtis{userName ? `, ${userName}` : ''} !
         </h1>
 
         <p className="font-manrope text-[#6b7280] mt-2">
@@ -51,7 +51,7 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
         </p>
 
         <p className="font-syne font-semibold text-[#1a1a2e] mt-6">
-          Pour commencer, que souhaitez-vous faire ?
+          Que souhaitez-vous faire ?
         </p>
 
         <div className="grid grid-cols-2 gap-4 mt-8">
@@ -67,15 +67,6 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
               </p>
             </Link>
           ))}
-        </div>
-
-        <div className="mt-8 text-center">
-          <Link
-            href="/dashboard?demo=true"
-            className="text-sm text-[#5ab4e0] hover:underline"
-          >
-            Ou découvrir NexArtis avec des données de démonstration →
-          </Link>
         </div>
       </div>
     </div>

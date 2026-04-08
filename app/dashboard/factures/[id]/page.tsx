@@ -34,12 +34,17 @@ interface FactureRecord {
   statut: string
   client_id: string
   chantier_id?: string
-  date_facture?: string
+  date_emission?: string
   date_echeance?: string
-  total_ht?: number
-  total_tva?: number
-  total_ttc?: number
-  total_paye?: number
+  montant_ht?: number
+  montant_tva?: number
+  montant_ttc?: number
+  montant_paye?: number
+  notes?: string
+  client_nom?: string
+  client_adresse?: string
+  client_telephone?: string
+  client_email?: string
   created_at: string
   updated_at?: string
 }
@@ -109,10 +114,10 @@ export default function FactureDetailPage() {
   }
 
   const lignes = lignesRaw as unknown as LigneRecord[]
-  const totalHT = facture.total_ht ?? lignes.reduce((s, l) => s + (l.total_ht ?? 0), 0)
-  const totalTVA = facture.total_tva ?? 0
-  const totalTTC = facture.total_ttc ?? totalHT + totalTVA
-  const totalPaye = facture.total_paye ?? 0
+  const totalHT = facture.montant_ht ?? lignes.reduce((s, l) => s + (l.total_ht ?? 0), 0)
+  const totalTVA = facture.montant_tva ?? 0
+  const totalTTC = facture.montant_ttc ?? totalHT + totalTVA
+  const totalPaye = facture.montant_paye ?? 0
   const resteAPayer = totalTTC - totalPaye
   const paymentPercent = totalTTC > 0 ? Math.round((totalPaye / totalTTC) * 100) : 0
 
@@ -150,7 +155,7 @@ export default function FactureDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors">
+          <button onClick={() => window.print()} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors">
             <Download size={14} />
             Télécharger PDF
           </button>
@@ -189,7 +194,7 @@ export default function FactureDetailPage() {
               <div className="text-right">
                 <h3 className="text-2xl font-syne font-bold text-[#0f1a3a]">FACTURE</h3>
                 <p className="text-sm font-manrope text-gray-600 mt-1">N° {facture.numero}</p>
-                <p className="text-sm font-manrope text-gray-600">Date : {formatDate(facture.date_facture || facture.created_at)}</p>
+                <p className="text-sm font-manrope text-gray-600">Date : {formatDate(facture.date_emission || facture.created_at)}</p>
                 {facture.date_echeance && (
                   <p className="text-sm font-manrope text-gray-600">Échéance : {formatDate(facture.date_echeance)}</p>
                 )}
@@ -199,7 +204,7 @@ export default function FactureDetailPage() {
             {/* Client */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <p className="text-xs font-manrope text-gray-500 uppercase tracking-wider mb-1">Facturé à</p>
-              <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">{client?.nom ?? 'N/A'}</p>
+              <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">{client?.nom || facture?.client_nom || 'Non renseigné'}</p>
               {client?.adresse && <p className="text-sm font-manrope text-gray-600">{client.adresse}</p>}
             </div>
 
@@ -248,11 +253,13 @@ export default function FactureDetailPage() {
             </div>
 
             {/* Payment info */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <p className="text-xs font-manrope text-gray-500">
-                Conditions de règlement : 30 jours date de facture. En cas de retard de paiement, une pénalité de 3 fois le taux d&apos;intérêt légal sera appliquée.
-              </p>
-            </div>
+            {facture.notes && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <p className="text-xs font-manrope text-gray-500 whitespace-pre-wrap">
+                  {facture.notes}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -267,7 +274,7 @@ export default function FactureDetailPage() {
                 <Calendar size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-manrope text-gray-500">Date de facture</p>
-                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatDate(facture.date_facture || facture.created_at)}</p>
+                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatDate(facture.date_emission || facture.created_at)}</p>
                 </div>
               </div>
               {facture.date_echeance && (
@@ -283,7 +290,7 @@ export default function FactureDetailPage() {
                 <User size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-manrope text-gray-500">Client</p>
-                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{client?.nom ?? 'N/A'}</p>
+                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{client?.nom || facture?.client_nom || 'Non renseigné'}</p>
                 </div>
               </div>
               {client?.adresse && (

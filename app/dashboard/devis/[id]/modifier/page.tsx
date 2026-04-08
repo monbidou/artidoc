@@ -10,7 +10,7 @@ interface LineItem { id: number; designation: string; qty: number; unit: string;
 interface DevisRecord { id: string; numero: string; statut: string; date_emission?: string; date_validite?: string; date_debut_travaux?: string; duree_estimee?: string; description?: string; objet?: string; conditions_paiement?: string; notes_internes?: string; notes_client?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number }
 interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number }
 
-const UNIT_SUGGESTIONS = ['U', 'h', 'm²', 'm', 'ml', 'm³', 'kg', 'forfait', 'jour', '1/2 journée']
+const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
 let nextId = 1000
 
 function formatCurrency(n: number): string {

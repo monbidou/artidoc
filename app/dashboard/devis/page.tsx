@@ -336,7 +336,7 @@ export default function DevisListPage() {
                         <MoreHorizontal size={16} className="text-gray-500" />
                       </button>
                       {openActions === (devis.id as string) && (
-                        <div className="absolute right-0 bottom-full mb-1 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
+                        <div className="absolute right-0 top-8 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"

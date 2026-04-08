@@ -107,6 +107,7 @@ export default function DevisDetailPage() {
         montant_ht: totalHT,
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
+        notes: devis.conditions_paiement || null,
       })
       // Copy lignes
       for (const l of lignes) {

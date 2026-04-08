@@ -27,7 +27,7 @@ interface ChantierRecord { id: string; nom: string; description?: string }
 // Constants
 // -------------------------------------------------------------------
 
-const UNIT_SUGGESTIONS = ['U', 'h', 'm²', 'm', 'ml', 'm³', 'kg', 'forfait', 'jour', '1/2 journée']
+const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
 const TVA_RATES = [0, 5.5, 10, 20]
 
 const PAYMENT_OPTIONS = [
