@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexartis — Logiciel devis facture artisan | 25€/mois</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0f1a3a;
+    --navy-mid: #1a2d5a;
+    --navy-dark: #0d1525;
+    --sky: #5ab4e0;
+    --sky-dark: #2d8bc9;
+    --sky-pale: #eef7fc;
+    --orange: #e87a2a;
+    --orange-light: #f09050;
+    --green: #22c55e;
+    --green-dark: #16a34a;
+    --violet: #7c3aed;
+    --gold: #f5c842;
+    --red: #ef4444;
+    --muted: #7b8ba3;
+    --muted-light: #a8b5c5;
+    --border: #e6ecf2;
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --text: #0f1a3a;
+    --text-2: #445068;
+    --radius: 20px;
+    --radius-sm: 14px;
+    --shadow: 0 1px 2px rgba(15,26,58,0.02), 0 4px 16px rgba(15,26,58,0.045);
+    --shadow-hover: 0 2px 6px rgba(15,26,58,0.06), 0 12px 32px rgba(15,26,58,0.08);
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    font-size: 15px;
+    line-height: 1.6;
+    background: #fff;
+    overflow-x: hidden;
+  }
+
+  /* ═══════ ANIMATIONS ═══════ */
+  .reveal { opacity: 0; transform: translateY(24px); transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal-d1 { transition-delay: 0.1s; }
+  .reveal-d2 { transition-delay: 0.2s; }
+  .reveal-d3 { transition-delay: 0.3s; }
+  .reveal-d4 { transition-delay: 0.4s; }
+  .reveal-d5 { transition-delay: 0.5s; }
+
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+  @keyframes pulse-ring { 0% { transform: scale(1); opacity:.5; } 100% { transform: scale(1.4); opacity:0; } }
+
+  /* ═══════ HEADER ═══════ */
+  .header {
+    position: fixed; top:0; left:0; right:0; z-index:100;
+    height: 72px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: box-shadow 0.3s;
+  }
+  .header.scrolled { box-shadow: 0 2px 20px rgba(15,26,58,0.06); }
+  .header-logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+  .header-logo img { height:56px; object-fit:contain; }
+  .header-logo span { font-weight:800; font-size:22px; letter-spacing:-0.02em; }
+  .header-logo .nex { color:#1a6fb5; }
+  .header-logo .artis { color:var(--orange); }
+  .header-nav { display:flex; align-items:center; gap:32px; }
+  .header-nav a { font-size:14px; font-weight:600; color:var(--text-2); text-decoration:none; transition:color 0.2s; }
+  .header-nav a:hover { color:var(--navy); }
+  .header-cta { display:flex; align-items:center; gap:12px; }
+  .header-cta .login { font-size:14px; font-weight:700; color:var(--navy); text-decoration:none; padding:10px 20px; border-radius:12px; transition:background 0.2s; }
+  .header-cta .login:hover { background:var(--bg); }
+  .btn-orange {
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:inherit; font-size:14px; font-weight:700; color:#fff;
+    background:linear-gradient(135deg,var(--orange),var(--orange-light));
+    padding:10px 24px; border-radius:12px; text-decoration:none; border:none; cursor:pointer;
+    transition:all 0.3s cubic-bezier(0.22,1,0.36,1);
+    box-shadow:0 4px 16px rgba(232,122,42,0.25);
+  }
+  .btn-orange:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(232,122,42,0.35); }
+
+  /* ═══════ HERO ═══════ */
+  .hero {
+    padding:140px 40px 80px;
+    background:linear-gradient(165deg,var(--navy) 0%,var(--navy-dark) 55%,#0a1128 100%);
+    position:relative; overflow:hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; top:-200px; right:-100px;
+    width:600px; height:600px; border-radius:50%;
+    background:radial-gradient(circle,rgba(90,180,224,0.08) 0%,transparent 70%);
+  }
+  .hero::after {
+    content:''; position:absolute; bottom:-150px; left:-50px;
+    width:400px; height:400px; border-radius:50%;
+    background:radial-gradient(circle,rgba(232,122,42,0.06) 0%,transparent 70%);
+  }
+  .hero-inner { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; position:relative; z-index:1; }
+
+  .hero-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(245,200,66,0.12); border:1px solid rgba(245,200,66,0.2);
+    color:var(--gold); font-size:13px; font-weight:700;
+    padding:8px 18px; border-radius:50px; margin-bottom:28px; letter-spacing:0.02em;
+  }
+  .hero-badge svg { width:14px; height:14px; }
+  .hero h1 { font-size:52px; font-weight:800; color:#fff; letter-spacing:-0.035em; line-height:1.1; margin-bottom:8px; }
+  .hero h1 .price { color:var(--sky); }
+  .hero-sub { font-size:18px; color:rgba(255,255,255,0.6); font-weight:500; line-height:1.65; max-width:480px; margin-top:20px; }
+  .hero-btns { display:flex; gap:14px; margin-top:36px; flex-wrap:wrap; }
+  .btn-hero-primary {
+    display:inline-flex; align-items:center; gap:10px;
+    background:linear-gradient(135deg,var(--orange),var(--orange-light));
+    color:#fff; font-family:inherit; font-weight:700; font-size:16px;
+    padding:16px 32px; border-radius:16px; border:none; cursor:pointer;
+    transition:all 0.3s cubic-bezier(0.22,1,0.36,1);
+    box-shadow:0 4px 20px rgba(232,122,42,0.3);
+  }
+  .btn-hero-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(232,122,42,0.4); }
+  .btn-hero-secondary {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+    color:#fff; font-family:inherit; font-weight:600; font-size:15px;
+    padding:14px 28px; border-radius:16px; cursor:pointer; transition:all 0.25s;
+  }
+  .btn-hero-secondary:hover { background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.25); }
+  .hero-note { font-size:13px; color:rgba(255,255,255,0.35); margin-top:16px; font-weight:500; }
+
+  /* Mockup */
+  .hero-mockup { position:relative; animation:float 6s ease-in-out infinite; }
+  .mockup-window {
+    background:rgba(26,45,90,0.6); border:1px solid rgba(255,255,255,0.08);
+    border-radius:20px; overflow:hidden; backdrop-filter:blur(10px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.05);
+  }
+  .mockup-bar { height:40px; background:rgba(0,0,0,0.15); display:flex; align-items:center; padding:0 16px; gap:8px; }
+  .mockup-dot { width:10px; height:10px; border-radius:50%; }
+  .mockup-body { padding:24px; }
+  .mockup-kpi-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .mockup-kpi { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:16px; }
+  .mockup-kpi-dot { width:8px; height:8px; border-radius:50%; margin-bottom:10px; }
+  .mockup-kpi-val { font-size:24px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; letter-spacing:-0.03em; }
+  .mockup-kpi-label { font-size:11px; color:rgba(255,255,255,0.4); font-weight:600; margin-top:4px; }
+  .mockup-card {
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.06);
+    border-radius:14px; padding:20px; margin-bottom:14px; transition:all 0.3s;
+  }
+  .mockup-card:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.12); }
+  .mockup-card-label { font-size:12px; color:rgba(255,255,255,0.4); font-weight:600; margin-bottom:8px; }
+  .mockup-card-title { font-size:18px; font-weight:800; color:#fff; margin-bottom:12px; }
+  .mockup-planning-item {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 14px; border-radius:10px; margin-bottom:8px; transition:transform 0.2s;
+  }
+  .mockup-planning-item:hover { transform:translateX(3px); }
+  .mockup-planning-bar { width:3px; height:28px; border-radius:99px; flex-shrink:0; }
+  .mockup-planning-text { font-size:13px; color:#fff; font-weight:600; }
+  .mockup-planning-sub { font-size:11px; color:rgba(255,255,255,0.4); font-weight:500; margin-top:2px; }
+  .mockup-bar-track { height:6px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; }
+  .mockup-bar-fill { height:100%; border-radius:99px; width:0%; transition:width 1.5s cubic-bezier(0.22,1,0.36,1); }
+  .mockup-bar-fill::after {
+    content:''; display:block; width:50%; height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+    animation:shimmer 2.5s ease-in-out infinite 2s;
+  }
+
+  /* ═══════ TRUST BAR ═══════ */
+  .trust {
+    background:var(--bg); padding:28px 40px;
+    display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+    gap:32px; border-bottom:1px solid var(--border);
+  }
+  .trust-item { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--text-2); }
+  .trust-check { width:20px; height:20px; border-radius:6px; background:rgba(34,197,94,0.1); color:var(--green); display:flex; align-items:center; justify-content:center; }
+  .trust-check svg { width:12px; height:12px; }
+
+  /* ═══════ SECTION COMMON ═══════ */
+  .section { padding:100px 40px; }
+  .section-inner { max-width:1200px; margin:0 auto; }
+  .section-header { text-align:center; margin-bottom:60px; }
+  .section-header h2 { font-size:38px; font-weight:800; letter-spacing:-0.03em; color:var(--navy); margin-bottom:14px; }
+  .section-header p { font-size:17px; color:var(--muted); font-weight:500; max-width:560px; margin:0 auto; }
+  .section-tag {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; padding:6px 16px; border-radius:50px; margin-bottom:20px;
+  }
+
+  /* ═══════ PROBLEM / AVANTAGES ═══════ */
+  .advantages-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+  .advantage-card {
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:36px 30px; transition:all 0.3s; box-shadow:var(--shadow);
+  }
+  .advantage-card:hover { box-shadow:var(--shadow-hover); transform:translateY(-3px); }
+  .advantage-icon {
+    width:52px; height:52px; border-radius:16px;
+    display:flex; align-items:center; justify-content:center; margin-bottom:22px;
+  }
+  .advantage-icon svg { width:24px; height:24px; }
+  .advantage-card h3 { font-size:18px; font-weight:800; color:var(--navy); margin-bottom:10px; letter-spacing:-0.01em; }
+  .advantage-card p { font-size:14px; color:var(--muted); font-weight:500; line-height:1.65; }
+
+  /* ═══════ FEATURES (dark) ═══════ */
+  .features-section { background:var(--navy); color:#fff; }
+  .features-section .section-header h2 { color:#fff; }
+  .features-section .section-header p { color:rgba(255,255,255,0.5); }
+  .features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .feature-card {
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+    border-radius:var(--radius); padding:32px 28px;
+    transition:all 0.3s; display:flex; flex-direction:column;
+  }
+  .feature-card:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.12); transform:translateY(-2px); }
+  .feature-card.exclusive {
+    border-color:rgba(245,200,66,0.3);
+    background:linear-gradient(135deg,rgba(245,200,66,0.06) 0%,rgba(255,255,255,0.04) 100%);
+    box-shadow:0 0 30px rgba(245,200,66,0.06);
+  }
+  .feature-icon {
+    width:48px; height:48px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center; margin-bottom:20px;
+  }
+  .feature-icon svg { width:22px; height:22px; }
+  .feature-tag {
+    display:inline-block; font-size:11px; font-weight:700;
+    padding:4px 12px; border-radius:8px; margin-bottom:16px; width:fit-content;
+  }
+  .feature-card h3 { font-size:17px; font-weight:800; color:#fff; margin-bottom:8px; letter-spacing:-0.01em; }
+  .feature-card p { font-size:13px; color:rgba(255,255,255,0.5); font-weight:500; line-height:1.65; flex:1; }
+
+  /* ═══════ PLANNING DEMO ═══════ */
+  .planning-section { background:linear-gradient(165deg,var(--navy) 0%,var(--navy-dark) 100%); color:#fff; }
+  .planning-section .section-header h2 { color:#fff; }
+  .planning-section .section-header p { color:rgba(255,255,255,0.5); }
+  .planning-demo {
+    background:rgba(13,21,37,0.7); border:1px solid rgba(255,255,255,0.08);
+    border-radius:var(--radius); overflow:hidden; backdrop-filter:blur(10px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.2); max-width:960px; margin:0 auto;
+  }
+  .planning-topbar { height:44px; background:rgba(0,0,0,0.2); display:flex; align-items:center; padding:0 18px; gap:8px; }
+  .planning-topbar-label { margin-left:12px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.35); }
+  .planning-grid-wrap { overflow-x:auto; padding:16px; }
+  .planning-grid { display:grid; grid-template-columns:80px repeat(5,1fr); gap:1px; min-width:640px; }
+  .planning-day-label { font-size:12px; font-weight:700; text-align:center; color:rgba(255,255,255,0.5); padding:8px 4px; text-transform:uppercase; letter-spacing:0.06em; }
+  .planning-day-label.current { color:#fff; background:rgba(90,180,224,0.15); border-radius:8px; }
+  .planning-row-label { font-size:11px; font-weight:600; color:rgba(255,255,255,0.35); display:flex; align-items:center; padding:4px 8px; }
+  .planning-cell {
+    border-radius:10px; padding:10px; min-height:56px;
+    font-size:11px; font-weight:600; color:#fff; transition:all 0.2s; cursor:default;
+  }
+  .planning-cell:hover { transform:scale(1.03); }
+  .planning-cell .poseur { opacity:0.7; font-size:10px; }
+  .planning-cell .client { font-weight:700; font-size:12px; margin-top:2px; }
+  .planning-cell .objet { opacity:0.8; font-size:10px; font-style:italic; margin-top:1px; }
+  .planning-empty { min-height:56px; border:1px dashed rgba(255,255,255,0.12); border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .planning-empty span { font-size:10px; color:rgba(255,255,255,0.25); }
+  .planning-conflict-banner {
+    border-bottom:1px solid rgba(239,68,68,0.3);
+    background:linear-gradient(90deg,rgba(239,68,68,0.15),rgba(232,122,42,0.15));
+    padding:12px 18px; text-align:center; font-size:13px; font-weight:600; color:#fff; display:none;
+  }
+  .planning-conflict-banner.active { display:block; }
+  .planning-cell.conflict { box-shadow:0 0 0 2px var(--red), 0 0 16px rgba(239,68,68,0.3); }
+  .planning-actions { display:flex; justify-content:center; gap:12px; padding:16px; border-top:1px solid rgba(255,255,255,0.08); }
+
+  .planning-advantages { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:40px; max-width:960px; margin-left:auto; margin-right:auto; }
+  .planning-adv {
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:var(--radius-sm); padding:22px; display:flex; gap:14px; align-items:flex-start; transition:all 0.2s;
+  }
+  .planning-adv:hover { background:rgba(255,255,255,0.05); }
+  .planning-adv-icon { width:36px; height:36px; border-radius:10px; background:rgba(90,180,224,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .planning-adv-icon svg { width:16px; height:16px; stroke:var(--sky); }
+  .planning-adv h4 { font-size:14px; font-weight:700; color:#fff; margin-bottom:4px; }
+  .planning-adv p { font-size:12px; color:rgba(255,255,255,0.45); font-weight:500; }
+
+  /* ═══════ PRICING ═══════ */
+  .pricing-section { background:var(--bg); }
+  .pricing-card {
+    max-width:820px; margin:0 auto;
+    background:var(--navy); border-radius:28px;
+    padding:56px; color:#fff; position:relative; overflow:hidden;
+    box-shadow:0 20px 60px rgba(15,26,58,0.3);
+  }
+  .pricing-card::before {
+    content:''; position:absolute; top:-80px; right:-80px;
+    width:250px; height:250px; border-radius:50%;
+    background:radial-gradient(circle,rgba(90,180,224,0.1) 0%,transparent 70%);
+  }
+  .pricing-card .sub { font-size:14px; color:rgba(255,255,255,0.5); font-weight:500; margin-bottom:20px; text-align:center; }
+  .pricing-price { font-size:72px; font-weight:800; letter-spacing:-0.04em; line-height:1; margin-bottom:6px; text-align:center; font-variant-numeric:tabular-nums; }
+  .pricing-price .unit { font-size:20px; font-weight:600; color:rgba(255,255,255,0.5); margin-left:4px; }
+  .pricing-terms { font-size:14px; color:rgba(255,255,255,0.4); margin-bottom:40px; text-align:center; }
+  .pricing-features { display:grid; grid-template-columns:1fr 1fr; gap:12px 32px; margin-bottom:40px; position:relative; z-index:1; }
+  .pricing-feat { display:flex; align-items:center; gap:10px; font-size:14px; color:rgba(255,255,255,0.75); font-weight:500; }
+  .pricing-feat svg { width:16px; height:16px; stroke:var(--green); flex-shrink:0; }
+  .pricing-btn {
+    display:block; width:100%; text-align:center;
+    background:linear-gradient(135deg,var(--orange),var(--orange-light));
+    color:#fff; font-family:inherit; font-size:17px; font-weight:700;
+    padding:18px; border-radius:16px; border:none; cursor:pointer;
+    transition:all 0.3s; text-decoration:none;
+    box-shadow:0 4px 20px rgba(232,122,42,0.3); position:relative; z-index:1;
+  }
+  .pricing-btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(232,122,42,0.4); }
+  .pricing-note { text-align:center; font-size:13px; color:rgba(255,255,255,0.35); margin-top:16px; position:relative; z-index:1; }
+
+  /* ═══════ FAQ ═══════ */
+  .faq-list { max-width:760px; margin:0 auto; }
+  .faq-item { border-bottom:1px solid var(--border); }
+  .faq-q {
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    padding:22px 0; background:none; border:none; cursor:pointer;
+    font-family:inherit; font-size:17px; font-weight:700; color:var(--navy);
+    text-align:left; transition:color 0.2s;
+  }
+  .faq-q:hover { color:var(--sky-dark); }
+  .faq-icon {
+    width:32px; height:32px; border-radius:10px; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:all 0.3s; font-size:18px; color:var(--muted); margin-left:16px;
+  }
+  .faq-item.open .faq-icon { background:var(--sky); color:#fff; transform:rotate(45deg); }
+  .faq-a { max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.22,1,0.36,1); }
+  .faq-a-inner { padding:0 0 22px; font-size:15px; color:var(--muted); line-height:1.7; font-weight:500; }
+
+  /* ═══════ CTA ═══════ */
+  .cta-section {
+    background:linear-gradient(165deg,var(--navy) 0%,var(--navy-dark) 100%);
+    padding:100px 40px; text-align:center; color:#fff;
+    position:relative; overflow:hidden;
+  }
+  .cta-section::before {
+    content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:600px; height:600px; border-radius:50%;
+    background:radial-gradient(circle,rgba(232,122,42,0.06) 0%,transparent 70%);
+  }
+  .cta-section h2 { font-size:42px; font-weight:800; letter-spacing:-0.03em; margin-bottom:16px; position:relative; }
+  .cta-section .cta-sub { font-size:18px; color:rgba(255,255,255,0.5); max-width:480px; margin:0 auto 36px; position:relative; }
+  .cta-form { display:flex; max-width:540px; margin:0 auto; gap:12px; position:relative; flex-wrap:wrap; }
+  .cta-form input {
+    flex:1; min-width:200px; height:56px; border-radius:16px; border:none; padding:0 24px;
+    font-family:inherit; font-size:16px; color:var(--navy); background:#fff; outline:none;
+  }
+  .cta-form input:focus { box-shadow:0 0 0 3px rgba(90,180,224,0.4); }
+  .cta-form button { height:56px; padding:0 32px; }
+  .cta-note { font-size:13px; color:rgba(255,255,255,0.35); margin-top:20px; position:relative; font-weight:500; }
+
+  /* ═══════ FOOTER ═══════ */
+  .footer { background:var(--navy); color:rgba(255,255,255,0.6); padding:60px 40px 30px; border-top:1px solid rgba(255,255,255,0.06); }
+  .footer-inner { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:40px; }
+  .footer-brand span { font-size:22px; font-weight:800; color:#fff; }
+  .footer-brand p { font-size:13px; margin-top:12px; line-height:1.6; }
+  .footer h4 { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.35); margin-bottom:16px; }
+  .footer a { display:block; font-size:13px; color:rgba(255,255,255,0.55); text-decoration:none; padding:4px 0; transition:color 0.15s; }
+  .footer a:hover { color:var(--orange); }
+  .footer-bottom { max-width:1200px; margin:40px auto 0; padding-top:24px; border-top:1px solid rgba(255,255,255,0.06); font-size:12px; color:rgba(255,255,255,0.3); text-align:center; }
+
+  /* ═══════ RESPONSIVE ═══════ */
+  @media (max-width:1024px) {
+    .hero-inner { grid-template-columns:1fr; text-align:center; }
+    .hero h1 { font-size:38px; }
+    .hero-sub { margin:16px auto 0; }
+    .hero-btns { justify-content:center; }
+    .hero-note { text-align:center; }
+    .hero-mockup { max-width:500px; margin:0 auto; }
+    .advantages-grid, .features-grid { grid-template-columns:1fr 1fr; }
+    .planning-advantages { grid-template-columns:1fr; }
+    .footer-inner { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:640px) {
+    .header { padding:0 20px; height:64px; }
+    .header-nav { display:none; }
+    .header-cta .login { display:none; }
+    .section { padding:60px 20px; }
+    .hero { padding:110px 20px 50px; }
+    .hero h1 { font-size:30px; }
+    .advantages-grid, .features-grid { grid-template-columns:1fr; }
+    .pricing-card { padding:32px 24px; }
+    .pricing-price { font-size:56px; }
+    .pricing-features { grid-template-columns:1fr; }
+    .section-header h2 { font-size:28px; }
+    .cta-section h2 { font-size:28px; }
+    .cta-form { flex-direction:column; }
+    .footer-inner { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ HEADER ═══════ -->
+<header class="header" id="header">
+  <a href="#" class="header-logo">
+    <img src="public/images/logo-nexartis.png" alt="Nexartis">
+    <span><span class="nex">Nex</span><span class="artis">artis</span></span>
+  </a>
+  <nav class="header-nav">
+    <a href="#fonctionnalites">Fonctionnalités</a>
+    <a href="#tarifs">Tarifs</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="header-cta">
+    <a href="#" class="login">Se connecter</a>
+    <a href="#" class="btn-orange">Essai gratuit</a>
+  </div>
+</header>
+
+<!-- ═══════ HERO ═══════ -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge reveal">
+        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Conçu en Gironde · Pour les artisans de toute la France
+      </div>
+      <h1 class="reveal reveal-d1">Tous vos outils artisan.<br>Un seul prix.<br><span class="price">25€/mois.</span></h1>
+      <p class="hero-sub reveal reveal-d2">Devis, factures, planning et suivi financier — réunis dans une seule application, pensée pour tous les artisans.</p>
+      <div class="hero-btns reveal reveal-d3">
+        <button class="btn-hero-primary">Essayer gratuitement 14 jours <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+      </div>
+      <p class="hero-note reveal reveal-d4">Sans carte bancaire · Sans engagement</p>
+    </div>
+    <div class="hero-mockup reveal reveal-d3">
+      <div class="mockup-window">
+        <div class="mockup-bar">
+          <div class="mockup-dot" style="background:#ff5f57"></div>
+          <div class="mockup-dot" style="background:#ffbd2e"></div>
+          <div class="mockup-dot" style="background:#28c840"></div>
+          <span style="margin-left:12px;font-size:12px;color:rgba(255,255,255,0.35);font-weight:600;">nexartis.fr/dashboard</span>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-kpi-row">
+            <div class="mockup-kpi"><div class="mockup-kpi-dot" style="background:var(--sky)"></div><div class="mockup-kpi-val">6 620 €</div><div class="mockup-kpi-label">CA Facturé</div></div>
+            <div class="mockup-kpi"><div class="mockup-kpi-dot" style="background:var(--green)"></div><div class="mockup-kpi-val">2 110 €</div><div class="mockup-kpi-label">Encaissé</div></div>
+          </div>
+          <div class="mockup-card">
+            <div class="mockup-card-label">Planning de la semaine</div>
+            <div class="mockup-planning-item" style="background:rgba(90,180,224,0.1);"><div class="mockup-planning-bar" style="background:var(--sky)"></div><div><div class="mockup-planning-text">Installation tableau</div><div class="mockup-planning-sub">M. Dupont · Lun 08:30</div></div></div>
+            <div class="mockup-planning-item" style="background:rgba(232,122,42,0.1);"><div class="mockup-planning-bar" style="background:var(--orange)"></div><div><div class="mockup-planning-text">Rénovation cuisine</div><div class="mockup-planning-sub">M. Martin · Jeu 09:00</div></div></div>
+            <div class="mockup-planning-item" style="background:rgba(34,197,94,0.1);"><div class="mockup-planning-bar" style="background:var(--green)"></div><div><div class="mockup-planning-text">Pose carrelage</div><div class="mockup-planning-sub">M. Bernard · Ven 14:00</div></div></div>
+          </div>
+          <div class="mockup-card">
+            <div class="mockup-card-label">Objectif du mois</div>
+            <div class="mockup-card-title">Suivi en temps réel</div>
+            <div class="mockup-bar-track"><div class="mockup-bar-fill" id="hero-bar" style="background:var(--green);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ TRUST BAR ═══════ -->
+<div class="trust reveal">
+  <div class="trust-item"><div class="trust-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>Conforme Factur-X 2026</div>
+  <div class="trust-item"><div class="trust-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>Certifié anti-fraude TVA</div>
+  <div class="trust-item"><div class="trust-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>Données hébergées en France</div>
+  <div class="trust-item"><div class="trust-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>Support réactif par email</div>
+</div>
+
+<!-- ═══════ AVANTAGES ═══════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag reveal" style="background:rgba(34,197,94,0.08);color:var(--green-dark);">Pourquoi Nexartis</div>
+      <h2 class="reveal reveal-d1">Des outils professionnels à la hauteur de votre activité</h2>
+      <p class="reveal reveal-d2">Trois problèmes que les artisans rencontrent tous les jours, résolus en un seul logiciel.</p>
+    </div>
+    <div class="advantages-grid">
+      <div class="advantage-card reveal reveal-d1">
+        <div class="advantage-icon" style="background:rgba(34,197,94,0.1);"><svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M14.5 8a4 4 0 1 0 0 8H9"/><path d="M8 12h6"/></svg></div>
+        <h3>Des tarifs transparents et maîtrisés</h3>
+        <p>Les solutions du marché atteignent souvent 50 à 100 € par mois. Nexartis propose tous les outils à 25 € par mois, sans restriction ni option cachée.</p>
+      </div>
+      <div class="advantage-card reveal reveal-d2">
+        <div class="advantage-icon" style="background:rgba(90,180,224,0.1);"><svg viewBox="0 0 24 24" fill="none" stroke="#2d8bc9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <h3>Une planification fiable, sans conflit</h3>
+        <p>Les logiciels existants proposent un calendrier basique. Nexartis vous alerte immédiatement si un intervenant est déjà affecté à un autre chantier.</p>
+      </div>
+      <div class="advantage-card reveal reveal-d3">
+        <div class="advantage-icon" style="background:rgba(232,122,42,0.1);"><svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+        <h3>Conçu pour une utilisation sur le terrain</h3>
+        <p>Nexartis fonctionne parfaitement sur smartphone comme sur ordinateur. Pensé pour être utilisé rapidement, en mobilité, depuis vos chantiers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FEATURES ═══════ -->
+<section class="section features-section" id="fonctionnalites">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag reveal" style="background:rgba(90,180,224,0.1);color:var(--sky);">Fonctionnalités</div>
+      <h2 class="reveal reveal-d1">Toutes les fonctionnalités dont votre entreprise a besoin</h2>
+      <p class="reveal reveal-d2">Prise en main immédiate. Efficacité durable.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-d1">
+        <div class="feature-tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">✓ Conforme légalement</div>
+        <div class="feature-icon" style="background:rgba(90,180,224,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#5ab4e0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <h3>Devis et factures en quelques minutes</h3>
+        <p>Sélectionnez votre client et vos prestations. Le devis est envoyé par email ou SMS. Votre client signe directement sur son téléphone.</p>
+      </div>
+      <div class="feature-card exclusive reveal reveal-d2">
+        <div class="feature-tag" style="background:rgba(245,200,66,0.15);color:#f5c842;">★ EXCLUSIF Nexartis</div>
+        <div class="feature-icon" style="background:rgba(245,200,66,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#f5c842" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <h3>Planning qui évite les conflits</h3>
+        <p>Glissez vos chantiers sur le calendrier. Si vous affectez quelqu'un deux fois le même jour, une alerte orange apparaît immédiatement.</p>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <div class="feature-tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">✓ Temps réel</div>
+        <div class="feature-icon" style="background:rgba(34,197,94,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Suivi financier en temps réel</h3>
+        <p>Combien vous avez facturé ce mois-ci. Ce qui n'est pas encore payé. Ce qui arrive la semaine prochaine. Tout affiché simplement.</p>
+      </div>
+      <div class="feature-card reveal reveal-d1">
+        <div class="feature-tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">✓ Automatique</div>
+        <div class="feature-icon" style="background:rgba(124,58,237,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <h3>Plus d'impayés qui traînent</h3>
+        <p>Nexartis envoie automatiquement des rappels polis à vos clients qui n'ont pas payé. Vous n'avez plus à le faire vous-même.</p>
+      </div>
+      <div class="feature-card reveal reveal-d2">
+        <div class="feature-tag" style="background:rgba(245,200,66,0.15);color:#f5c842;">⚠ Obligatoire en 2026</div>
+        <div class="feature-icon" style="background:rgba(232,122,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#e87a2a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Conforme à la loi 2026</h3>
+        <p>Depuis septembre 2026, la facture électronique est obligatoire. Nexartis est déjà certifié. Vous ne risquez aucune amende.</p>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <div class="feature-tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">✓ iOS & Android</div>
+        <div class="feature-icon" style="background:rgba(71,85,105,0.1);"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+        <h3>Fonctionne sur votre téléphone</h3>
+        <p>Créez un devis depuis votre chantier et envoyez-le en quelques instants. Votre client signe directement sur son téléphone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ PLANNING DEMO ═══════ -->
+<section class="section planning-section">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag reveal" style="background:rgba(245,200,66,0.12);color:var(--gold);">★ Fonctionnalité exclusive Nexartis</div>
+      <h2 class="reveal reveal-d1">Le planning qui pense à votre place</h2>
+      <p class="reveal reveal-d2">Chez tous les concurrents, le planning est une simple liste. Chez Nexartis, c'est un vrai outil de travail.</p>
+    </div>
+    <div class="planning-demo reveal reveal-d2">
+      <div class="planning-topbar">
+        <div class="mockup-dot" style="background:#ff5f57"></div>
+        <div class="mockup-dot" style="background:#ffbd2e"></div>
+        <div class="mockup-dot" style="background:#28c840"></div>
+        <span class="planning-topbar-label">Planning — Semaine 15</span>
+      </div>
+      <div class="planning-conflict-banner" id="conflict-banner">⚠️ Conflit détecté — Michel R. est déjà affecté chez M. Bernard (Pose carrelage) le mercredi après-midi.</div>
+      <div class="planning-grid-wrap">
+        <div class="planning-grid">
+          <div></div>
+          <div class="planning-day-label">Lundi</div>
+          <div class="planning-day-label">Mardi</div>
+          <div class="planning-day-label current">Mercredi</div>
+          <div class="planning-day-label">Jeudi</div>
+          <div class="planning-day-label">Vendredi</div>
+          <div class="planning-row-label">Matin</div>
+          <div class="planning-cell" style="background:#5ab4e0"><div class="poseur">👤 Michel R.</div><div class="client">M. Dupont</div><div class="objet">Instal. chauffe-eau</div></div>
+          <div class="planning-cell" style="background:#e87a2a"><div class="poseur">👤 Thomas B.</div><div class="client">Mme Martin</div><div class="objet">Rénov. salle de bain</div></div>
+          <div class="planning-cell" style="background:#22c55e" id="conflict-am"><div class="poseur">👤 Michel R.</div><div class="client">M. Bernard</div><div class="objet">Pose carrelage</div></div>
+          <div class="planning-cell" style="background:#f5c842"><div class="poseur">👤 Lucas D.</div><div class="client">M. Petit</div><div class="objet">Extension terrasse</div></div>
+          <div class="planning-cell" style="background:#f43f5e"><div class="poseur">👤 Thomas B.</div><div class="client">Mme Girard</div><div class="objet">Élec. cuisine</div></div>
+          <div class="planning-row-label">Après-midi</div>
+          <div class="planning-cell" style="background:#5ab4e0"><div class="poseur">👤 Michel R.</div><div class="client">M. Dupont</div><div class="objet">Instal. chauffe-eau</div></div>
+          <div class="planning-cell" style="background:#e87a2a"><div class="poseur">👤 Thomas B.</div><div class="client">Mme Martin</div><div class="objet">Rénov. salle de bain</div></div>
+          <div id="conflict-slot" class="planning-empty"><span>Libre</span></div>
+          <div class="planning-cell" style="background:#f5c842"><div class="poseur">👤 Lucas D.</div><div class="client">M. Petit</div><div class="objet">Extension terrasse</div></div>
+          <div class="planning-cell" style="background:#8b5cf6"><div class="poseur">👤 Lucas D.</div><div class="client">Mme Moreau</div><div class="objet">Peinture façade</div></div>
+        </div>
+      </div>
+      <div class="planning-actions">
+        <button class="btn-hero-primary" id="btn-conflict" style="font-size:14px;padding:12px 24px;">Simuler un conflit</button>
+        <button class="btn-hero-secondary" id="btn-reset" style="font-size:14px;padding:12px 24px;display:none;">Réinitialiser</button>
+      </div>
+    </div>
+    <div class="planning-advantages">
+      <div class="planning-adv reveal reveal-d1"><div class="planning-adv-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><h4>Glissez-déposez vos interventions</h4><p>Aussi simple qu'un agenda</p></div></div>
+      <div class="planning-adv reveal reveal-d2"><div class="planning-adv-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><h4>Alerte immédiate si un artisan est déjà occupé</h4><p>Plus aucun conflit de planning</p></div></div>
+      <div class="planning-adv reveal reveal-d3"><div class="planning-adv-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><h4>Vos équipiers reçoivent leur planning sur leur téléphone</h4><p>Toujours à jour, sans appeler</p></div></div>
+      <div class="planning-adv reveal reveal-d4"><div class="planning-adv-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><h4>Un chantier décalé → la facture se met à jour</h4><p>Tout reste synchronisé</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ PRICING ═══════ -->
+<section class="section pricing-section" id="tarifs">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag reveal" style="background:rgba(232,122,42,0.1);color:var(--orange);">Tarification</div>
+      <h2 class="reveal reveal-d1">Un abonnement unique. Tout inclus.</h2>
+    </div>
+    <div class="pricing-card reveal reveal-d2">
+      <p class="sub">L'intégralité des outils pour gérer votre entreprise artisanale</p>
+      <div class="pricing-price">25€<span class="unit">/mois HT</span></div>
+      <p class="pricing-terms">Sans engagement · Résiliation à tout moment</p>
+      <div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:40px;"></div>
+      <div class="pricing-features">
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Devis illimités</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Factures illimitées</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Signature électronique</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Planning chantiers</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Alertes conflits équipe</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Tableau de bord CA</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Relances impayés auto</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>App mobile iOS & Android</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Factur-X (loi 2026)</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Bibliothèque prestations</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>TVA auto (5.5/10/20%)</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Attestations TVA réno</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Acomptes & situations</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Export comptable</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Données en France</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Support chat & email</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Mises à jour à vie</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Clients illimités</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Avoirs & rectifications</div>
+        <div class="pricing-feat"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Chantiers illimités</div>
+      </div>
+      <button class="pricing-btn">Commencer maintenant — 14 jours gratuits</button>
+      <p class="pricing-note">Aucune carte bancaire demandée. Annulez quand vous voulez.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FAQ ═══════ -->
+<section class="section" id="faq">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag reveal" style="background:rgba(90,180,224,0.08);color:var(--sky-dark);">FAQ</div>
+      <h2 class="reveal reveal-d1">Vos questions, répondues simplement</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item"><button class="faq-q"><span>Nexartis est-il accessible si je n'utilise pas beaucoup les outils informatiques ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Nexartis a été conçu spécifiquement pour les artisans, qu'ils soient ou non à l'aise avec les outils numériques. La prise en main est guidée pas à pas. En règle générale, les premiers devis sont créés dans les dix minutes suivant l'inscription.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>L'application est-elle disponible sur smartphone ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Oui, sur tous les téléphones Android et iPhone. Nexartis fonctionne aussi bien sur un téléphone que sur un ordinateur. Vous pouvez créer un devis depuis votre chantier.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Est-il possible d'essayer Nexartis avant de souscrire ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Oui. 14 jours d'essai complet, gratuit, sans entrer votre carte bancaire. Vous avez accès à tout pendant ces 14 jours.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Nexartis est-il conforme à la facturation électronique 2026 ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Depuis septembre 2026, la loi française oblige toutes les entreprises à pouvoir recevoir et envoyer des factures au format Factur-X. Si votre logiciel n'est pas conforme, vous risquez une amende. Nexartis est certifié conforme — vous ne risquez rien.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Comment résilier mon abonnement ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">La résiliation s'effectue directement depuis votre espace Nexartis, sans formulaire, sans appel téléphonique et sans pénalité.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Comment fonctionne le planning de chantier ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Vous voyez tous vos chantiers sur une semaine, avec des couleurs différentes pour chaque client. Vous pouvez déplacer un chantier en le glissant avec votre doigt. Si vous essayez de mettre deux personnes au même endroit le même jour, Nexartis vous prévient avec une alerte orange.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Nexartis gère-t-il les équipes multi-intervenants ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Oui. Chaque membre de votre équipe reçoit son planning sur son téléphone. Tout le monde sait où il doit aller et quand.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Où sont hébergées mes données ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Vos données sont hébergées en France, sur des serveurs sécurisés. Elles ne sont jamais vendues ni partagées. Si vous arrêtez Nexartis, vous pouvez tout exporter en PDF ou Excel.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Nexartis peut-il remplacer mon expert-comptable ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Non, et ce n'est pas son but. Nexartis vous aide à créer vos devis et factures, et à les envoyer à votre comptable en un clic. Ça lui fait gagner du temps, et donc ça vous coûte moins cher.</div></div></div>
+      <div class="faq-item"><button class="faq-q"><span>Comment proposer autant à 25 €/mois ?</span><span class="faq-icon">+</span></button><div class="faq-a"><div class="faq-a-inner">Nous pensons qu'un bon logiciel artisan ne devrait pas coûter le prix d'un repas au restaurant par semaine. Tous les outils accessibles à un prix honnête, sans version premium, sans mauvaise surprise.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ CTA ═══════ -->
+<section class="cta-section">
+  <h2 class="reveal">Prenez le contrôle de votre gestion d'entreprise</h2>
+  <p class="cta-sub reveal reveal-d1">14 jours d'accès complet, gratuit, sans carte bancaire requise.</p>
+  <form class="cta-form reveal reveal-d2" onsubmit="event.preventDefault()">
+    <input type="email" placeholder="Votre adresse email">
+    <button class="btn-hero-primary" style="font-size:16px;">Commencer gratuitement →</button>
+  </form>
+  <p class="cta-note reveal reveal-d3">Vos données sont hébergées en France et ne sont jamais partagées.</p>
+  <p class="cta-note reveal reveal-d4" style="margin-top:8px;">Une question ? contact@nexartis.fr (Lun-Ven 9h-18h)</p>
+</section>
+
+<!-- ═══════ FOOTER ═══════ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span>Nexartis</span>
+      <p>Solution de gestion pour tous les artisans — Développée à Bordeaux, Gironde.</p>
+    </div>
+    <div>
+      <h4>Par métier</h4>
+      <a href="#">Plombier</a><a href="#">Électricien</a><a href="#">Maçon</a><a href="#">Menuisier</a><a href="#">Peintre</a><a href="#">Paysagiste</a><a href="#">Carreleur</a><a href="#">Couvreur</a><a href="#">Chauffagiste</a><a href="#">Auto-entrepreneur</a>
+    </div>
+    <div>
+      <h4>Navigation</h4>
+      <a href="#">Tarifs</a><a href="#">Blog</a><a href="#">Se connecter</a><a href="#">Essai gratuit</a>
+    </div>
+    <div>
+      <h4>Légal</h4>
+      <a href="#">Mentions légales</a><a href="#">CGV</a><a href="#">Confidentialité</a><a href="#">Cookies</a>
+      <h4 style="margin-top:24px;">Support</h4>
+      <p style="font-size:13px;color:rgba(255,255,255,0.55);">📧 contact@nexartis.fr</p>
+      <p style="font-size:13px;color:rgba(255,255,255,0.55);">Lun-Ven 9h-18h</p>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 Nexartis — Bordeaux, France · Logiciel certifié conforme Factur-X · Données hébergées en France</div>
+</footer>
+
+<script>
+// Scroll reveal
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+// Header shadow
+window.addEventListener('scroll', () => {
+  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 10);
+});
+
+// Hero bar animation
+setTimeout(() => { document.getElementById('hero-bar').style.width = '66%'; }, 800);
+
+// Planning conflict
+const btnConflict = document.getElementById('btn-conflict');
+const btnReset = document.getElementById('btn-reset');
+const conflictBanner = document.getElementById('conflict-banner');
+const conflictSlot = document.getElementById('conflict-slot');
+const conflictAm = document.getElementById('conflict-am');
+
+btnConflict.addEventListener('click', () => {
+  conflictSlot.innerHTML = '<div class="planning-cell conflict" style="background:#22c55e;"><div class="poseur">👤 Michel R.</div><div class="client">M. Bernard</div><div class="objet">Pose carrelage</div></div>';
+  conflictSlot.className = '';
+  conflictSlot.style.padding = '0';
+  conflictAm.classList.add('conflict');
+  conflictBanner.classList.add('active');
+  btnConflict.style.display = 'none';
+  btnReset.style.display = 'inline-flex';
+});
+
+btnReset.addEventListener('click', () => {
+  conflictSlot.innerHTML = '<span>Libre</span>';
+  conflictSlot.className = 'planning-empty';
+  conflictSlot.style.padding = '';
+  conflictAm.classList.remove('conflict');
+  conflictBanner.classList.remove('active');
+  btnConflict.style.display = 'inline-flex';
+  btnReset.style.display = 'none';
+});
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.parentElement;
+    const answer = item.querySelector('.faq-a');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => {
+      i.classList.remove('open');
+      i.querySelector('.faq-a').style.maxHeight = '0';
+    });
+    if (!isOpen) {
+      item.classList.add('open');
+      answer.style.maxHeight = answer.scrollHeight + 'px';
+    }
+  });
+});
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({ behavior:'smooth', block:'start' }); }
+  });
+});
+</script>
+</body>
+</html>

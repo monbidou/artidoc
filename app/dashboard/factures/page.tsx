@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -229,6 +229,7 @@ export default function FacturesListPage() {
                   <td className="px-4 py-3">
                     <div className="relative">
                       <button
+                        ref={(el) => { if (el) (el as any)._btnRef = el }}
                         onClick={(e) => {
                           e.stopPropagation()
                           setOpenActions(openActions === id ? null : id)
@@ -238,7 +239,7 @@ export default function FacturesListPage() {
                         <MoreHorizontal size={16} className="text-gray-500" />
                       </button>
                       {openActions === id && (
-                        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
+                        <div className="absolute right-0 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1" style={{bottom: '100%', marginBottom: '4px'}}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -366,6 +367,11 @@ function StatCard({
       <div>
         <p className="text-xs font-manrope text-gray-500">{label}</p>
         <p className="text-lg font-syne font-bold text-[#1a1a2e]">{value}</p>
+        {sub && <p className="text-xs font-manrope text-gray-500">{sub}</p>}
+      </div>
+    </div>
+  )
+}
         {sub && <p className="text-xs font-manrope text-gray-500">{sub}</p>}
       </div>
     </div>
