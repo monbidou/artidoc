@@ -305,7 +305,7 @@ export default function DashboardPage() {
             <p className="font-jakarta text-[13px] font-semibold tracking-[0.05em] uppercase mb-2" style={{color: '#7b8ba3'}}>
               {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
-            <h1 className="font-jakarta font-extrabold leading-[1.2]" style={{fontSize: '34px', letterSpacing: '-0.025em'}}>
+            <h1 className="font-syne font-extrabold leading-[1.2]" style={{fontSize: '34px', letterSpacing: '-0.025em'}}>
               <span className="inline-block" style={{
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? 'translateY(0)' : 'translateY(20px)',

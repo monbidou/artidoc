@@ -40,7 +40,7 @@ const conflictCard: PlanningEntry = {
 const advantages = [
   {
     title: "Glissez-déposez vos interventions",
-    subtitle: "Aussi simple qu'un agenda",
+    subtitle: "Aussi simple qu\u2019un agenda",
   },
   {
     title: "Alerte immédiate si un artisan est déjà occupé",
@@ -73,10 +73,10 @@ function ChantierCard({
 }) {
   return (
     <div
-      className={`rounded-lg p-2 text-left ${pulsing ? "animate-pulse" : ""} ${conflict ? "ring-2 ring-red-500" : ""}`}
+      className={`rounded-[10px] p-2.5 text-left min-h-[56px] text-[11px] font-semibold text-white transition-all duration-200 hover:scale-[1.03] ${pulsing ? "animate-pulse" : ""} ${conflict ? "ring-2 ring-red-500" : ""}`}
       style={{ backgroundColor: color }}
     >
-      <p className="text-[11px] text-white/70">{"\uD83D\uDC64"} {poseur}</p>
+      <p className="text-white/70 text-[10px]">👤 {poseur}</p>
       <p className="text-sm font-bold text-white">{client}</p>
       <p className="text-[11px] italic text-white/80">{objet}</p>
     </div>
@@ -102,45 +102,38 @@ export default function PlanningDemoSection() {
     entry?.poseur === "Michel R.";
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#0f1a3a] to-[#1a2d5a]">
-      <div className="relative mx-auto max-w-7xl px-6 py-14 lg:py-20">
-        {/* Badge */}
-        <div className="mb-8 flex justify-center">
-          <span className="inline-block rounded-full bg-[#f5c842] px-5 py-2 font-syne text-sm font-bold text-[#0f1a3a]">
+    <section className="relative overflow-hidden bg-planning-gradient">
+      <div className="relative mx-auto max-w-[1200px] px-5 lg:px-10 py-[100px]">
+        {/* Section header */}
+        <div className="text-center mb-[60px]">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.06em] px-4 py-1.5 rounded-full mb-5 bg-[rgba(245,200,66,0.12)] text-[var(--gold)]">
             ★ Fonctionnalité exclusive Nexartis
           </span>
+          <h2 className="text-[28px] sm:text-[38px] font-[800] tracking-[-0.03em] text-white mb-3.5">
+            Le planning qui pense à votre place
+          </h2>
+          <p className="text-[17px] text-white/50 font-medium max-w-[560px] mx-auto">
+            Chez tous les concurrents, le planning est une simple liste. Chez Nexartis, c&apos;est un vrai outil de travail.
+          </p>
         </div>
 
-        {/* Heading */}
-        <h2 className="text-center font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
-          Le planning qui pense à votre place
-        </h2>
-
-        <p className="mx-auto mt-4 max-w-2xl text-center font-manrope text-lg leading-relaxed text-gray-400">
-          Chez tous les concurrents, le planning est une simple liste. Chez
-          Nexartis, c&apos;est un vrai outil de travail.
-        </p>
-
         {/* Interactive Planning Demo */}
-        <div className="mx-auto mt-14 max-w-5xl">
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1525]/80 shadow-2xl shadow-black/30 backdrop-blur-sm">
+        <div className="mx-auto max-w-5xl">
+          <div className="bg-[rgba(13,21,37,0.7)] border border-white/[0.08] rounded-[var(--radius)] overflow-hidden backdrop-blur-[10px] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
             {/* Demo header bar */}
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-400" />
-                <div className="h-3 w-3 rounded-full bg-yellow-400" />
-                <div className="h-3 w-3 rounded-full bg-green-400" />
-              </div>
-              <span className="font-syne text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <div className="h-11 bg-black/20 flex items-center px-[18px] gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+              <span className="ml-3 text-xs font-bold uppercase tracking-widest text-white/35">
                 Planning — Semaine 15
               </span>
-              <div className="w-14" />
             </div>
 
             {/* Conflict alert banner */}
             {showConflict && (
               <div className="border-b border-red-500/30 bg-gradient-to-r from-red-500/20 to-orange-500/20 px-5 py-3">
-                <p className="text-center font-manrope text-sm font-semibold text-white">
+                <p className="text-center text-sm font-semibold text-white">
                   ⚠️ Conflit détecté — Michel R. est déjà affecté chez M. Bernard (Pose carrelage) le mercredi après-midi.
                 </p>
               </div>
@@ -149,22 +142,34 @@ export default function PlanningDemoSection() {
             {/* Planning grid */}
             <div className="overflow-x-auto p-4 md:p-6">
               <div className="min-w-[640px]">
-                <div className="mb-2 grid grid-cols-[80px_repeat(5,1fr)] gap-2">
+                {/* Day headers */}
+                <div className="mb-2 grid grid-cols-[80px_repeat(5,1fr)] gap-[1px]">
                   <div />
-                  {days.map((day) => (
-                    <div key={day} className="text-center font-syne text-xs font-bold uppercase tracking-wider text-gray-400">
+                  {days.map((day, i) => (
+                    <div
+                      key={day}
+                      className={`text-center text-[12px] font-bold uppercase tracking-[0.06em] py-2 px-1 ${
+                        i === 2 ? "text-white bg-[rgba(90,180,224,0.15)] rounded-lg" : "text-white/50"
+                      }`}
+                    >
                       {day}
                     </div>
                   ))}
                 </div>
 
-                <div className="mb-2 grid grid-cols-[80px_repeat(5,1fr)] gap-2">
-                  <div className="flex items-center font-manrope text-[10px] font-medium uppercase tracking-widest text-gray-600">Matin</div>
+                {/* AM row */}
+                <div className="mb-2 grid grid-cols-[80px_repeat(5,1fr)] gap-[1px]">
+                  <div className="flex items-center text-[11px] font-semibold uppercase tracking-widest text-white/35 px-2">
+                    Matin
+                  </div>
                   {planningData.am.map((entry, dayIdx) => (
                     <div key={dayIdx} className="flex min-h-[72px] flex-col gap-1 rounded-lg bg-white/[0.03] p-1.5">
                       {entry && (
                         <ChantierCard
-                          poseur={entry.poseur} client={entry.client} objet={entry.objet} color={entry.color}
+                          poseur={entry.poseur}
+                          client={entry.client}
+                          objet={entry.objet}
+                          color={entry.color}
                           conflict={showConflict && isMichelCard(entry) && dayIdx === 2}
                           pulsing={conflictPulsing && isMichelCard(entry) && dayIdx === 2}
                         />
@@ -173,17 +178,41 @@ export default function PlanningDemoSection() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-2">
-                  <div className="flex items-center font-manrope text-[10px] font-medium uppercase tracking-widest text-gray-600">Après-midi</div>
+                {/* PM row */}
+                <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-[1px]">
+                  <div className="flex items-center text-[11px] font-semibold uppercase tracking-widest text-white/35 px-2">
+                    Après-midi
+                  </div>
                   {planningData.pm.map((entry, dayIdx) => (
-                    <div key={dayIdx} className={`flex min-h-[72px] flex-col gap-1 rounded-lg p-1.5 ${entry === null && !showConflict ? "border border-dashed border-gray-600 bg-white/[0.01]" : "bg-white/[0.03]"}`}>
-                      {entry && <ChantierCard poseur={entry.poseur} client={entry.client} objet={entry.objet} color={entry.color} />}
-                      {showConflict && dayIdx === 2 && (
-                        <div>
-                          <ChantierCard poseur={conflictCard.poseur} client={conflictCard.client} objet={conflictCard.objet} color={conflictCard.color} conflict pulsing={conflictPulsing} />
-                        </div>
+                    <div
+                      key={dayIdx}
+                      className={`flex min-h-[72px] flex-col gap-1 rounded-lg p-1.5 ${
+                        entry === null && !showConflict
+                          ? "border border-dashed border-white/15 bg-white/[0.01]"
+                          : "bg-white/[0.03]"
+                      }`}
+                    >
+                      {entry && (
+                        <ChantierCard
+                          poseur={entry.poseur}
+                          client={entry.client}
+                          objet={entry.objet}
+                          color={entry.color}
+                        />
                       )}
-                      {entry === null && !showConflict && <p className="m-auto text-[10px] text-gray-600">Libre</p>}
+                      {showConflict && dayIdx === 2 && (
+                        <ChantierCard
+                          poseur={conflictCard.poseur}
+                          client={conflictCard.client}
+                          objet={conflictCard.objet}
+                          color={conflictCard.color}
+                          conflict
+                          pulsing={conflictPulsing}
+                        />
+                      )}
+                      {entry === null && !showConflict && (
+                        <p className="m-auto text-[10px] text-white/30">Libre</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -193,11 +222,17 @@ export default function PlanningDemoSection() {
             {/* Action buttons */}
             <div className="flex flex-wrap items-center justify-center gap-3 border-t border-white/10 px-5 py-4">
               {!showConflict ? (
-                <button onClick={handleSimulateConflict} className="rounded-xl bg-[#e87a2a] px-6 py-2.5 font-syne text-sm font-bold text-white transition-colors hover:bg-[#f09050]">
+                <button
+                  onClick={handleSimulateConflict}
+                  className="btn-hero-primary text-sm px-6 py-2.5"
+                >
                   Simuler un conflit
                 </button>
               ) : (
-                <button onClick={handleReset} className="rounded-xl border border-white/20 px-6 py-2.5 font-syne text-sm font-bold text-white transition-colors hover:border-white/40 hover:bg-white/5">
+                <button
+                  onClick={handleReset}
+                  className="btn-hero-secondary text-sm px-6 py-2.5"
+                >
                   Réinitialiser
                 </button>
               )}
@@ -205,25 +240,34 @@ export default function PlanningDemoSection() {
           </div>
         </div>
 
-        {/* CTA */}
-        <div className="mt-10 flex justify-center">
-          <button className="rounded-xl bg-[#e87a2a] px-8 py-4 font-syne text-lg font-bold text-white transition-colors hover:bg-[#f09050]">
-            Essayer le vrai planning →
-          </button>
-        </div>
-
         {/* 4 Advantages Grid */}
-        <div className="mx-auto mt-20 grid max-w-4xl gap-6 sm:grid-cols-2">
+        <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
           {advantages.map((adv, i) => (
-            <div key={i} className="flex items-start gap-4 rounded-xl border border-white/5 bg-white/[0.03] p-5">
-              <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#5ab4e0]/20">
-                <svg className="h-4 w-4 text-[#5ab4e0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            <div
+              key={i}
+              className="flex items-start gap-3.5 rounded-[var(--radius-sm)] border border-white/[0.06] bg-white/[0.03] p-[22px] transition-all hover:bg-white/[0.05]"
+            >
+              <div className="mt-0.5 w-9 h-9 rounded-[10px] bg-[rgba(90,180,224,0.1)] flex items-center justify-center flex-shrink-0">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--sky)"
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
               <div>
-                <p className="font-syne text-sm font-bold leading-snug text-white">{adv.title}</p>
-                <p className="mt-1 font-manrope text-sm text-gray-500">{adv.subtitle}</p>
+                <h4 className="text-[14px] font-bold leading-snug text-white mb-1">
+                  {adv.title}
+                </h4>
+                <p className="text-[12px] text-white/45 font-medium">
+                  {adv.subtitle}
+                </p>
               </div>
             </div>
           ))}

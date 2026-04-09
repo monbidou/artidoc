@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const features = [
   "Devis illimités",
   "Factures illimitées",
@@ -23,57 +25,73 @@ const features = [
   "Aucune limite de chantiers",
 ];
 
-const comparisonRows = [
-  { label: "Prix", nexartis: "25€/mois", obat: "49€+/mois", tolteck: "25€/mois (limité)" },
-  { label: "Planning intelligent", nexartis: true, obat: false, tolteck: false },
-  { label: "Alertes conflits", nexartis: true, obat: false, tolteck: false },
-  { label: "Tout inclus", nexartis: true, obat: false, tolteck: false },
-  { label: "Mobile-first", nexartis: true, obat: "partial", tolteck: "partial" },
-];
-
-function CellValue({ value }: { value: boolean | string }) {
-  if (value === true) return <span className="text-lg text-emerald-400">✓</span>;
-  if (value === false) return <span className="text-lg text-red-400">✗</span>;
-  if (value === "partial") return <span className="text-lg text-yellow-400">~</span>;
-  return <span className="text-sm text-white">{value}</span>;
-}
-
 export default function PricingSection() {
   return (
-    <section className="bg-cream py-14 lg:py-20">
-      <div className="mx-auto max-w-7xl px-6">
-        <h2 className="mb-14 text-center font-syne text-3xl font-extrabold text-navy md:text-4xl lg:text-5xl">
-          Un abonnement unique. Toutes les fonctionnalités incluses.
-        </h2>
+    <section className="bg-[var(--bg)] py-[100px] px-5 lg:px-10">
+      <div className="mx-auto max-w-[1200px]">
+        {/* Section header */}
+        <div className="text-center mb-[60px]">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.06em] px-4 py-1.5 rounded-full mb-5 bg-[rgba(232,122,42,0.1)] text-[var(--orange)]">
+            Tarification
+          </span>
+          <h2 className="text-[28px] sm:text-[38px] font-[800] tracking-[-0.03em] text-[var(--navy)] mb-3.5">
+            Un abonnement unique. Toutes les fonctionnalités incluses.
+          </h2>
+        </div>
 
-        <div className="mx-auto max-w-3xl rounded-3xl bg-navy p-8 shadow-2xl md:p-10">
-          <p className="mb-2 text-center font-manrope text-base text-gray-400">
-            L&apos;intégralité des outils pour gérer votre entreprise artisanale
-          </p>
+        {/* Pricing Card */}
+        <div className="mx-auto max-w-[820px] bg-[var(--navy)] rounded-[28px] p-[56px] relative overflow-hidden shadow-[0_20px_60px_rgba(15,26,58,0.3)]">
+          {/* Decorative blob */}
+          <div className="absolute -top-20 -right-20 w-[250px] h-[250px] rounded-full bg-[radial-gradient(circle,rgba(90,180,224,0.1)_0%,transparent_70%)]" />
 
-          <div className="mb-1 text-center">
-            <span className="font-syne text-7xl font-black text-white md:text-8xl">25€</span>
-          </div>
-          <p className="mb-8 text-center font-manrope text-sm font-light text-gray-400">
-            par mois HT · Sans engagement · Résiliation à tout moment
-          </p>
+          <div className="relative z-[1]">
+            <p className="text-[14px] text-white/50 font-medium mb-5 text-center">
+              L&apos;intégralité des outils pour gérer votre entreprise artisanale
+            </p>
 
-          <div className="mb-8 h-px w-full bg-white/10" />
+            {/* Price */}
+            <div className="text-center mb-1.5">
+              <span className="text-[72px] sm:text-[80px] font-[800] text-white tracking-[-0.04em] leading-none tabular-nums">
+                25€
+              </span>
+              <span className="text-[20px] font-semibold text-white/50 ml-1">/mois HT</span>
+            </div>
+            <p className="text-center text-[14px] text-white/40 mb-10">
+              Sans engagement · Résiliation à tout moment
+            </p>
 
-          <div className="mb-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-            {features.map((f) => (
-              <div key={f} className="flex items-start gap-2">
-                <span className="mt-0.5 text-emerald-400">✓</span>
-                <span className="font-manrope text-sm text-gray-200">{f}</span>
-              </div>
-            ))}
-          </div>
+            <div className="h-px w-full bg-white/10 mb-10" />
 
-          <div className="mt-10 flex flex-col items-center">
-            <button className="h-16 w-full max-w-md rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
+            {/* Features grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 gap-x-8 mb-10">
+              {features.map((f) => (
+                <div key={f} className="flex items-center gap-2.5 text-[14px] text-white/75 font-medium">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--green)"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="flex-shrink-0"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {f}
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <Link
+              href="/register"
+              className="btn-pricing block text-center"
+            >
               Commencer maintenant — 14 jours gratuits
-            </button>
-            <p className="mt-3 font-manrope text-sm text-gray-400">
+            </Link>
+            <p className="text-center text-[13px] text-white/35 mt-4">
               Aucune carte bancaire demandée. Annulez quand vous voulez.
             </p>
           </div>

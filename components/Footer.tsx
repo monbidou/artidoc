@@ -23,36 +23,34 @@ const navLinks = [
 const legalLinks = [
   { label: "Mentions légales", href: "/mentions-legales" },
   { label: "CGV", href: "/cgv" },
-  { label: "RGPD", href: "/rgpd" },
-  { label: "Contact", href: "/contact" },
+  { label: "Politique de confidentialité", href: "/rgpd" },
+  { label: "Cookies", href: "/cookies" },
 ];
 
 export default function Footer() {
   return (
-    <footer className="bg-navy text-white">
-      <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-        <div className="grid gap-12 md:grid-cols-4">
+    <footer className="bg-[var(--navy)] text-white/60 border-t border-white/[0.06]">
+      <div className="mx-auto max-w-[1200px] px-5 lg:px-10 py-[60px]">
+        <div className="grid gap-10 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {/* Column 1 — Logo & tagline */}
           <div>
-            <Link href="/" className="font-syne text-2xl font-[800] text-white">
-              Nexartis
-            </Link>
-            <p className="font-manrope mt-4 text-sm leading-relaxed text-white/70">
+            <span className="text-[22px] font-[800] text-white">Nexartis</span>
+            <p className="mt-3 text-[13px] leading-relaxed">
               Solution de gestion pour tous les artisans — Développée à Bordeaux, Gironde.
             </p>
           </div>
 
           {/* Column 2 — Par métier */}
           <div>
-            <h3 className="font-syne mb-4 text-sm font-bold uppercase tracking-wider text-white/50">
+            <h4 className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/35 mb-4">
               Par métier
-            </h3>
-            <ul className="flex flex-col gap-2">
+            </h4>
+            <ul className="flex flex-col gap-1">
               {metierLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-manrope text-sm text-white/70 transition-colors hover:text-orange"
+                    className="block text-[13px] text-white/55 py-1 transition-colors hover:text-[var(--orange)]"
                   >
                     {link.label}
                   </Link>
@@ -61,64 +59,58 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3 — Support client */}
+          {/* Column 3 — Navigation */}
           <div>
-            <h3 className="font-syne mb-4 text-sm font-bold uppercase tracking-wider text-white/50">
-              Support client
-            </h3>
-            <ul className="flex flex-col gap-2 font-manrope text-sm text-white/70">
-              <li>📧 contact@nexartis.fr</li>
-              <li>Lun-Ven 9h-18h</li>
+            <h4 className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/35 mb-4">
+              Navigation
+            </h4>
+            <ul className="flex flex-col gap-1">
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="block text-[13px] text-white/55 py-1 transition-colors hover:text-[var(--orange)]"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Column 4 — Navigation & Legal */}
-          <div className="flex flex-col gap-8 sm:flex-row sm:gap-16 md:flex-col md:gap-8">
-            <div>
-              <h3 className="font-syne mb-4 text-sm font-bold uppercase tracking-wider text-white/50">
-                Navigation
-              </h3>
-              <ul className="flex flex-col gap-2">
-                {navLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="font-manrope text-sm text-white/70 transition-colors hover:text-orange"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-syne mb-4 text-sm font-bold uppercase tracking-wider text-white/50">
-                Légal
-              </h3>
-              <ul className="flex flex-col gap-2">
-                {legalLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="font-manrope text-sm text-white/70 transition-colors hover:text-orange"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {/* Column 4 — Legal & support */}
+          <div>
+            <h4 className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/35 mb-4">
+              Légal
+            </h4>
+            <ul className="flex flex-col gap-1 mb-6">
+              {legalLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="block text-[13px] text-white/55 py-1 transition-colors hover:text-[var(--orange)]"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <h4 className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/35 mb-4">
+              Support
+            </h4>
+            <ul className="flex flex-col gap-1 text-[13px] text-white/55">
+              <li>📧 contact@nexartis.fr</li>
+              <li>Lun-Ven 9h-18h</li>
+            </ul>
           </div>
         </div>
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-5 py-5 lg:px-8">
-          <p className="font-manrope text-center text-xs leading-relaxed text-white/40">
-            &copy; 2026 Nexartis &mdash; Bordeaux, France &middot; Logiciel
-            certifi&eacute; conforme Factur-X &middot; Donn&eacute;es
-            h&eacute;berg&eacute;es en France
+      <div className="border-t border-white/[0.06]">
+        <div className="mx-auto max-w-[1200px] px-5 lg:px-10 py-6">
+          <p className="text-center text-[12px] text-white/30 leading-relaxed">
+            &copy; 2026 Nexartis &mdash; Bordeaux, France &middot; Logiciel certifié conforme Factur-X &middot; Données hébergées en France
           </p>
         </div>
       </div>
