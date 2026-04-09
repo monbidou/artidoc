@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -33,12 +33,12 @@ type DevisStatus = "brouillon" | "envoye" | "signe" | "refuse" | "expire" | "fac
 
 const STATUS_LABELS: Record<string, string> = {
   brouillon: "Brouillon",
-  envoye: "Envoy\u00e9",
-  signe: "Accept\u00e9",
-  refuse: "Refus\u00e9",
-  expire: "Expir\u00e9",
-  facture: "Factur\u00e9",
-  finalise: "Envoy\u00e9",
+  envoye: "Envoyé",
+  signe: "Accepté",
+  refuse: "Refusé",
+  expire: "Expiré",
+  facture: "Facturé",
+  finalise: "Envoyé",
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -51,21 +51,21 @@ const STATUS_STYLES: Record<string, string> = {
   finalise: "bg-blue-50 text-blue-700",
 }
 
-const FILTER_OPTIONS = ["Tous", "Brouillon", "Envoy\u00e9", "Accept\u00e9", "Refus\u00e9", "Expir\u00e9", "Factur\u00e9"]
+const FILTER_OPTIONS = ["Tous", "Brouillon", "Envoyé", "Accepté", "Refusé", "Expiré", "Facturé"]
 const FILTER_TO_STATUS: Record<string, DevisStatus> = {
   Brouillon: "brouillon",
-  "Envoy\u00e9": "envoye",
-  "Accept\u00e9": "signe",
-  "Refus\u00e9": "refuse",
-  "Expir\u00e9": "expire",
-  "Factur\u00e9": "facture",
+  "Envoyé": "envoye",
+  "Accepté": "signe",
+  "Refusé": "refuse",
+  "Expiré": "expire",
+  "Facturé": "facture",
 }
 
 const SORT_OPTIONS = ["Date", "Montant", "Client"]
 
 function formatCurrency(n: number | null | undefined): string {
-  if (n == null) return "0,00 \u20ac"
-  return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " \u20ac"
+  if (n == null) return "0,00 €"
+  return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €"
 }
 
 function formatDate(d: string | null | undefined): string {
@@ -85,6 +85,8 @@ export default function DevisListPage() {
   const [openActions, setOpenActions] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [menuDirection, setMenuDirection] = useState<"up" | "down">("down")
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null)
 
   const clientMap = useMemo(() => {
     const map: Record<string, Record<string, unknown>> = {}
@@ -151,9 +153,9 @@ export default function DevisListPage() {
   }, [devisList, filter, search, sort, clientMap, chantierMap])
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer ce devis ? Cette action est irreversible.")) return
+    if (!confirm("Supprimer ce devis ? Cette action est irréversible.")) return
     try { await deleteRow("devis", id); refetchDevis() }
-    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
   }
 
   async function handleDuplicate(devis: Record<string, unknown>) {
@@ -161,12 +163,12 @@ export default function DevisListPage() {
       const { id, created_at, updated_at, user_id, numero, ...rest } = devis
       await insertRow("devis", { ...rest, numero: (numero as string) + "-copie", statut: "brouillon" })
       refetchDevis()
-    } catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
+    } catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
   }
 
   async function handleSend(devis: Record<string, unknown>) {
     try { await updateRow("devis", devis.id as string, { statut: "envoye", date_envoi: new Date().toISOString() }); refetchDevis() }
-    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
   }
 
   function toggleSelect(id: string) {
@@ -177,11 +179,20 @@ export default function DevisListPage() {
     else setSelected(new Set(filtered.map(d => d.id as string)))
   }
   async function handleBulkDelete() {
-    if (!confirm(`Supprimer ${selected.size} devis ? Cette action est irr\u00e9versible.`)) return
+    if (!confirm(`Supprimer ${selected.size} devis ? Cette action est irréversible.`)) return
     setBulkDeleting(true)
     try { for (const id of Array.from(selected)) { await deleteRow("devis", id) }; setSelected(new Set()); refetchDevis() }
-    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "\u00c9chec")) }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
     setBulkDeleting(false)
+  }
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>, devisId: string) {
+    e.stopPropagation()
+    if (openActions === devisId) { setOpenActions(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    setMenuDirection(spaceBelow < 250 ? "up" : "down")
+    setOpenActions(devisId)
   }
 
   const loading = loadingDevis || loadingClients
@@ -195,8 +206,8 @@ export default function DevisListPage() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Tous" value={String(stats.all)} accent="#5ab4e0" />
-        <StatCard icon={<Send size={20} />} label="Envoy\u00e9s" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Accept\u00e9s" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
+        <StatCard icon={<Send size={20} />} label="Envoyés" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Acceptés" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
         <StatCard icon={<Clock size={20} />} label="Brouillons" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
       </div>
 
@@ -224,9 +235,9 @@ export default function DevisListPage() {
 
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
-          <span className="text-sm font-manrope font-semibold text-blue-700">{selected.size} devis s\u00e9lectionn\u00e9{selected.size > 1 ? "s" : ""}</span>
-          <button onClick={handleBulkDelete} disabled={bulkDeleting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-manrope font-semibold transition-colors disabled:opacity-50"><Trash2 size={13} /> {bulkDeleting ? "Suppression..." : "Supprimer la s\u00e9lection"}</button>
-          <button onClick={() => setSelected(new Set())} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-manrope font-medium text-gray-600 hover:bg-gray-50 transition-colors">Tout d\u00e9s\u00e9lectionner</button>
+          <span className="text-sm font-manrope font-semibold text-blue-700">{selected.size} devis sélectionné{selected.size > 1 ? "s" : ""}</span>
+          <button onClick={handleBulkDelete} disabled={bulkDeleting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-manrope font-semibold transition-colors disabled:opacity-50"><Trash2 size={13} /> {bulkDeleting ? "Suppression..." : "Supprimer la sélection"}</button>
+          <button onClick={() => setSelected(new Set())} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-manrope font-medium text-gray-600 hover:bg-gray-50 transition-colors">Tout désélectionner</button>
         </div>
       )}
 
@@ -235,7 +246,7 @@ export default function DevisListPage() {
           <thead>
             <tr className="bg-gray-50">
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></th>
-              {["Numero", "Statut", "Client / Chantier", "Modifie", "Date", "Valable jusqu'au", "Total HT", "Total TTC", "Actions"].map((col) => (
+              {["Numéro", "Statut", "Client / Chantier", "Modifié", "Date", "Valable jusqu\'au", "Total HT", "Total TTC", "Actions"].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">{col}</th>
               ))}
             </tr>
@@ -256,9 +267,9 @@ export default function DevisListPage() {
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</td>
                   <td className="px-4 py-3">
                     <div className="relative">
-                      <button onClick={(e) => { e.stopPropagation(); setOpenActions(openActions === (devis.id as string) ? null : (devis.id as string)) }} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
+                      <button onClick={(e) => openMenu(e, devis.id as string)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
                       {openActions === (devis.id as string) && (
-                        <div className="absolute right-0 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={{bottom: "100%", marginBottom: "4px"}}>
+                        <div className="absolute right-0 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={menuDirection === "up" ? {bottom: "100%", marginBottom: "4px"} : {top: "100%", marginTop: "4px"}}>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?convert=1`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><FileText size={14} /> Convertir en facture</button>
@@ -273,7 +284,7 @@ export default function DevisListPage() {
             })}
           </tbody>
         </table>
-        {filtered.length === 0 && (<div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucun devis trouve</p></div>)}
+        {filtered.length === 0 && (<div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucun devis trouvé</p></div>)}
       </div>
     </div>
   )

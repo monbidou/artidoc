@@ -20,16 +20,16 @@ import {
 } from 'lucide-react'
 import { useFactures, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
-type FactureFilter = 'Toutes' | 'Encaiss\u00e9es' | 'Partielles' | 'En attente' | 'En retard' | 'Archiv\u00e9es'
+type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard' | 'Archivées'
 
-const FILTER_OPTIONS: string[] = ['Toutes', 'Encaiss\u00e9es', 'Partielles', 'En attente', 'En retard', 'Archiv\u00e9es']
+const FILTER_OPTIONS: string[] = ['Toutes', 'Encaissées', 'Partielles', 'En attente', 'En retard', 'Archivées']
 
 function getFactureCategory(f: Record<string, unknown>): FactureFilter {
   const statut = (f.statut as string) ?? ''
-  if (statut === 'payee' || statut === 'Encaiss\u00e9e') return 'Encaiss\u00e9es'
+  if (statut === 'payee' || statut === 'Encaissée') return 'Encaissées'
   if (statut === 'partielle') return 'Partielles'
   if (statut === 'en_retard') return 'En retard'
-  if (statut === 'archivee') return 'Archiv\u00e9es'
+  if (statut === 'archivee') return 'Archivées'
   return 'En attente'
 }
 
@@ -59,6 +59,7 @@ export default function FacturesListPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [menuDirection, setMenuDirection] = useState<'up' | 'down'>('down')
 
   const loading = loadingF || loadingC
 
@@ -94,7 +95,7 @@ export default function FacturesListPage() {
 
   const totalCount = enriched.length
   const totalHT = enriched.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
-  const encaissees = enriched.filter((f) => f.category === 'Encaiss\u00e9es' || f.category === 'Archiv\u00e9es')
+  const encaissees = enriched.filter((f) => f.category === 'Encaissées' || f.category === 'Archivées')
   const encaisseesHT = encaissees.reduce((s, f) => s + (f.montantTtc), 0)
   const resteList = enriched.filter((f) => f.category === 'Partielles' || f.category === 'En attente')
   const resteHT = resteList.reduce((s, f) => s + (f.montantTtc - f.montantPaye), 0)
@@ -133,7 +134,7 @@ export default function FacturesListPage() {
   }
 
   async function handleBulkDelete() {
-    if (!confirm(`Supprimer ${selected.size} facture${selected.size > 1 ? 's' : ''} ? Cette action est irr\u00e9versible.`)) return
+    if (!confirm(`Supprimer ${selected.size} facture${selected.size > 1 ? 's' : ''} ? Cette action est irréversible.`)) return
     setBulkDeleting(true)
     try {
       for (const id of Array.from(selected)) {
@@ -142,9 +143,18 @@ export default function FacturesListPage() {
       setSelected(new Set())
       refetchF()
     } catch (err: unknown) {
-      alert('Erreur : ' + (err instanceof Error ? err.message : '\u00c9chec'))
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
     }
     setBulkDeleting(false)
+  }
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>, factureId: string) {
+    e.stopPropagation()
+    if (openActions === factureId) { setOpenActions(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    setMenuDirection(spaceBelow < 250 ? 'up' : 'down')
+    setOpenActions(factureId)
   }
 
   if (errorF) {
@@ -159,8 +169,8 @@ export default function FacturesListPage() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Toutes" value={String(totalCount)} sub={`${formatCurrency(totalHT)} HT`} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Encaiss\u00e9es" value={String(encaissees.length)} sub={`${formatCurrency(encaisseesHT)} HT`} accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="Reste \u00e0 encaisser" value={String(resteList.length)} sub={`${formatCurrency(resteHT)} HT`} accent="#e87a2a" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Encaissées" value={String(encaissees.length)} sub={`${formatCurrency(encaisseesHT)} HT`} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="Reste à encaisser" value={String(resteList.length)} sub={`${formatCurrency(resteHT)} HT`} accent="#e87a2a" />
         <StatCard icon={<AlertTriangle size={20} />} label="En retard" value={String(retardList.length)} sub={`${formatCurrency(retardHT)} HT`} accent="#ef4444" bg="bg-red-50" />
       </div>
 
@@ -182,11 +192,11 @@ export default function FacturesListPage() {
 
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
-          <span className="text-sm font-manrope font-semibold text-blue-700">{selected.size} facture{selected.size > 1 ? 's' : ''} s\u00e9lectionn\u00e9e{selected.size > 1 ? 's' : ''}</span>
+          <span className="text-sm font-manrope font-semibold text-blue-700">{selected.size} facture{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}</span>
           <button onClick={handleBulkDelete} disabled={bulkDeleting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-manrope font-semibold transition-colors disabled:opacity-50">
-            <Trash2 size={13} /> {bulkDeleting ? 'Suppression...' : 'Supprimer la s\u00e9lection'}
+            <Trash2 size={13} /> {bulkDeleting ? 'Suppression...' : 'Supprimer la sélection'}
           </button>
-          <button onClick={() => setSelected(new Set())} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-manrope font-medium text-gray-600 hover:bg-gray-50 transition-colors">Tout d\u00e9s\u00e9lectionner</button>
+          <button onClick={() => setSelected(new Set())} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-manrope font-medium text-gray-600 hover:bg-gray-50 transition-colors">Tout désélectionner</button>
         </div>
       )}
 
@@ -195,7 +205,7 @@ export default function FacturesListPage() {
           <thead>
             <tr className="bg-gray-50">
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></th>
-              {['Num\u00e9ro', 'R\u00e8glements', 'Client / Chantier', 'Modifi\u00e9', 'Date', 'Net \u00e0 payer', 'Actions'].map((col) => (
+              {['Numéro', 'Règlements', 'Client / Chantier', 'Modifié', 'Date', 'Net à payer', 'Actions'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">{col}</th>
               ))}
             </tr>
@@ -217,9 +227,9 @@ export default function FacturesListPage() {
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(facture.montantTtc)}</td>
                   <td className="px-4 py-3">
                     <div className="relative">
-                      <button onClick={(e) => { e.stopPropagation(); setOpenActions(openActions === id ? null : id) }} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
+                      <button onClick={(e) => openMenu(e, id)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
                       {openActions === id && (
-                        <div className="absolute right-0 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1" style={{bottom: '100%', marginBottom: '4px'}}>
+                        <div className="absolute right-0 z-50 w-44 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={menuDirection === 'up' ? {bottom: '100%', marginBottom: '4px'} : {top: '100%', marginTop: '4px'}}>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/factures/${id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/factures/${id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
                           <button onClick={(e) => { e.stopPropagation(); setOpenActions(null) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Copy size={14} /> Dupliquer</button>
@@ -235,7 +245,7 @@ export default function FacturesListPage() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucune facture trouv\u00e9e</p></div>
+          <div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucune facture trouvée</p></div>
         )}
       </div>
     </div>
