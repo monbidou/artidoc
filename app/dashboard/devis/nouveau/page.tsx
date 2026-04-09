@@ -240,8 +240,8 @@ function NouveauDevisPage() {
   const [duree, setDuree] = useState('')
 
   // Conditions
-  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set(['p30']))
-  const [acomptePercent, setAcomptePercent] = useState('')
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set(['p30', 'acompte']))
+  const [acomptePercent, setAcomptePercent] = useState('30')
   const [conditionsLibres, setConditionsLibres] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -303,7 +303,12 @@ function NouveauDevisPage() {
 
   const totalTVA = Object.values(tvaGroups).reduce((s, g) => s + g.tva, 0)
   const totalTTC = totalHT + totalTVA
-  const acomptePct = selectedPayments.has('acompte') && acomptePercent ? parseFloat(acomptePercent) : 0
+  const acomptePct = (() => {
+    if (selectedPayments.has('acompte') && acomptePercent) return parseFloat(acomptePercent)
+    if (selectedPayments.has('p30')) return 30
+    if (selectedPayments.has('p50')) return 50
+    return 0
+  })()
   const acompteMontant = acomptePct > 0 ? totalTTC * (acomptePct / 100) : 0
   const resteAPayer = totalTTC - acompteMontant
 
