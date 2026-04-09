@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -64,8 +64,8 @@ const FILTER_TO_STATUS: Record<string, DevisStatus> = {
 const SORT_OPTIONS = ["Date", "Montant", "Client"]
 
 function formatCurrency(n: number | null | undefined): string {
-  if (n == null) return "0,00 €"
-  return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €"
+  if (n == null) return "0,00 \u20ac"
+  return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " \u20ac"
 }
 
 function formatDate(d: string | null | undefined): string {
@@ -83,10 +83,23 @@ export default function DevisListPage() {
   const [filter, setFilter] = useState("Tous")
   const [sort, setSort] = useState("Date")
   const [openActions, setOpenActions] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
-  const [menuDirection, setMenuDirection] = useState<"up" | "down">("down")
-  const menuBtnRef = useRef<HTMLButtonElement | null>(null)
+
+  // Fermer le menu au scroll ou clic extérieur
+  const closeMenu = useCallback(() => { setOpenActions(null); setMenuPos(null) }, [])
+  useEffect(() => {
+    if (!openActions) return
+    const handleClickOutside = () => closeMenu()
+    const handleScroll = () => closeMenu()
+    document.addEventListener("click", handleClickOutside)
+    window.addEventListener("scroll", handleScroll, true)
+    return () => {
+      document.removeEventListener("click", handleClickOutside)
+      window.removeEventListener("scroll", handleScroll, true)
+    }
+  }, [openActions, closeMenu])
 
   const clientMap = useMemo(() => {
     const map: Record<string, Record<string, unknown>> = {}
@@ -188,10 +201,14 @@ export default function DevisListPage() {
 
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, devisId: string) {
     e.stopPropagation()
-    if (openActions === devisId) { setOpenActions(null); return }
+    e.nativeEvent.stopImmediatePropagation()
+    if (openActions === devisId) { closeMenu(); return }
     const rect = e.currentTarget.getBoundingClientRect()
+    const menuHeight = 220
     const spaceBelow = window.innerHeight - rect.bottom
-    setMenuDirection(spaceBelow < 250 ? "up" : "down")
+    const top = spaceBelow < menuHeight ? rect.top - menuHeight : rect.bottom + 4
+    const left = rect.right - 192
+    setMenuPos({ top, left: Math.max(8, left) })
     setOpenActions(devisId)
   }
 
@@ -201,6 +218,8 @@ export default function DevisListPage() {
     return (<div className="space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[1,2,3,4].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}</div><LoadingSkeleton rows={6} /></div>)
   }
   if (errorDevis) { return <ErrorBanner message={errorDevis} onRetry={refetchDevis} /> }
+
+  const activeDevis = openActions ? filtered.find(d => (d.id as string) === openActions) : null
 
   return (
     <div className="space-y-6">
@@ -246,7 +265,7 @@ export default function DevisListPage() {
           <thead>
             <tr className="bg-gray-50">
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></th>
-              {["Numéro", "Statut", "Client / Chantier", "Modifié", "Date", "Valable jusqu\'au", "Total HT", "Total TTC", "Actions"].map((col) => (
+              {["Numéro", "Statut", "Client / Chantier", "Modifié", "Date", "Valable jusqu'au", "Total HT", "Total TTC", "Actions"].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">{col}</th>
               ))}
             </tr>
@@ -265,19 +284,8 @@ export default function DevisListPage() {
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_validite as string)}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatCurrency(devis.montant_ht as number)}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</td>
-                  <td className="px-4 py-3">
-                    <div className="relative">
-                      <button onClick={(e) => openMenu(e, devis.id as string)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
-                      {openActions === (devis.id as string) && (
-                        <div className="absolute right-0 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={menuDirection === "up" ? {bottom: "100%", marginBottom: "4px"} : {top: "100%", marginTop: "4px"}}>
-                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
-                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
-                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?convert=1`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><FileText size={14} /> Convertir en facture</button>
-                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleSend(devis) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><SendHorizonal size={14} /> Envoyer</button>
-                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDelete(devis.id as string) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"><Trash2 size={14} /> Supprimer</button>
-                        </div>
-                      )}
-                    </div>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => openMenu(e, devis.id as string)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
                   </td>
                 </tr>
               )
@@ -286,6 +294,21 @@ export default function DevisListPage() {
         </table>
         {filtered.length === 0 && (<div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucun devis trouvé</p></div>)}
       </div>
+
+      {/* Menu flottant en position fixed — sort du conteneur */}
+      {openActions && menuPos && activeDevis && (
+        <div
+          className="fixed z-[9999] w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1"
+          style={{ top: menuPos.top, left: menuPos.left }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={() => { closeMenu(); router.push(`/dashboard/devis/${activeDevis.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
+          <button onClick={() => { closeMenu(); router.push(`/dashboard/devis/${activeDevis.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
+          <button onClick={() => { closeMenu(); router.push(`/dashboard/devis/${activeDevis.id}?convert=1`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><FileText size={14} /> Convertir en facture</button>
+          <button onClick={() => { closeMenu(); handleSend(activeDevis) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><SendHorizonal size={14} /> Envoyer</button>
+          <button onClick={() => { closeMenu(); handleDelete(activeDevis.id as string) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"><Trash2 size={14} /> Supprimer</button>
+        </div>
+      )}
     </div>
   )
 }
