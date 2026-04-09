@@ -599,53 +599,66 @@ function NouveauDevisPage() {
           {/* Right: Client + Chantier */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             {/* Client */}
-            <div className="bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm">
-              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-3">Client</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Civilité + Nom avec autocomplete */}
-                <div className="flex gap-2 relative">
-                  <select value={clientCivilite} onChange={e => setClientCivilite(e.target.value)} className="w-24 h-11 rounded-xl border-2 border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm space-y-3">
+              <label className="block text-sm font-manrope font-semibold text-[#1a1a2e]">Client</label>
+
+              {/* Ligne 1 : Civilité + Nom (pleine largeur) + autocomplete */}
+              <div className="relative">
+                <div className="flex gap-2">
+                  <select value={clientCivilite} onChange={e => setClientCivilite(e.target.value)} className="w-24 h-11 shrink-0 rounded-xl border-2 border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
                     <option value="">—</option>
                     <option value="M.">M.</option>
                     <option value="Mme">Mme</option>
                     <option value="Société">Société</option>
                   </select>
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={clientNom}
-                      onChange={e => handleClientNomChange(e.target.value)}
-                      onBlur={() => setTimeout(() => setClientDropdownOpen(false), 150)}
-                      placeholder="Nom"
-                      className={inputCls}
-                      autoComplete="off"
-                    />
-                    {clientDropdownOpen && clientSuggestions.length > 0 && (
-                      <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-xl z-30 w-72 max-h-56 overflow-y-auto">
-                        {clientSuggestions.map(c => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onMouseDown={() => selectClientSuggestion(c)}
-                            className="w-full text-left px-4 py-2.5 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors"
-                          >
-                            <span className="font-semibold text-[#1a1a2e]">
-                              {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
-                            </span>
-                            {c.adresse && <span className="text-[#6b7280] text-xs block">{c.adresse}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <input
+                    type="text"
+                    value={clientNom}
+                    onChange={e => handleClientNomChange(e.target.value)}
+                    onBlur={() => setTimeout(() => { setClientDropdownOpen(false); setClientSuggestions([]) }, 200)}
+                    placeholder="Nom (tapez pour rechercher un client)"
+                    className={inputCls}
+                    autoComplete="off"
+                  />
+                </div>
+                {/* Dropdown autocomplete — pleine largeur, au-dessus des autres champs */}
+                {clientDropdownOpen && clientSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border-2 border-[#5ab4e0] shadow-2xl z-50 w-full max-h-60 overflow-y-auto">
+                    {clientSuggestions.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); selectClientSuggestion(c) }}
+                        className="w-full text-left px-4 py-3 font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors"
+                      >
+                        <span className="font-semibold text-[#1a1a2e] text-sm">
+                          {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                        </span>
+                        {c.adresse && (
+                          <span className="text-[#6b7280] text-xs block mt-0.5">
+                            {c.adresse}{c.code_postal || c.ville ? ` · ${c.code_postal ?? ''} ${c.ville ?? ''}`.trim() : ''}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                </div>
-                {/* Prénom */}
-                <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
-                <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
-                  <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
-                </div>
+                )}
+              </div>
+
+              {/* Ligne 2 : Prénom */}
+              <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
+
+              {/* Ligne 3 : Adresse */}
+              <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
+
+              {/* Ligne 4 : Code postal + Ville */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
+                <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
+              </div>
+
+              {/* Ligne 5 : Téléphone + Email */}
+              <div className="grid grid-cols-2 gap-2">
                 <input type="tel" value={clientTelephone} onChange={e => setClientTelephone(e.target.value)} placeholder="Téléphone" className={inputCls} />
                 <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="Email" className={inputCls} />
               </div>
