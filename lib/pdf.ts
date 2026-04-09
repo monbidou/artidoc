@@ -79,6 +79,7 @@ export interface FactureData {
   numero: string
   date_emission?: string
   date_echeance?: string
+  date_prestation?: string
   clientNom: string
   clientAdresse?: string
   clientType?: string
@@ -100,9 +101,14 @@ const TVA_MENTION_10 =
 const TVA_MENTION_5_5 =
   'Je certifie que les travaux réalisés concernent des locaux à usage d\'habitation achevés depuis plus de deux ans et constituent des travaux de rénovation ou d\'amélioration de la qualité énergétique au sens de l\'article 18 bis de l\'annexe IV du CGI (isolation thermique, systèmes de chauffage performants, énergies renouvelables).'
 
+const TVA_MENTION_AE = 'TVA non applicable, article 293 B du Code Général des Impôts.'
+
 function getTvaMentions(lignes: Ligne[]): string[] {
   const taux = new Set(lignes.map((l) => l.taux_tva ?? 20))
   const mentions: string[] = []
+  // Auto-entrepreneur: all lines at 0%
+  const allZero = lignes.length > 0 && lignes.every((l) => (l.taux_tva ?? 20) === 0)
+  if (allZero) { mentions.push(TVA_MENTION_AE); return mentions }
   if (taux.has(10)) mentions.push(TVA_MENTION_10)
   if (taux.has(5.5)) mentions.push(TVA_MENTION_5_5)
   return mentions
@@ -241,6 +247,7 @@ export function generateDevisPdf(data: DevisData): string {
   let ay = y + 14
   if (ent.adresse) { doc.text(ent.adresse, lx + 4, ay); ay += 3.2 }
   if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ay); ay += 3.2 }
+  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ay); ay += 3.2 }
   if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ay); ay += 3.2 }
   if (ent.tva_intra) { doc.text(`TVA : ${ent.tva_intra}`, lx + 4, ay); ay += 3.2 }
   if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
@@ -514,6 +521,20 @@ export function generateDevisPdf(data: DevisData): string {
   doc.text('Date : ....../....../..........', 114, y + 18)
   y += 26
 
+  // ── MENTION LÉGALE : devis reçu avant exécution ────────────────
+  doc.setFontSize(6.5)
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(107, 114, 128)
+  doc.text('Devis reçu avant l\'exécution des travaux. Le client reconnaît avoir pris connaissance des conditions ci-dessus.', 14, y, { maxWidth: 182 })
+  y += 5
+
+  // ── MENTION LÉGALE : droit de rétractation 14 jours ────────────
+  y = ensureSpace(doc, y, 12)
+  doc.text('En cas de démarchage à domicile ou hors établissement, le client dispose d\'un droit de rétractation de 14 jours', 14, y, { maxWidth: 182 })
+  y += 3
+  doc.text('à compter de la signature du présent devis (articles L221-18 et suivants du Code de la consommation).', 14, y, { maxWidth: 182 })
+  y += 6
+
   // ── FOOTER LÉGAL ───────────────────────────────────────────────
   addFooterLegal(doc, ent, y)
 
@@ -579,6 +600,7 @@ export function generateFacturePdf(data: FactureData): string {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
   let ey = y + 14
+  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ey); ey += 3.2 }
   if (ent.adresse) { doc.text(ent.adresse, lx + 4, ey); ey += 3.2 }
   if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ey); ey += 3.2 }
   if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ey); ey += 3.2 }
@@ -606,15 +628,17 @@ export function generateFacturePdf(data: FactureData): string {
 
   y += boxH + 4
 
-  // Meta: Date + Échéance
-  if (data.date_echeance) {
+  // Meta: Date + Échéance + Date prestation
+  {
     const metaItems: [string, string][] = [
       ['Date de facture', fmtDate(data.date_emission)],
-      ['Échéance', fmtDate(data.date_echeance)],
+      ['Échéance', fmtDate(data.date_echeance) || '\u2014'],
     ]
-    const caseW = 86
+    if (data.date_prestation) metaItems.push(['Date prestation', fmtDate(data.date_prestation)])
+    const caseW = metaItems.length === 3 ? 56 : 86
+    const gap = metaItems.length === 3 ? 7 : 10
     metaItems.forEach(([label, value], i) => {
-      const cx = 14 + i * (caseW + 10)
+      const cx = 14 + i * (caseW + gap)
       doc.setFillColor(248, 250, 255)
       doc.setDrawColor(219, 234, 254)
       doc.roundedRect(cx, y, caseW, 12, 1, 1, 'FD')
@@ -702,16 +726,19 @@ export function generateFacturePdf(data: FactureData): string {
     y += splitNotes.length * 3.2 + 3
   }
 
+  // Pénalités de retard — obligatoire sur toute facture
+  y = ensureSpace(doc, y, 14)
+  doc.setFontSize(6.5)
+  doc.setTextColor(120)
+  doc.setFont('helvetica', 'normal')
+  doc.text('En cas de retard de paiement, pénalités exigibles : 3x le taux d\'intérêt légal en vigueur.', 14, y)
+  y += 3
   if (data.clientType === 'professionnel') {
-    y = ensureSpace(doc, y, 10)
-    doc.setFontSize(6.5)
-    doc.setTextColor(120)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Pénalités de retard : 3x le taux d\'intérêt légal (7,86% en 2026)', 14, y)
+    doc.text('Indemnité forfaitaire pour frais de recouvrement due par le débiteur professionnel : 40 €.', 14, y)
     y += 3
-    doc.text('Indemnité forfaitaire pour frais de recouvrement : 40 €', 14, y)
-    y += 5
   }
+  doc.text('Escompte pour paiement anticipé : néant.', 14, y)
+  y += 5
 
   // TVA mentions
   const tvaMentions = getTvaMentions(data.lignes)
