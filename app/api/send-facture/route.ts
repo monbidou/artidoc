@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateFacturePdf } from '@/lib/pdf'
-import { buildDocumentEmailHtml } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
-    const { factureId, emailDestinataire } = await req.json()
+    const { factureId, emailDestinataire, messagePersonnalise } = await req.json()
 
     if (!factureId || !emailDestinataire) {
       return NextResponse.json({ error: 'Données manquantes' }, { status: 400 })
@@ -29,13 +28,14 @@ export async function POST(req: NextRequest) {
     if (facture.client_id) {
       const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, type').eq('id', facture.client_id).single()
       if (client) {
-        clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
+        clientNom = (client.prenom || '') + ' ' + (client.nom || '')
+        clientNom = clientNom.trim()
         clientAdresse = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(' ')
         clientType = client.type || 'particulier'
       }
     }
 
-    const ent = entreprise || {}
+    const ent: Record<string, unknown> = entreprise || {}
     const totalHT = facture.montant_ht || 0
     const totalTVA = facture.montant_tva || 0
     const totalTTC = facture.montant_ttc || 0
@@ -64,26 +64,20 @@ export async function POST(req: NextRequest) {
       notes: facture.notes,
     })
 
-    // Build short email body (avoids Gmail truncation)
-    const preheader = `Facture n° ${facture.numero} - ${fmt(totalTTC)}`
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
-<span style="display:none;max-height:0;overflow:hidden;">${preheader}</span>
-<div style="max-width:580px;margin:0 auto;padding:20px;">
-<div style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;">
-<div style="padding:28px;">
-<p style="font-size:16px;color:#1a1a2e;margin:0 0 14px;font-weight:600;">Bonjour ${clientNom},</p>
-<p style="font-size:15px;color:#374151;margin:0 0 16px;line-height:1.6;">Veuillez trouver ci-joint votre facture n\u00b0 ${facture.numero} d'un montant de ${fmt(totalTTC)}.${dateEcheance ? ` Dans l'attente de votre r\u00e8glement avant le ${dateEcheance}.` : ''}</p>
-<div style="text-align:center;margin:20px 0;">
-<a href="https://nexartis.fr/dashboard/factures/${facture.id}" style="background:#2563eb;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">Voir la facture</a>
-</div>
-<p style="font-size:14px;color:#374151;margin:0;">Cordialement,<br/><strong>${(ent as Record<string,unknown>).nom || 'Nexartis'}</strong></p>
-</div>
-<div style="padding:12px 28px;border-top:1px solid #e5e7eb;text-align:center;">
-<p style="margin:0;font-size:11px;color:#9ca3af;">Envoy\u00e9 via Nexartis \u2014 nexartis.fr</p>
-</div>
-</div>
-</div>
-</body></html>`
+    // Build email body
+    const entNom = String(ent.nom || 'Nexartis')
+    const entEmail = String(ent.email || 'no-reply@nexartis.fr')
+    const preheader = 'Facture n\u00b0 ' + facture.numero + ' - ' + fmt(totalTTC)
+
+    let emailBody: string
+    if (messagePersonnalise) {
+      emailBody = String(messagePersonnalise).replace(/\n/g, '<br/>')
+    } else {
+      const echeanceLine = dateEcheance ? " Dans l'attente de votre r\u00e8glement avant le " + dateEcheance + '.' : ''
+      emailBody = 'Bonjour ' + clientNom + ',<br/><br/>Veuillez trouver ci-joint votre facture n\u00b0 ' + facture.numero + " d'un montant de " + fmt(totalTTC) + '.' + echeanceLine + '<br/><br/>Cordialement,<br/><strong>' + entNom + '</strong>'
+    }
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><span style="display:none;max-height:0;overflow:hidden;">' + preheader + '</span><div style="max-width:580px;margin:0 auto;padding:20px;"><div style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;"><div style="padding:28px;"><p style="font-size:15px;color:#374151;margin:0 0 16px;line-height:1.6;">' + emailBody + '</p><div style="text-align:center;margin:20px 0;"><a href="https://nexartis.fr/dashboard/factures/' + facture.id + '" style="background:#2563eb;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">Voir la facture</a></div></div><div style="padding:12px 28px;border-top:1px solid #e5e7eb;text-align:center;"><p style="margin:0;font-size:11px;color:#9ca3af;">Envoy\u00e9 via Nexartis \u2014 nexartis.fr</p></div></div></div></body></html>'
 
     const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -93,14 +87,14 @@ export async function POST(req: NextRequest) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: ent.nom || 'Nexartis', email: 'no-reply@nexartis.fr' },
+        sender: { name: entNom, email: 'no-reply@nexartis.fr' },
         to: [{ email: emailDestinataire, name: clientNom }],
-        subject: `Facture n° ${facture.numero} — ${ent.nom || 'Nexartis'}`,
-        replyTo: { email: ent.email || 'no-reply@nexartis.fr', name: ent.nom || 'Nexartis' },
+        subject: 'Facture n\u00b0 ' + facture.numero + ' \u2014 ' + entNom,
+        replyTo: { email: entEmail, name: entNom },
         htmlContent: html,
         attachment: [{
           content: pdfBase64,
-          name: `Facture-${facture.numero}.pdf`,
+          name: 'Facture-' + facture.numero + '.pdf',
         }],
       }),
     })

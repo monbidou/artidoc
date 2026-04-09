@@ -9,6 +9,8 @@ interface EnvoyerFactureModalProps {
   factureId: string
   numeroFacture: string
   clientEmail?: string
+  clientNom?: string
+  montantTTC?: string
   onSuccess?: () => void
 }
 
@@ -18,16 +20,32 @@ export default function EnvoyerFactureModal({
   factureId,
   numeroFacture,
   clientEmail = '',
+  clientNom = '',
+  montantTTC = '',
   onSuccess,
 }: EnvoyerFactureModalProps) {
+  const defaultMessage = `Bonjour${clientNom ? ' ' + clientNom : ''},
+
+Veuillez trouver ci-joint votre facture n° ${numeroFacture}${montantTTC ? ` d'un montant de ${montantTTC}` : ''}.
+
+Dans l'attente de votre règlement, nous restons à votre disposition pour toute question.
+
+Cordialement`
+
   const [email, setEmail] = useState(clientEmail)
+  const [message, setMessage] = useState(defaultMessage)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
 
   useEffect(() => {
     if (clientEmail) setEmail(clientEmail)
   }, [clientEmail])
-  const [error, setError] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    setMessage(defaultMessage)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numeroFacture, clientNom, montantTTC])
 
   if (!open) return null
 
@@ -42,7 +60,7 @@ export default function EnvoyerFactureModal({
       const res = await fetch('/api/send-facture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ factureId, emailDestinataire: email }),
+        body: JSON.stringify({ factureId, emailDestinataire: email, messagePersonnalise: message }),
       })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -76,8 +94,8 @@ export default function EnvoyerFactureModal({
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Send size={28} className="text-emerald-600" />
             </div>
-            <p className="font-syne font-bold text-lg text-[#1a1a2e]">Facture envoyee !</p>
-            <p className="font-manrope text-sm text-gray-500 mt-1">La facture n&deg; {numeroFacture} a ete envoyee a {email}</p>
+            <p className="font-syne font-bold text-lg text-[#1a1a2e]">Facture envoyée !</p>
+            <p className="font-manrope text-sm text-gray-500 mt-1">La facture n° {numeroFacture} a été envoyée à {email}</p>
           </div>
         ) : (
           <>
@@ -92,6 +110,17 @@ export default function EnvoyerFactureModal({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="client@email.com"
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">
+                  Message personnalisé
+                </label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={6}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] resize-none"
                 />
               </div>
             </div>
