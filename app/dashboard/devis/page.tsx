@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
-import { useState, useMemo } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Search,
   FileText,
@@ -17,7 +17,7 @@ import {
   SendHorizonal,
   Trash2,
   Plus,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   useDevis,
   useClients,
@@ -27,73 +27,65 @@ import {
   updateRow,
   LoadingSkeleton,
   ErrorBanner,
-} from '@/lib/hooks'
+} from "@/lib/hooks"
 
-// -------------------------------------------------------------------
-// Types & Constants
-// -------------------------------------------------------------------
-
-type DevisStatus = 'brouillon' | 'envoye' | 'signe' | 'refuse' | 'expire' | 'facture'
+type DevisStatus = "brouillon" | "envoye" | "signe" | "refuse" | "expire" | "facture"
 
 const STATUS_LABELS: Record<string, string> = {
-  brouillon: 'Brouillon',
-  envoye: 'Envoyé',
-  signe: 'Accepté',
-  refuse: 'Refusé',
-  expire: 'Expiré',
-  facture: 'Facturé',
-  // alias legacy
-  finalise: 'Envoyé',
+  brouillon: "Brouillon",
+  envoye: "Envoy\u00e9",
+  signe: "Accept\u00e9",
+  refuse: "Refus\u00e9",
+  expire: "Expir\u00e9",
+  facture: "Factur\u00e9",
+  finalise: "Envoy\u00e9",
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  brouillon: 'bg-gray-100 text-gray-600',
-  envoye: 'bg-blue-50 text-blue-700',
-  signe: 'bg-green-50 text-green-700',
-  refuse: 'bg-red-50 text-red-700',
-  expire: 'bg-orange-50 text-orange-700',
-  facture: 'bg-purple-50 text-purple-700',
-  finalise: 'bg-blue-50 text-blue-700',
+  brouillon: "bg-gray-100 text-gray-600",
+  envoye: "bg-blue-50 text-blue-700",
+  signe: "bg-green-50 text-green-700",
+  refuse: "bg-red-50 text-red-700",
+  expire: "bg-orange-50 text-orange-700",
+  facture: "bg-purple-50 text-purple-700",
+  finalise: "bg-blue-50 text-blue-700",
 }
 
-const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoyé', 'Accepté', 'Refusé', 'Expiré', 'Facturé']
+const FILTER_OPTIONS = ["Tous", "Brouillon", "Envoy\u00e9", "Accept\u00e9", "Refus\u00e9", "Expir\u00e9", "Factur\u00e9"]
 const FILTER_TO_STATUS: Record<string, DevisStatus> = {
-  Brouillon: 'brouillon',
-  'Envoyé': 'envoye',
-  'Accepté': 'signe',
-  'Refusé': 'refuse',
-  'Expiré': 'expire',
-  'Facturé': 'facture',
+  Brouillon: "brouillon",
+  "Envoy\u00e9": "envoye",
+  "Accept\u00e9": "signe",
+  "Refus\u00e9": "refuse",
+  "Expir\u00e9": "expire",
+  "Factur\u00e9": "facture",
 }
 
-const SORT_OPTIONS = ['Date', 'Montant', 'Client']
+const SORT_OPTIONS = ["Date", "Montant", "Client"]
 
 function formatCurrency(n: number | null | undefined): string {
-  if (n == null) return '0,00 \u20AC'
-  return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20AC'
+  if (n == null) return "0,00 \u20ac"
+  return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " \u20ac"
 }
 
 function formatDate(d: string | null | undefined): string {
-  if (!d) return '-'
+  if (!d) return "-"
   const date = new Date(d)
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
 }
-
-// -------------------------------------------------------------------
-// Page
-// -------------------------------------------------------------------
 
 export default function DevisListPage() {
   const router = useRouter()
   const { data: devisList, loading: loadingDevis, error: errorDevis, refetch: refetchDevis } = useDevis()
   const { data: clients, loading: loadingClients } = useClients()
   const { data: chantiers } = useChantiers()
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('Tous')
-  const [sort, setSort] = useState('Date')
+  const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState("Tous")
+  const [sort, setSort] = useState("Date")
   const [openActions, setOpenActions] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
-  // Build lookup maps
   const clientMap = useMemo(() => {
     const map: Record<string, Record<string, unknown>> = {}
     clients.forEach((c: Record<string, unknown>) => { map[c.id as string] = c })
@@ -107,25 +99,24 @@ export default function DevisListPage() {
   }, [chantiers])
 
   function getClientName(clientId: string | null): string {
-    if (!clientId) return '-'
+    if (!clientId) return "-"
     const c = clientMap[clientId]
-    if (!c) return '-'
-    const parts = [c.prenom, c.nom].filter(Boolean).join(' ')
-    return (c.raison_sociale as string) || parts || '-'
+    if (!c) return "-"
+    const parts = [c.prenom, c.nom].filter(Boolean).join(" ")
+    return (c.raison_sociale as string) || parts || "-"
   }
 
   function getChantierTitre(chantierId: string | null): string {
-    if (!chantierId) return '-'
+    if (!chantierId) return "-"
     const c = chantierMap[chantierId]
-    return (c?.titre as string) || '-'
+    return (c?.titre as string) || "-"
   }
 
-  // Stats
   const stats = useMemo(() => {
     const all = devisList.length
-    const envoyes = devisList.filter((d: Record<string, unknown>) => d.statut === 'envoye')
-    const signes = devisList.filter((d: Record<string, unknown>) => d.statut === 'signe')
-    const enAttente = devisList.filter((d: Record<string, unknown>) => d.statut === 'brouillon')
+    const envoyes = devisList.filter((d: Record<string, unknown>) => d.statut === "envoye")
+    const signes = devisList.filter((d: Record<string, unknown>) => d.statut === "signe")
+    const enAttente = devisList.filter((d: Record<string, unknown>) => d.statut === "brouillon")
     return {
       all,
       envoyesCount: envoyes.length,
@@ -137,190 +128,127 @@ export default function DevisListPage() {
     }
   }, [devisList])
 
-  // Filter & sort
   const filtered = useMemo(() => {
     let list = [...devisList] as Record<string, unknown>[]
-
-    // Status filter
-    if (filter !== 'Tous') {
+    if (filter !== "Tous") {
       const targetStatus = FILTER_TO_STATUS[filter]
-      if (targetStatus) {
-        list = list.filter((d) => d.statut === targetStatus)
-      }
+      if (targetStatus) list = list.filter((d) => d.statut === targetStatus)
     }
-
-    // Search
     if (search) {
       const q = search.toLowerCase()
       list = list.filter((d) => {
-        const numero = ((d.numero as string) || '').toLowerCase()
+        const numero = ((d.numero as string) || "").toLowerCase()
         const clientName = getClientName(d.client_id as string | null).toLowerCase()
         const chantierName = getChantierTitre(d.chantier_id as string | null).toLowerCase()
         return numero.includes(q) || clientName.includes(q) || chantierName.includes(q)
       })
     }
-
-    // Sort
-    if (sort === 'Date') {
-      list.sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
-    } else if (sort === 'Montant') {
-      list.sort((a, b) => Number(b.montant_ttc || 0) - Number(a.montant_ttc || 0))
-    } else if (sort === 'Client') {
-      list.sort((a, b) => getClientName(a.client_id as string | null).localeCompare(getClientName(b.client_id as string | null)))
-    }
-
+    if (sort === "Date") list.sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
+    else if (sort === "Montant") list.sort((a, b) => Number(b.montant_ttc || 0) - Number(a.montant_ttc || 0))
+    else if (sort === "Client") list.sort((a, b) => getClientName(a.client_id as string | null).localeCompare(getClientName(b.client_id as string | null)))
     return list
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisList, filter, search, sort, clientMap, chantierMap])
 
-  // Actions
   async function handleDelete(id: string) {
-    if (!confirm('Supprimer ce devis ? Cette action est irreversible.')) return
-    try {
-      await deleteRow('devis', id)
-      refetchDevis()
-    } catch (err: unknown) {
-      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec de la suppression'))
-    }
+    if (!confirm("Supprimer ce devis ? Cette action est irreversible.")) return
+    try { await deleteRow("devis", id); refetchDevis() }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
   }
 
   async function handleDuplicate(devis: Record<string, unknown>) {
     try {
       const { id, created_at, updated_at, user_id, numero, ...rest } = devis
-      const newNumero = (numero as string) + '-copie'
-      await insertRow('devis', { ...rest, numero: newNumero, statut: 'brouillon' })
+      await insertRow("devis", { ...rest, numero: (numero as string) + "-copie", statut: "brouillon" })
       refetchDevis()
-    } catch (err: unknown) {
-      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec de la duplication'))
-    }
+    } catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
   }
 
   async function handleSend(devis: Record<string, unknown>) {
-    try {
-      await updateRow('devis', devis.id as string, { statut: 'envoye', date_envoi: new Date().toISOString() })
-      refetchDevis()
-    } catch (err: unknown) {
-      alert('Erreur : ' + (err instanceof Error ? err.message : 'Echec'))
-    }
+    try { await updateRow("devis", devis.id as string, { statut: "envoye", date_envoi: new Date().toISOString() }); refetchDevis() }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Echec")) }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  }
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) setSelected(new Set())
+    else setSelected(new Set(filtered.map(d => d.id as string)))
+  }
+  async function handleBulkDelete() {
+    if (!confirm(`Supprimer ${selected.size} devis ? Cette action est irr\u00e9versible.`)) return
+    setBulkDeleting(true)
+    try { for (const id of Array.from(selected)) { await deleteRow("devis", id) }; setSelected(new Set()); refetchDevis() }
+    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "\u00c9chec")) }
+    setBulkDeleting(false)
   }
 
   const loading = loadingDevis || loadingClients
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
-        </div>
-        <LoadingSkeleton rows={6} />
-      </div>
-    )
+    return (<div className="space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[1,2,3,4].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}</div><LoadingSkeleton rows={6} /></div>)
   }
-
-  if (errorDevis) {
-    return <ErrorBanner message={errorDevis} onRetry={refetchDevis} />
-  }
+  if (errorDevis) { return <ErrorBanner message={errorDevis} onRetry={refetchDevis} /> }
 
   return (
     <div className="space-y-6">
-      {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Tous" value={String(stats.all)} accent="#5ab4e0" />
-        <StatCard icon={<Send size={20} />} label="Envoyés" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Acceptés" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
+        <StatCard icon={<Send size={20} />} label="Envoy\u00e9s" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Accept\u00e9s" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
         <StatCard icon={<Clock size={20} />} label="Brouillons" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
       </div>
 
-      {/* Action bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher un devis..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-10 rounded-lg border border-gray-200 pl-9 pr-4 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
-          />
+          <input type="text" placeholder="Rechercher un devis..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full h-10 rounded-lg border border-gray-200 pl-9 pr-4 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors" />
         </div>
-
-        {/* Filter */}
         <div className="relative">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none appearance-none bg-white cursor-pointer"
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none appearance-none bg-white cursor-pointer">
+            {FILTER_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
           </select>
           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
-
-        {/* Sort */}
         <div className="relative">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none appearance-none bg-white cursor-pointer"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none appearance-none bg-white cursor-pointer">
+            {SORT_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
           </select>
           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
-
-        {/* New button */}
-        <Link
-          href="/dashboard/devis/nouveau"
-          className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
-        >
-          <Plus size={16} />
-          Nouveau devis
+        <Link href="/dashboard/devis/nouveau" className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors">
+          <Plus size={16} /> Nouveau devis
         </Link>
       </div>
 
-      {/* Table */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+          <span className="text-sm font-manrope font-semibold text-blue-700">{selected.size} devis s\u00e9lectionn\u00e9{selected.size > 1 ? "s" : ""}</span>
+          <button onClick={handleBulkDelete} disabled={bulkDeleting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-manrope font-semibold transition-colors disabled:opacity-50"><Trash2 size={13} /> {bulkDeleting ? "Suppression..." : "Supprimer la s\u00e9lection"}</button>
+          <button onClick={() => setSelected(new Set())} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-manrope font-medium text-gray-600 hover:bg-gray-50 transition-colors">Tout d\u00e9s\u00e9lectionner</button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Numero', 'Statut', 'Client / Chantier', 'Modifie', 'Date', 'Valable jusqu\'au', 'Total HT', 'Total TTC', 'Actions'].map((col) => (
-                <th
-                  key={col}
-                  className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
-                >
-                  {col}
-                </th>
+              <th className="px-3 py-3 w-10"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></th>
+              {["Numero", "Statut", "Client / Chantier", "Modifie", "Date", "Valable jusqu'au", "Total HT", "Total TTC", "Actions"].map((col) => (
+                <th key={col} className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">{col}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((devis, idx) => {
-              const statut = (devis.statut as DevisStatus) || 'brouillon'
+              const statut = (devis.statut as DevisStatus) || "brouillon"
               return (
-                <tr
-                  key={devis.id as string}
-                  onClick={() => router.push(`/dashboard/devis/${devis.id}`)}
-                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                  }`}
-                >
-                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
-                    {devis.numero as string}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[statut] || 'bg-gray-100 text-gray-600'}`}>
-                      {STATUS_LABELS[statut] || statut}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{(devis.notes_client as string)?.split(' | ')[0] || getClientName(devis.client_id as string | null)}</div>
-                    <div className="text-xs font-manrope text-gray-500">{(devis.objet as string) || (devis.description as string) || getChantierTitre(devis.chantier_id as string | null)}</div>
-                  </td>
+                <tr key={devis.id as string} onClick={() => router.push(`/dashboard/devis/${devis.id}`)} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${idx % 2 === 1 ? "bg-[#f8f9fa]" : ""}`}>
+                  <td className="px-3 py-3 w-10" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(devis.id as string)} onChange={() => toggleSelect(devis.id as string)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{devis.numero as string}</td>
+                  <td className="px-4 py-3"><span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[statut] || "bg-gray-100 text-gray-600"}`}>{STATUS_LABELS[statut] || statut}</span></td>
+                  <td className="px-4 py-3"><div className="text-sm font-manrope font-medium text-[#1a1a2e]">{(devis.notes_client as string)?.split(" | ")[0] || getClientName(devis.client_id as string | null)}</div><div className="text-xs font-manrope text-gray-500">{(devis.objet as string) || (devis.description as string) || getChantierTitre(devis.chantier_id as string | null)}</div></td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.updated_at as string)}</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_emission as string)}</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.date_validite as string)}</td>
@@ -328,47 +256,14 @@ export default function DevisListPage() {
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</td>
                   <td className="px-4 py-3">
                     <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenActions(openActions === (devis.id as string) ? null : (devis.id as string))
-                        }}
-                        className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <MoreHorizontal size={16} className="text-gray-500" />
-                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setOpenActions(openActions === (devis.id as string) ? null : (devis.id as string)) }} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
                       {openActions === (devis.id as string) && (
-                        <div className="absolute right-0 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={{bottom: '100%', marginBottom: '4px'}}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <Eye size={14} /> Voir
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}/modifier`) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <Pencil size={14} /> Modifier
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?convert=1`) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <FileText size={14} /> Convertir en facture
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleSend(devis) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <SendHorizonal size={14} /> Envoyer
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDelete(devis.id as string) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"
-                          >
-                            <Trash2 size={14} /> Supprimer
-                          </button>
+                        <div className="absolute right-0 z-50 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1" style={{bottom: "100%", marginBottom: "4px"}}>
+                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
+                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
+                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); router.push(`/dashboard/devis/${devis.id}?convert=1`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><FileText size={14} /> Convertir en facture</button>
+                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleSend(devis) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><SendHorizonal size={14} /> Envoyer</button>
+                          <button onClick={(e) => { e.stopPropagation(); setOpenActions(null); handleDelete(devis.id as string) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"><Trash2 size={14} /> Supprimer</button>
                         </div>
                       )}
                     </div>
@@ -378,43 +273,16 @@ export default function DevisListPage() {
             })}
           </tbody>
         </table>
-
-        {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun devis trouve</p>
-          </div>
-        )}
+        {filtered.length === 0 && (<div className="py-12 text-center"><FileText size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-sm font-manrope text-gray-500">Aucun devis trouve</p></div>)}
       </div>
     </div>
   )
 }
 
-// -------------------------------------------------------------------
-// StatCard
-// -------------------------------------------------------------------
-
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  sub?: string
-  accent: string
-}) {
+function StatCard({ icon, label, value, sub, accent }: { icon: React.ReactNode; label: string; value: string; sub?: string; accent: string }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-      <div
-        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
-        style={{ backgroundColor: accent + '15', color: accent }}
-      >
-        {icon}
-      </div>
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: accent + "15", color: accent }}>{icon}</div>
       <div>
         <p className="text-xs font-manrope text-gray-500">{label}</p>
         <p className="text-xl font-syne font-bold text-[#1a1a2e]">{value}</p>
