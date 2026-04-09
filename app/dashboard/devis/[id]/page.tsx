@@ -140,6 +140,15 @@ export default function DevisDetailPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [convertTriggered, setConvertTriggered] = useState(false)
+  const [relanceTriggered, setRelanceTriggered] = useState(false)
+
+  // Auto-ouvrir modal envoi si ?relance=1 (depuis widget "À faire")
+  useEffect(() => {
+    if (searchParams.get('relance') === '1' && !loading && devis && !relanceTriggered) {
+      setRelanceTriggered(true)
+      setSendModalOpen(true)
+    }
+  }, [searchParams, loading, devis, relanceTriggered])
 
   // Auto-conversion quand ?convert=1 est dans l'URL (depuis la liste devis)
   useEffect(() => {

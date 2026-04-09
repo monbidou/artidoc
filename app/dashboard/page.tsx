@@ -137,8 +137,16 @@ export default function DashboardPage() {
     tag: string;
     tagBg: string;
     tagColor: string;
+    href?: string;         // navigation clic sur la ligne
+    actionHref?: string;   // navigation clic sur le bouton tag
   };
   const todoItems: TodoItem[] = [];
+
+  // Helper : extraire l'email depuis notes_client "Nom | Adresse | CP Ville | Tel | email@..."
+  const extractEmail = (notesClient: unknown): string => {
+    if (!notesClient) return '';
+    return String(notesClient).split(' | ').reverse().find(p => p.includes('@'))?.trim() || '';
+  };
 
   // Factures en retard
   const facturesEnRetard = factures.filter((f: Record<string, unknown>) => f.statut === 'en_retard');
@@ -150,11 +158,10 @@ export default function DashboardPage() {
       title: `Facture ${f.numero} — en retard`,
       desc: `${cName}${joursRetard > 0 ? ` · échue depuis ${joursRetard}j` : ''}`,
       amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
-      dotColor: '#ef4444',
-      amountColor: '#ef4444',
-      tag: 'En retard',
-      tagBg: '#fef2f2',
-      tagColor: '#ef4444',
+      dotColor: '#ef4444', amountColor: '#ef4444',
+      tag: 'Voir', tagBg: '#fef2f2', tagColor: '#ef4444',
+      href: `/dashboard/factures/${f.id}`,
+      actionHref: `/dashboard/factures/${f.id}`,
     });
   }
 
@@ -168,27 +175,71 @@ export default function DashboardPage() {
       title: `Facture ${f.numero} — bientôt due`,
       desc: `${cName}${joursRestants > 0 ? ` · échéance dans ${joursRestants}j` : ''}`,
       amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
-      dotColor: '#e87a2a',
-      amountColor: '#e87a2a',
-      tag: 'À relancer',
-      tagBg: '#fff7ed',
-      tagColor: '#e87a2a',
+      dotColor: '#e87a2a', amountColor: '#e87a2a',
+      tag: 'À relancer', tagBg: '#fff7ed', tagColor: '#e87a2a',
+      href: `/dashboard/factures/${f.id}`,
+      actionHref: `/dashboard/factures/${f.id}`,
     });
   }
 
-  // Devis envoyés sans réponse
-  const devisEnvoyes = devis.filter((d: Record<string, unknown>) => d.statut === 'envoye');
-  for (const d of devisEnvoyes) {
+  // Devis envoyés depuis 5+ jours sans réponse (pas les récents)
+  const CINQ_JOURS_MS = 5 * 24 * 60 * 60 * 1000;
+  const devisEnvoyesAnciensRaw = devis.filter((d: Record<string, unknown>) => {
+    if (d.statut !== 'envoye') return false;
+    const dateValidite = d.date_validite ? new Date(d.date_validite as string) : null;
+    // Exclure si la date de validité est dépassée (seront dans "Expirés")
+    if (dateValidite && dateValidite < now) return false;
+    const envoyeDepuis = Date.now() - new Date(d.updated_at as string || d.created_at as string).getTime();
+    return envoyeDepuis >= CINQ_JOURS_MS;
+  });
+  for (const d of devisEnvoyesAnciensRaw) {
     const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
+    const email = extractEmail(d.notes_client);
+    const joursSansReponse = Math.floor((Date.now() - new Date(d.updated_at as string || d.created_at as string).getTime()) / 86400000);
     todoItems.push({
       title: `Devis ${d.numero} — sans réponse`,
-      desc: `${cName} · envoyé ${timeAgo(d.created_at as string)}`,
+      desc: `${cName} · envoyé il y a ${joursSansReponse}j`,
       amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
-      dotColor: '#7c3aed',
-      amountColor: '#7c3aed',
-      tag: 'Relancer',
-      tagBg: '#f5f3ff',
-      tagColor: '#7c3aed',
+      dotColor: '#5ab4e0', amountColor: '#5ab4e0',
+      tag: 'Relancer', tagBg: '#eff6ff', tagColor: '#2563eb',
+      href: `/dashboard/devis/${d.id}`,
+      actionHref: `/dashboard/devis/${d.id}?relance=1${email ? `&email=${encodeURIComponent(email)}` : ''}`,
+    });
+  }
+
+  // Devis refusés (à renégocier)
+  const devisRefuses = devis.filter((d: Record<string, unknown>) => d.statut === 'refuse');
+  for (const d of devisRefuses) {
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
+    todoItems.push({
+      title: `Devis ${d.numero} — refusé`,
+      desc: `${cName} · à renégocier`,
+      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      dotColor: '#ef4444', amountColor: '#ef4444',
+      tag: 'Renégocier', tagBg: '#fef2f2', tagColor: '#ef4444',
+      href: `/dashboard/devis/${d.id}`,
+      actionHref: `/dashboard/devis/${d.id}`,
+    });
+  }
+
+  // Devis expirés (date_validite dépassée et statut envoye)
+  const devisExpiresRaw = devis.filter((d: Record<string, unknown>) => {
+    if (d.statut !== 'envoye' && d.statut !== 'expire') return false;
+    const dateValidite = d.date_validite ? new Date(d.date_validite as string) : null;
+    return dateValidite && dateValidite < now;
+  });
+  for (const d of devisExpiresRaw) {
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
+    const email = extractEmail(d.notes_client);
+    const joursExpire = d.date_validite ? Math.floor((Date.now() - new Date(d.date_validite as string).getTime()) / 86400000) : 0;
+    todoItems.push({
+      title: `Devis ${d.numero} — expiré`,
+      desc: `${cName} · expiré il y a ${joursExpire}j`,
+      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      dotColor: '#f97316', amountColor: '#f97316',
+      tag: 'Relancer', tagBg: '#fff7ed', tagColor: '#ea580c',
+      href: `/dashboard/devis/${d.id}`,
+      actionHref: `/dashboard/devis/${d.id}?relance=1${email ? `&email=${encodeURIComponent(email)}` : ''}`,
     });
   }
 
@@ -310,7 +361,7 @@ export default function DashboardPage() {
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? 'translateY(0)' : 'translateY(20px)',
                 transition: 'all 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
-              }}>Bonjour{entrepriseNom ? ', ' : ''}</span>
+              }}>Bonjour </span>
               <span className="inline-block" style={{
                 background: 'linear-gradient(135deg, #5ab4e0, #2d8bc9)',
                 WebkitBackgroundClip: 'text',
@@ -452,10 +503,11 @@ export default function DashboardPage() {
                     <p className="font-jakarta text-sm font-medium" style={{color: '#7b8ba3'}}>Tout est à jour !</p>
                   </div>
                 ) : (
-                  todoItems.slice(0, 5).map((item, i) => (
+                  todoItems.slice(0, 6).map((item, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-3.5 rounded-[14px] transition-all duration-150 hover:bg-white/80"
+                      className="flex items-center gap-3.5 rounded-[14px] transition-all duration-150 hover:bg-white/80 cursor-pointer"
+                      onClick={() => item.href && (window.location.href = item.href)}
                       style={{
                         padding: '14px 16px',
                         opacity: mounted ? 1 : 0,
@@ -468,16 +520,24 @@ export default function DashboardPage() {
                         <p className="font-jakarta text-sm font-bold truncate" style={{color: '#0f1a3a'}}>{item.title}</p>
                         <p className="font-jakarta text-xs font-medium mt-0.5 truncate" style={{color: '#7b8ba3'}}>{item.desc}</p>
                       </div>
-                      <div className="text-right flex-shrink-0">
+                      <div className="text-right flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <p className="font-jakarta font-extrabold text-[15px]" style={{
                           color: item.amountColor,
                           fontVariantNumeric: 'tabular-nums',
                           letterSpacing: '-0.02em',
                         }}>{item.amount}</p>
-                        <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-[7px] mt-1" style={{
-                          background: item.tagBg,
-                          color: item.tagColor,
-                        }}>{item.tag}</span>
+                        {item.actionHref ? (
+                          <a
+                            href={item.actionHref}
+                            className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-[7px] mt-1 transition-opacity hover:opacity-80"
+                            style={{ background: item.tagBg, color: item.tagColor }}
+                            onClick={e => e.stopPropagation()}
+                          >{item.tag}</a>
+                        ) : (
+                          <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-[7px] mt-1" style={{
+                            background: item.tagBg, color: item.tagColor,
+                          }}>{item.tag}</span>
+                        )}
                       </div>
                     </div>
                   ))
