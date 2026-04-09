@@ -375,10 +375,22 @@ export default function DevisDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
 
-            {/* HEADER : titre DEVIS + numéro */}
-            <div className="print-header-block" style={{textAlign:'center', marginBottom:14}}>
-              <div className="print-devis-title" style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
-              <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
+            {/* LOGO en haut à gauche + DEVIS titre à droite */}
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14}}>
+              <div style={{display:'flex', alignItems:'center', gap:12}}>
+                {Boolean(entreprise?.logo_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                )}
+                <div>
+                  <div style={{fontSize:18, fontWeight:700, color:'#111'}}>{(entreprise?.nom as string) || ''}</div>
+                  {Boolean(entreprise?.forme_juridique) && <div style={{fontSize:11, color:'#6b7280'}}>{entreprise?.forme_juridique as string}</div>}
+                </div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div className="print-devis-title" style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
+                <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
+              </div>
             </div>
 
             {/* Ligne dégradé */}

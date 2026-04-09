@@ -304,7 +304,7 @@ export default function FactureDetailPage() {
               <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, borderTop: '3px solid #2563eb', flex: '0 0 48%' }}>
                 {Boolean(entreprise?.logo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 48, maxWidth: 140, objectFit: 'contain', marginBottom: 8, mixBlendMode: 'multiply' }} />
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', marginBottom: 8, mixBlendMode: 'multiply' }} />
                 )}
                 <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
                   <div style={{ fontWeight: 700, color: '#111', fontSize: 15 }}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>

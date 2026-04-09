@@ -539,7 +539,7 @@ function NouveauDevisPage() {
               <div>
                 {Boolean(entreprise?.logo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" className="h-12 w-auto object-contain mb-2" />
+                  <img src={entreprise?.logo_url as string} alt="Logo" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply', maxWidth: 160 }} />
                 )}
                 <h2 className="font-syne font-bold text-xl text-[#0f1a3a]">{(entreprise?.nom as string) || 'Mon Entreprise'}</h2>
                 <p className="text-sm font-manrope text-[#6b7280] mt-1 leading-relaxed">
