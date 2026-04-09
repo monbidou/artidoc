@@ -18,6 +18,7 @@ import {
   useDevisLignes,
   useEntreprise,
   insertRow,
+  updateRow,
   deleteRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
@@ -80,15 +81,24 @@ function formatDate(d: string | undefined): string {
   return new Date(d).toLocaleDateString('fr-FR')
 }
 
+const STATUT_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  envoye: 'Envoyé',
+  signe: 'Accepté',
+  refuse: 'Refusé',
+  expire: 'Expiré',
+  facture: 'Facturé',
+  finalise: 'Envoyé',
+}
+
 const STATUT_STYLES: Record<string, string> = {
-  'Brouillon': 'bg-gray-100 text-gray-600',
-  'brouillon': 'bg-gray-100 text-gray-600',
-  'Envoyé': 'bg-blue-50 text-blue-700',
-  'envoye': 'bg-blue-50 text-blue-700',
-  'Accepté': 'bg-green-50 text-green-700',
-  'signe': 'bg-green-50 text-green-700',
-  'Refusé': 'bg-red-50 text-red-700',
-  'refuse': 'bg-red-50 text-red-700',
+  brouillon: 'bg-gray-100 text-gray-600',
+  envoye: 'bg-blue-50 text-blue-700',
+  signe: 'bg-green-50 text-green-700',
+  refuse: 'bg-red-50 text-red-700',
+  expire: 'bg-orange-50 text-orange-700',
+  facture: 'bg-purple-50 text-purple-700',
+  finalise: 'bg-blue-50 text-blue-700',
 }
 
 // -------------------------------------------------------------------
@@ -233,10 +243,25 @@ export default function DevisDetailPage() {
           ordre: l.ordre,
         })
       }
+      // Marquer le devis comme "Facturé"
+      await updateRow('devis', devis.id, { statut: 'facture' })
       router.push(`/dashboard/factures/${factureId}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : JSON.stringify(err)
       alert('Erreur conversion : ' + msg)
+    }
+  }
+
+  async function handleChangeStatut(newStatut: string) {
+    if (!devis) return
+    try {
+      await updateRow('devis', devis.id, { statut: newStatut })
+      setToastMsg(`Statut mis à jour : ${STATUT_LABELS[newStatut] ?? newStatut}`)
+      setTimeout(() => setToastMsg(null), 3000)
+      // Recharger la page pour mettre à jour l'affichage
+      window.location.reload()
+    } catch (err) {
+      alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
     }
   }
 
@@ -302,7 +327,7 @@ export default function DevisDetailPage() {
           </Link>
           <h1 className="font-syne font-bold text-xl text-[#1a1a2e]">Devis {devis.numero}</h1>
           <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${statutStyle}`}>
-            {devis.statut}
+            {STATUT_LABELS[devis.statut] ?? devis.statut}
           </span>
         </div>
 
@@ -521,10 +546,13 @@ export default function DevisDetailPage() {
 
         {/* Sidebar */}
         <div className="w-full lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-24 lg:self-start no-print">
+          {/* Infos */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-manrope text-[#6b7280]">Statut</span>
-              <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${statutStyle}`}>{devis.statut}</span>
+              <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${statutStyle}`}>
+                {STATUT_LABELS[devis.statut] ?? devis.statut}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-manrope text-[#6b7280]">Client</span>
@@ -539,6 +567,42 @@ export default function DevisDetailPage() {
               <span className="text-lg font-syne font-bold text-[#1a1a2e]">{formatCurrency(totalTTC)}</span>
             </div>
           </div>
+
+          {/* Changer le statut manuellement */}
+          {devis.statut !== 'facture' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <p className="text-xs font-manrope font-semibold text-[#6b7280] uppercase tracking-wider mb-3">Changer le statut</p>
+              <div className="space-y-2">
+                {devis.statut !== 'signe' && (
+                  <button
+                    onClick={() => handleChangeStatut('signe')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm font-manrope hover:bg-green-100 transition-colors"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                    Marquer Accepté
+                  </button>
+                )}
+                {devis.statut !== 'refuse' && (
+                  <button
+                    onClick={() => handleChangeStatut('refuse')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-manrope hover:bg-red-100 transition-colors"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                    Marquer Refusé
+                  </button>
+                )}
+                {devis.statut !== 'envoye' && devis.statut !== 'brouillon' && (
+                  <button
+                    onClick={() => handleChangeStatut('envoye')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-manrope hover:bg-blue-100 transition-colors"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                    Remettre en Envoyé
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

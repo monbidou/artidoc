@@ -42,6 +42,8 @@ const STATUS_LABELS: Record<string, string> = {
   refuse: 'Refusé',
   expire: 'Expiré',
   facture: 'Facturé',
+  // alias legacy
+  finalise: 'Envoyé',
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -50,15 +52,18 @@ const STATUS_STYLES: Record<string, string> = {
   signe: 'bg-green-50 text-green-700',
   refuse: 'bg-red-50 text-red-700',
   expire: 'bg-orange-50 text-orange-700',
-  facture: 'bg-emerald-50 text-emerald-700',
+  facture: 'bg-purple-50 text-purple-700',
+  finalise: 'bg-blue-50 text-blue-700',
 }
 
-const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoyé', 'Accepté', 'Refusé']
+const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoyé', 'Accepté', 'Refusé', 'Expiré', 'Facturé']
 const FILTER_TO_STATUS: Record<string, DevisStatus> = {
   Brouillon: 'brouillon',
   'Envoyé': 'envoye',
   'Accepté': 'signe',
   'Refusé': 'refuse',
+  'Expiré': 'expire',
+  'Facturé': 'facture',
 }
 
 const SORT_OPTIONS = ['Date', 'Montant', 'Client']
@@ -120,7 +125,7 @@ export default function DevisListPage() {
     const all = devisList.length
     const envoyes = devisList.filter((d: Record<string, unknown>) => d.statut === 'envoye')
     const signes = devisList.filter((d: Record<string, unknown>) => d.statut === 'signe')
-    const enAttente = devisList.filter((d: Record<string, unknown>) => d.statut === 'brouillon' || d.statut === 'finalise')
+    const enAttente = devisList.filter((d: Record<string, unknown>) => d.statut === 'brouillon')
     return {
       all,
       envoyesCount: envoyes.length,
@@ -221,9 +226,9 @@ export default function DevisListPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Tous" value={String(stats.all)} accent="#5ab4e0" />
-        <StatCard icon={<Send size={20} />} label="Envoyes" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Signes" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="En attente" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
+        <StatCard icon={<Send size={20} />} label="Envoyés" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Acceptés" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="Brouillons" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
       </div>
 
       {/* Action bar */}

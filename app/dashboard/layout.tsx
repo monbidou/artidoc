@@ -30,7 +30,10 @@ import {
   FileText,
   Receipt,
   Calendar,
+  Shield,
 } from 'lucide-react'
+
+const ADMIN_EMAIL = 'admin@nexartis.fr'
 
 // -------------------------------------------------------------------
 // Types
@@ -147,6 +150,7 @@ function Sidebar({
   pathname,
   userInitials,
   userName,
+  userEmail,
   entrepriseNom,
   entrepriseMetier,
   entrepriseLogo,
@@ -158,6 +162,7 @@ function Sidebar({
   pathname: string
   userInitials: string
   userName: string
+  userEmail: string
   entrepriseNom: string
   entrepriseMetier: string
   entrepriseLogo: string
@@ -350,6 +355,34 @@ function Sidebar({
               })}
             </div>
           ))}
+
+          {/* ---- Lien Admin (visible uniquement pour admin@nexartis.fr) ---- */}
+          {userEmail === ADMIN_EMAIL && (
+            <>
+              <hr className="border-white/[0.06] my-1 mx-2.5" />
+              <Link
+                href="/dashboard/admin"
+                onClick={onCloseMobile}
+                title={collapsed ? 'Admin' : undefined}
+                className={`
+                  group/nav relative flex items-center rounded-lg text-[14px] font-jakarta font-medium
+                  transition-all duration-150 ease-out
+                  ${collapsed ? 'justify-center h-10 w-10 mx-auto' : 'gap-3 h-10 px-3 ml-1'}
+                  ${
+                    isActive(pathname, '/dashboard/admin')
+                      ? 'bg-purple-500/20 text-purple-300'
+                      : 'text-purple-400/70 hover:bg-purple-500/10 hover:text-purple-300'
+                  }
+                `}
+              >
+                {isActive(pathname, '/dashboard/admin') && !collapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-purple-400" />
+                )}
+                <Shield size={19} strokeWidth={1.8} className="flex-shrink-0" />
+                {!collapsed && <span className="truncate">Admin</span>}
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* ---- Bottom: User ---- */}
@@ -477,10 +510,38 @@ export default function DashboardLayout({
   const [collapsed, setCollapsed] = useState(false)
   const [hovered, setHovered] = useState(false)
 
+  const router = useRouter()
   const { user, loading: userLoading } = useUser()
   const { entreprise, loading: entrepriseLoading } = useEntreprise()
 
   const isLoading = userLoading || entrepriseLoading
+
+  // Vérification expiration période d'essai (14 jours)
+  useEffect(() => {
+    if (isLoading || !entreprise || !user) return
+    // L'admin ne vérifie jamais
+    if (user.email === ADMIN_EMAIL) return
+    // Déjà sur la page expiration → pas de boucle
+    if (pathname === '/subscription-expired') return
+
+    const abonnementType = (entreprise.abonnement_type as string) ?? 'trial'
+    // Abonnement actif ou à vie → pas de blocage
+    if (abonnementType === 'lifetime' || abonnementType === 'actif') return
+    // Suspendu → bloquer immédiatement
+    if (abonnementType === 'suspendu') {
+      router.replace('/subscription-expired')
+      return
+    }
+    // Trial → vérifier les 14 jours
+    const trialStarted = entreprise.trial_started_at
+      ? new Date(entreprise.trial_started_at as string)
+      : new Date(entreprise.created_at as string)
+    const msEcoules = Date.now() - trialStarted.getTime()
+    const joursEcoules = msEcoules / (1000 * 60 * 60 * 24)
+    if (joursEcoules > 14) {
+      router.replace('/subscription-expired')
+    }
+  }, [isLoading, entreprise, user, pathname, router])
 
   const userInitials = getInitials(
     user?.user_metadata?.prenom,
@@ -540,6 +601,7 @@ export default function DashboardLayout({
           pathname={pathname}
           userInitials={userInitials}
           userName={userName}
+          userEmail={user?.email ?? ''}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
           entrepriseLogo={entrepriseLogo}
@@ -556,6 +618,7 @@ export default function DashboardLayout({
           pathname={pathname}
           userInitials={userInitials}
           userName={userName}
+          userEmail={user?.email ?? ''}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
           entrepriseLogo={entrepriseLogo}
@@ -572,6 +635,7 @@ export default function DashboardLayout({
           pathname={pathname}
           userInitials={userInitials}
           userName={userName}
+          userEmail={user?.email ?? ''}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
           entrepriseLogo={entrepriseLogo}
