@@ -69,35 +69,6 @@ export default function PricingSection() {
             ))}
           </div>
 
-          <div className="mb-8 h-px w-full bg-white/10" />
-
-          <div className="overflow-hidden rounded-xl border border-white/10">
-            <table className="w-full text-center">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="p-3 text-left font-manrope text-sm font-normal text-gray-400" />
-                  <th className="rounded-t-lg bg-sky/20 p-3 font-syne text-sm font-bold text-sky">NexArtis</th>
-                  <th className="p-3 font-manrope text-sm font-normal text-gray-400">Obat</th>
-                  <th className="p-3 font-manrope text-sm font-normal text-gray-400">Tolteck</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonRows.map((row, i) => (
-                  <tr key={row.label} className={i < comparisonRows.length - 1 ? "border-b border-white/10" : ""}>
-                    <td className="p-3 text-left font-manrope text-sm text-gray-300">{row.label}</td>
-                    <td className="bg-sky/10 p-3"><CellValue value={row.nexartis} /></td>
-                    <td className="p-3"><CellValue value={row.obat} /></td>
-                    <td className="p-3"><CellValue value={row.tolteck} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-4 text-center font-manrope text-xs text-gray-500 italic">
-            * Données basées sur les offres publiques de ces services au 1er avril 2026.
-          </p>
-
           <div className="mt-10 flex flex-col items-center">
             <button className="h-16 w-full max-w-md rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               Commencer maintenant — 14 jours gratuits

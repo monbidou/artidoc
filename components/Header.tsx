@@ -89,8 +89,8 @@ export default function Header() {
       <div className="mx-auto flex h-[60px] max-w-7xl items-center justify-between px-5 md:h-[72px] lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-syne text-2xl font-[800] text-navy">
-          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={96} height={96} quality={100} className="h-12 w-auto object-contain" />
-          NexArtis
+          <Image src="/images/logo-nexartis.png" alt="Nexartis" width={96} height={96} quality={100} className="h-16 w-auto object-contain" />
+          Nexartis
         </Link>
 
         {/* Desktop nav */}
@@ -178,12 +178,6 @@ export default function Header() {
 
         {/* Desktop right side */}
         <div className="hidden items-center gap-4 md:flex">
-          <a
-            href="mailto:contact@nexartis.fr"
-            className="font-manrope text-sm font-medium text-navy/70 transition-colors hover:text-navy"
-          >
-            📧 contact@nexartis.fr
-          </a>
           <Link
             href={isLoggedIn ? "/dashboard" : "/login"}
             className="inline-flex h-[46px] items-center rounded-lg bg-[#e87a2a] px-6 font-syne text-sm font-bold text-white transition-colors hover:bg-[#f09050]"
@@ -300,14 +294,6 @@ export default function Header() {
           </Link>
 
           <hr className="my-3 border-gray-100" />
-
-          {/* Phone number in mobile */}
-          <a
-            href="mailto:contact@nexartis.fr"
-            className="flex h-[56px] items-center font-manrope text-base font-medium text-navy/70"
-          >
-            📧 contact@nexartis.fr
-          </a>
 
           {/* Mobile CTAs at bottom */}
           <div className="mt-auto flex flex-col gap-3 pb-8">

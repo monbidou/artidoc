@@ -25,7 +25,7 @@ import {
 // -------------------------------------------------------------------
 
 type ViewMode = 'Jour' | 'Semaine' | 'Mois'
-type Creneau = 'Matin 8h-12h' | 'Apres-midi 13h-17h' | 'Journee 8h-17h'
+type Creneau = 'Matin 8h-12h' | 'Après-midi 13h-17h' | 'Journée 8h-17h'
 
 // Color palette for intervenants
 const COLORS = [
@@ -57,8 +57,8 @@ function formatDateISO(d: Date): string {
 function creneauToTimes(creneau: Creneau): { start: string; end: string } {
   switch (creneau) {
     case 'Matin 8h-12h': return { start: '08:00', end: '12:00' }
-    case 'Apres-midi 13h-17h': return { start: '13:00', end: '17:00' }
-    case 'Journee 8h-17h': return { start: '08:00', end: '17:00' }
+    case 'Après-midi 13h-17h': return { start: '13:00', end: '17:00' }
+    case 'Journée 8h-17h': return { start: '08:00', end: '17:00' }
   }
 }
 
@@ -84,7 +84,7 @@ export default function PlanningPage() {
   const [modalClientId, setModalClientId] = useState('')
   const [modalIntervenantId, setModalIntervenantId] = useState('')
   const [modalDate, setModalDate] = useState('')
-  const [modalCreneau, setModalCreneau] = useState<Creneau>('Journee 8h-17h')
+  const [modalCreneau, setModalCreneau] = useState<Creneau>('Journée 8h-17h')
   const [modalObjet, setModalObjet] = useState('')
   const [modalChantierId, setModalChantierId] = useState('')
   const [conflictStatus, setConflictStatus] = useState<'none' | 'ok' | 'conflict'>('none')
@@ -143,7 +143,7 @@ export default function PlanningPage() {
     setModalClientId('')
     setModalIntervenantId('')
     setModalDate('')
-    setModalCreneau('Journee 8h-17h')
+    setModalCreneau('Journée 8h-17h')
     setModalObjet('')
     setModalChantierId('')
     setConflictStatus('none')
@@ -388,7 +388,7 @@ export default function PlanningPage() {
                 onChange={(e) => setModalClientId(e.target.value)}
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               >
-                <option value="">Selectionner un client...</option>
+                <option value="">Sélectionner un client...</option>
                 {clients.map((c) => {
                   const cr = c as Record<string, unknown>
                   const nom = (cr.nom as string) ?? ''
@@ -410,7 +410,7 @@ export default function PlanningPage() {
                 onChange={(e) => { setModalIntervenantId(e.target.value); setConflictStatus('none') }}
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               >
-                <option value="">Selectionner un intervenant...</option>
+                <option value="">Sélectionner un intervenant...</option>
                 {intervenants.map((m) => {
                   const mr = m as Record<string, unknown>
                   const nom = (mr.nom as string) ?? ''
@@ -459,7 +459,7 @@ export default function PlanningPage() {
             <div>
               <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Creneau</label>
               <div className="flex gap-2">
-                {(['Matin 8h-12h', 'Apres-midi 13h-17h', 'Journee 8h-17h'] as Creneau[]).map((c) => (
+                {(['Matin 8h-12h', 'Après-midi 13h-17h', 'Journée 8h-17h'] as Creneau[]).map((c) => (
                   <button
                     key={c}
                     onClick={() => { setModalCreneau(c); setConflictStatus('none') }}

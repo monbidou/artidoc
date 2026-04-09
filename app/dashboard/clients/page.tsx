@@ -10,7 +10,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react'
-import { useClients, insertRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { useClients, insertRow, updateRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types
@@ -51,6 +51,7 @@ export default function ClientsPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   // New client form state
+  const [editingClient, setEditingClient] = useState<ClientRow | null>(null)
   const [form, setForm] = useState({
     type: 'particulier' as 'particulier' | 'professionnel',
     prenom: '',
@@ -108,6 +109,60 @@ export default function ClientsPage() {
       refetch()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Erreur lors de la création')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openEditModal = (client: ClientRow) => {
+    setEditingClient(client)
+    setForm({
+      type: client.type,
+      prenom: client.prenom,
+      nom: client.nom,
+      raison_sociale: client.raison_sociale || '',
+      email: client.email,
+      telephone: client.telephone,
+      adresse: client.adresse,
+      code_postal: client.code_postal,
+      ville: client.ville,
+      siret: client.siret || '',
+      notes_internes: client.notes_internes || '',
+    })
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setFormError(null)
+    try {
+      const values: Record<string, unknown> = {
+        type: form.type,
+        prenom: form.prenom,
+        nom: form.nom,
+        email: form.email || null,
+        telephone: form.telephone || null,
+        adresse: form.adresse || null,
+        code_postal: form.code_postal || null,
+        ville: form.ville || null,
+        siret: form.siret || null,
+        notes_internes: form.notes_internes || null,
+      }
+      if (form.type === 'professionnel') {
+        values.raison_sociale = form.raison_sociale || null
+      }
+      if (editingClient) {
+        await updateRow('clients', editingClient.id, values)
+      } else {
+        values.actif = true
+        await insertRow('clients', values)
+      }
+      setShowModal(false)
+      setEditingClient(null)
+      resetForm()
+      refetch()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setSaving(false)
     }
@@ -197,7 +252,7 @@ export default function ClientsPage() {
 
         {/* New client button */}
         <button
-          onClick={() => { resetForm(); setShowModal(true) }}
+          onClick={() => { resetForm(); setEditingClient(null); setShowModal(true) }}
           className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
         >
           <Plus size={16} />
@@ -251,12 +306,20 @@ export default function ClientsPage() {
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{client.ville}</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(client.created_at)}</td>
                   <td className="px-4 py-3 text-sm font-manrope">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(client.id, displayName(client)) }}
-                      className="text-red-500 hover:text-red-700 text-xs font-medium"
-                    >
-                      Supprimer
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(client) }}
+                        className="text-[#5ab4e0] hover:text-[#0f1a3a] text-xs font-medium"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(client.id, displayName(client)) }}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -277,8 +340,8 @@ export default function ClientsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouveau client</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">{editingClient ? 'Modifier le client' : 'Nouveau client'}</h2>
+              <button onClick={() => { setShowModal(false); setEditingClient(null) }} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
             </div>
@@ -414,17 +477,17 @@ export default function ClientsPage() {
             </div>
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setEditingClient(null) }}
                 className="h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] transition-colors"
               >
                 Annuler
               </button>
               <button
-                onClick={handleCreate}
+                onClick={handleSave}
                 disabled={saving || !form.nom}
                 className="h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
               >
-                {saving ? 'Création...' : 'Créer le client'}
+                {saving ? 'Enregistrement...' : editingClient ? 'Enregistrer' : 'Créer le client'}
               </button>
             </div>
           </div>

@@ -107,7 +107,7 @@ export default function PlanningDemoSection() {
         {/* Badge */}
         <div className="mb-8 flex justify-center">
           <span className="inline-block rounded-full bg-[#f5c842] px-5 py-2 font-syne text-sm font-bold text-[#0f1a3a]">
-            ★ Fonctionnalité exclusive NexArtis
+            ★ Fonctionnalité exclusive Nexartis
           </span>
         </div>
 
@@ -118,7 +118,7 @@ export default function PlanningDemoSection() {
 
         <p className="mx-auto mt-4 max-w-2xl text-center font-manrope text-lg leading-relaxed text-gray-400">
           Chez tous les concurrents, le planning est une simple liste. Chez
-          NexArtis, c&apos;est un vrai outil de travail.
+          Nexartis, c&apos;est un vrai outil de travail.
         </p>
 
         {/* Interactive Planning Demo */}

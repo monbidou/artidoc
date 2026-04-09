@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f \"C:/Users/monbi.DESKTOP-F25M7C8/Desktop/CLAUDE/Nexartis/.git/index.lock\")",
+      "Bash(rtk git:*)"
+    ]
+  }
+}

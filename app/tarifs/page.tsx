@@ -32,7 +32,7 @@ const faqItems = [
   },
   {
     q: "Puis-je annuler mon abonnement \u00e0 tout moment\u00a0?",
-    a: "Oui, NexArtis est sans engagement. Vous pouvez résilier directement depuis votre espace, \u00e0 tout moment. Vos donn\u00e9es restent accessibles pendant 30 jours apr\u00e8s l\u2019annulation.",
+    a: "Oui, Nexartis est sans engagement. Vous pouvez résilier directement depuis votre espace, \u00e0 tout moment. Vos donn\u00e9es restent accessibles pendant 30 jours apr\u00e8s l\u2019annulation.",
   },
   {
     q: "L\u2019essai gratuit est-il vraiment sans carte bancaire\u00a0?",
@@ -43,8 +43,8 @@ const faqItems = [
     a: "Pas encore. Nous pr\u00e9f\u00e9rons la simplicit\u00e9 d\u2019un tarif unique mensuel sans engagement. Si suffisamment de clients le demandent, nous \u00e9tudierons une offre annuelle avec r\u00e9duction.",
   },
   {
-    q: "Pourquoi NexArtis est-il moins cher qu\u2019Obat\u00a0?",
-    a: "Obat facture 49\u20ac/mois minimum et ajoute des modules payants. NexArtis a \u00e9t\u00e9 con\u00e7u d\u00e8s le d\u00e9part pour tout inclure \u00e0 un prix juste. Notre architecture technique moderne nous permet de r\u00e9duire nos co\u00fbts et de vous en faire profiter.",
+    q: "Pourquoi Nexartis est-il moins cher qu\u2019Obat\u00a0?",
+    a: "Obat facture 49\u20ac/mois minimum et ajoute des modules payants. Nexartis a \u00e9t\u00e9 con\u00e7u d\u00e8s le d\u00e9part pour tout inclure \u00e0 un prix juste. Notre architecture technique moderne nous permet de r\u00e9duire nos co\u00fbts et de vous en faire profiter.",
   },
 ];
 
@@ -114,7 +114,7 @@ export default function TarifsPage() {
           <p
             className="mx-auto mb-12 max-w-xl text-center font-manrope text-lg text-gray-500"
           >
-            Voyez par vous-m&ecirc;me pourquoi NexArtis offre le meilleur rapport
+            Voyez par vous-m&ecirc;me pourquoi Nexartis offre le meilleur rapport
             qualit&eacute;-fonctionnalit&eacute;s du march&eacute;.
           </p>
 
@@ -127,7 +127,7 @@ export default function TarifsPage() {
                   <tr className="border-b-2 border-gray-100">
                     <th className="p-4 text-left font-manrope text-sm font-normal text-gray-400" />
                     <th className="bg-sky/10 p-4 font-syne text-sm font-bold text-sky">
-                      NexArtis
+                      Nexartis
                       <div className="mt-1 font-manrope text-xs font-normal text-gray-500">
                         25&euro;/mois
                       </div>

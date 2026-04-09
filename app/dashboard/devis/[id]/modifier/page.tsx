@@ -192,14 +192,16 @@ export default function ModifierDevisPage() {
               <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className="text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px]" placeholder="Désignation..." rows={1} />
               {line.type === 'line' ? (<>
                 <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
-                <input type="text" value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} list="unit-sugg-edit" className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" />
+                <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
+                  {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
                 <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border-0 outline-none bg-transparent mt-1.5" min={0} step={0.01} />
                 <span className="text-sm font-semibold text-right mt-1.5">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '--'}</span>
               </>) : <><span /><span /><span /><span /></>}
               <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500 mt-1.5"><Trash2 size={14} /></button>
             </div>
           ))}
-          <datalist id="unit-sugg-edit">{UNIT_SUGGESTIONS.map(u => <option key={u} value={u} />)}</datalist>
+          {/* Units are now in select dropdowns */}
           <div className="flex flex-wrap gap-2 p-4">
             <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
             <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280]"><Plus size={14} /> Section</button>

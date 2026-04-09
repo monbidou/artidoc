@@ -490,7 +490,7 @@ function FacturationSection({
         </div>
 
         <InputField
-          label="Penalites de retard"
+          label="Pénalités de retard"
           value={penalites}
           onChange={setPenalites}
         />
@@ -596,18 +596,54 @@ function LogoUploadSection({
 
   const currentLogo = entreprise.logo_url as string | undefined
 
+  const removeBackground = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+        const corners = [
+          [data[0], data[1], data[2]],
+          [data[(canvas.width - 1) * 4], data[(canvas.width - 1) * 4 + 1], data[(canvas.width - 1) * 4 + 2]],
+          [data[(canvas.height - 1) * canvas.width * 4], data[(canvas.height - 1) * canvas.width * 4 + 1], data[(canvas.height - 1) * canvas.width * 4 + 2]],
+          [data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4], data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4 + 1], data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4 + 2]],
+        ]
+        const bgR = Math.round(corners.reduce((s, c) => s + c[0], 0) / 4)
+        const bgG = Math.round(corners.reduce((s, c) => s + c[1], 0) / 4)
+        const bgB = Math.round(corners.reduce((s, c) => s + c[2], 0) / 4)
+        const threshold = 40
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2]
+          const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2)
+          if (dist < threshold) data[i + 3] = 0
+        }
+        ctx.putImageData(imageData, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      }
+      img.src = dataUrl
+    })
+  }
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
       setOriginalPreview(dataUrl)
       setRemovedBgPreview(null)
       setProcessing(true)
-
-      // Background removal will be loaded on-demand when available
+      try {
+        const result = await removeBackground(dataUrl)
+        setRemovedBgPreview(result)
+      } catch {
+        // si echec, on garde l'original
+      }
       setProcessing(false)
     }
     reader.readAsDataURL(file)
@@ -863,6 +899,99 @@ function SignatureSection({
       </div>
 
       <SuccessMessage message={success} />
+
+      {/* Tampon section */}
+      <TamponUpload entreprise={entreprise} update={update} />
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------
+// Tampon upload
+// -------------------------------------------------------------------
+
+function TamponUpload({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const currentTampon = entreprise.tampon_base64 as string | undefined
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image (JPG, PNG)')
+      return
+    }
+
+    setSaving(true)
+    setSuccess(null)
+    try {
+      const reader = new FileReader()
+      reader.onload = async () => {
+        const dataUrl = reader.result as string
+        await update({ tampon_base64: dataUrl })
+        setSuccess('Tampon enregistré avec succès.')
+        setSaving(false)
+      }
+      reader.readAsDataURL(file)
+    } catch {
+      setSaving(false)
+    }
+  }
+
+  const handleRemove = async () => {
+    setSaving(true)
+    try {
+      await update({ tampon_base64: null })
+      setSuccess('Tampon supprimé.')
+    } catch { /* ignored */ }
+    setSaving(false)
+  }
+
+  return (
+    <div className="mt-8 pt-8 border-t border-gray-200">
+      <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">
+        Mon tampon
+      </h2>
+      <p className="font-manrope text-sm text-gray-500 mb-6">
+        Ce tampon apparaîtra à côté de votre signature sur les devis. Utilisez un PNG avec fond transparent pour un meilleur rendu.
+      </p>
+
+      {currentTampon && (
+        <div className="mb-6">
+          <p className="text-xs font-manrope text-gray-500 mb-2">Tampon actuel</p>
+          <div className="h-24 w-48 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={currentTampon} alt="Tampon" className="max-h-full max-w-full object-contain" />
+          </div>
+          <button
+            onClick={handleRemove}
+            disabled={saving}
+            className="mt-2 text-xs text-red-500 hover:text-red-700 font-manrope"
+          >
+            Supprimer le tampon
+          </button>
+        </div>
+      )}
+
+      <label className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] cursor-pointer transition-colors">
+        {saving ? 'Enregistrement...' : currentTampon ? 'Changer le tampon' : 'Uploader un tampon'}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/jpg"
+          onChange={handleUpload}
+          className="hidden"
+        />
+      </label>
+
+      <SuccessMessage message={success} />
     </div>
   )
 }
@@ -878,10 +1007,10 @@ function AbonnementSection() {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="font-syne font-bold text-lg text-[#1a1a2e]">
-              NexArtis &mdash; 25 &euro; / mois HT
+              Nexartis &mdash; 25 &euro; / mois HT
             </h3>
             <p className="font-manrope text-sm text-[#6b7280] mt-1">
-              Toutes les fonctionnalites incluses
+              Toutes les fonctionnalités incluses
             </p>
           </div>
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 font-manrope text-xs font-medium">

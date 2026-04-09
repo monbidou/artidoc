@@ -110,14 +110,14 @@ function LoginForm() {
         <div className="flex items-center justify-center gap-2 mb-8">
           <Image
             src="/images/logo-nexartis.png"
-            alt="NexArtis"
+            alt="Nexartis"
             width={192}
             height={192}
             quality={100}
             priority
             className="h-24 w-auto object-contain"
           />
-          <span className="font-syne font-extrabold text-3xl text-navy">NexArtis</span>
+          <span className="font-syne font-extrabold text-3xl text-navy">Nexartis</span>
         </div>
 
         {/* Card */}

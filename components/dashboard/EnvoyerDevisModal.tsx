@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Send } from 'lucide-react'
 
 interface EnvoyerDevisModalProps {
@@ -29,6 +29,10 @@ export default function EnvoyerDevisModal({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    if (clientEmail) setEmail(clientEmail)
+  }, [clientEmail])
 
   if (!open) return null
 

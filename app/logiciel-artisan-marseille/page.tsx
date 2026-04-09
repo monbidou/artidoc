@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import LocalPageTemplate from "@/components/LocalPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Artisan Marseille — NexArtis | 25€/mois tout inclus",
+  title: "Logiciel Artisan Marseille — Nexartis | 25€/mois tout inclus",
   description:
-    "NexArtis pour les artisans de Marseille et des Bouches-du-Rhône. Devis, factures, planning. 25€/mois. Essai gratuit.",
+    "Nexartis pour les artisans de Marseille et des Bouches-du-Rhône. Devis, factures, planning. 25€/mois. Essai gratuit.",
 };
 
 const data = {
@@ -12,14 +12,14 @@ const data = {
   region: "Bouches-du-Rhône",
   codePostal: "13",
   h1: "Logiciel artisan à Marseille — Devis, factures et planning",
-  metaTitle: "Logiciel Artisan Marseille — NexArtis | 25€/mois tout inclus",
+  metaTitle: "Logiciel Artisan Marseille — Nexartis | 25€/mois tout inclus",
   metaDescription:
-    "NexArtis pour les artisans de Marseille et des Bouches-du-Rhône. Devis, factures, planning. 25€/mois. Essai gratuit.",
+    "Nexartis pour les artisans de Marseille et des Bouches-du-Rhône. Devis, factures, planning. 25€/mois. Essai gratuit.",
   specificite:
-    "Les artisans marseillais apprécient la simplicité d'NexArtis, un logiciel pensé pour le terrain, pas pour le bureau.",
+    "Les artisans marseillais apprécient la simplicité d'Nexartis, un logiciel pensé pour le terrain, pas pour le bureau.",
   temoignage: {
     quote:
-      "Depuis que j'utilise NexArtis, je gagne au moins 3 heures par semaine. Et mes clients me disent que mes devis font très pro.",
+      "Depuis que j'utilise Nexartis, je gagne au moins 3 heures par semaine. Et mes clients me disent que mes devis font très pro.",
     nom: "Rachid K.",
     metier: "Peintre",
     ville: "Marseille (13)",

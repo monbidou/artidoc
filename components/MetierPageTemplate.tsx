@@ -28,7 +28,7 @@ const features = [
   {
     icon: "⚡",
     title: "Conforme Factur-X 2026",
-    text: "La facture électronique est obligatoire depuis septembre 2026. NexArtis est certifié conforme — aucune amende à craindre.",
+    text: "La facture électronique est obligatoire depuis septembre 2026. Nexartis est certifié conforme — aucune amende à craindre.",
   },
   {
     icon: "📅",
@@ -38,7 +38,7 @@ const features = [
   {
     icon: "🔔",
     title: "Relances automatiques",
-    text: "NexArtis envoie des rappels polis aux clients qui n'ont pas payé. Réduisez vos délais de paiement sans démarche manuelle.",
+    text: "Nexartis envoie des rappels polis aux clients qui n'ont pas payé. Réduisez vos délais de paiement sans démarche manuelle.",
   },
   {
     icon: "📱",
@@ -91,20 +91,20 @@ export default function MetierPageTemplate({
 }: MetierPageProps) {
   const faqs = [
     {
-      q: `Est-ce qu'NexArtis est adapté aux ${nomPluriel.toLowerCase()} ?`,
-      a: `Oui. NexArtis a été conçu pour les artisans du bâtiment, y compris les ${nomPluriel.toLowerCase()}. Les prestations, taux de TVA et modèles de devis sont préconfigurés pour votre métier.`,
+      q: `Est-ce qu'Nexartis est adapté aux ${nomPluriel.toLowerCase()} ?`,
+      a: `Oui. Nexartis a été conçu pour les artisans du bâtiment, y compris les ${nomPluriel.toLowerCase()}. Les prestations, taux de TVA et modèles de devis sont préconfigurés pour votre métier.`,
     },
     {
-      q: `Comment fonctionne la TVA pour les ${nomPluriel.toLowerCase()} dans NexArtis ?`,
-      a: `${tvaNotes}. NexArtis applique automatiquement le bon taux selon le type de travaux. Vous n'avez qu'à choisir la prestation.`,
+      q: `Comment fonctionne la TVA pour les ${nomPluriel.toLowerCase()} dans Nexartis ?`,
+      a: `${tvaNotes}. Nexartis applique automatiquement le bon taux selon le type de travaux. Vous n'avez qu'à choisir la prestation.`,
     },
     {
-      q: "Combien coûte NexArtis ?",
+      q: "Combien coûte Nexartis ?",
       a: "25€ par mois, tout inclus. Pas de version premium, pas de frais cachés. 14 jours d'essai gratuit sans carte bancaire.",
     },
     {
       q: "Est-ce que je peux envoyer mes factures à mon comptable ?",
-      a: "Oui. NexArtis exporte vos factures au format que votre comptable utilise, en un clic. Ça lui fait gagner du temps et ça vous coûte moins cher.",
+      a: "Oui. Nexartis exporte vos factures au format que votre comptable utilise, en un clic. Ça lui fait gagner du temps et ça vous coûte moins cher.",
     },
     {
       q: `Puis-je importer mes anciens devis de ${nom.toLowerCase()} ?`,
@@ -224,10 +224,10 @@ export default function MetierPageTemplate({
             </p>
             <div className="mt-6 rounded-xl border border-navy/10 bg-white p-6">
               <p className="font-manrope text-sm font-semibold text-navy/60 uppercase tracking-wider">
-                Comment NexArtis vous aide
+                Comment Nexartis vous aide
               </p>
               <p className="mt-2 font-manrope text-base leading-relaxed text-navy/80">
-                Quand vous créez un devis, NexArtis pré-remplit le bon taux de TVA
+                Quand vous créez un devis, Nexartis pré-remplit le bon taux de TVA
                 pour chaque ligne de prestation. Vous pouvez toujours le modifier
                 si besoin, mais dans 90% des cas, le taux proposé est le bon.
                 Simplifiez les échanges avec votre expert-comptable grâce à des exports conformes.
@@ -246,7 +246,7 @@ export default function MetierPageTemplate({
               Exemple de devis {nom.toLowerCase()}
             </h2>
             <p className="mt-3 text-center font-manrope text-base text-navy/60">
-              Voici à quoi ressemble un devis créé avec NexArtis
+              Voici à quoi ressemble un devis créé avec Nexartis
             </p>
 
             {/* Devis document */}

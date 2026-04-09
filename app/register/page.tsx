@@ -52,6 +52,13 @@ export default function RegisterPage() {
       return
     }
 
+    // Send welcome email (fire-and-forget)
+    fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name: `${prenom} ${nom}` }),
+    }).catch(() => {})
+
     router.push('/onboarding')
   }
 
@@ -73,8 +80,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-[420px]">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={192} height={192} quality={100} className="h-24 w-auto object-contain" />
-          <span className="font-syne font-extrabold text-3xl text-navy">NexArtis</span>
+          <Image src="/images/logo-nexartis.png" alt="Nexartis" width={192} height={192} quality={100} className="h-24 w-auto object-contain" />
+          <span className="font-syne font-extrabold text-3xl text-navy">Nexartis</span>
         </div>
 
         {/* Badge */}

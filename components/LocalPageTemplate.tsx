@@ -31,7 +31,7 @@ const benefits = [
   {
     icon: "⚡",
     title: "Conforme Factur-X 2026",
-    text: "La facture électronique est obligatoire. NexArtis est déjà certifié conforme — aucune amende à craindre.",
+    text: "La facture électronique est obligatoire. Nexartis est déjà certifié conforme — aucune amende à craindre.",
   },
   {
     icon: "📱",
@@ -59,7 +59,7 @@ const features = [
   {
     icon: "🔔",
     title: "Relances automatiques",
-    text: "NexArtis envoie des rappels polis aux clients qui n'ont pas payé.",
+    text: "Nexartis envoie des rappels polis aux clients qui n'ont pas payé.",
   },
   {
     icon: "📊",
@@ -83,11 +83,11 @@ export default function LocalPageTemplate({
 }: LocalPageProps) {
   const faqs = [
     {
-      q: `NexArtis est-il utilisé par des artisans de ${ville} ?`,
-      a: `Oui. Des artisans de ${ville} et de ${region} (${codePostal}) utilisent NexArtis au quotidien pour gérer leurs devis, factures et planning de chantiers.`,
+      q: `Nexartis est-il utilisé par des artisans de ${ville} ?`,
+      a: `Oui. Des artisans de ${ville} et de ${region} (${codePostal}) utilisent Nexartis au quotidien pour gérer leurs devis, factures et planning de chantiers.`,
     },
     {
-      q: "Combien coûte NexArtis ?",
+      q: "Combien coûte Nexartis ?",
       a: "25€ par mois, tout inclus. Pas de version premium, pas de frais cachés. 14 jours d'essai gratuit sans carte bancaire.",
     },
     {
@@ -99,8 +99,8 @@ export default function LocalPageTemplate({
       a: `Notre support est disponible pour tous les artisans, y compris ceux de ${ville}. Vous pouvez nous contacter par email ou par chat, et nous répondons en moins de 2 heures.`,
     },
     {
-      q: "Est-ce qu'NexArtis est conforme à la réglementation Factur-X ?",
-      a: "Oui. Depuis septembre 2026, la facture électronique est obligatoire. NexArtis est certifié conforme Factur-X — vous ne risquez aucune amende.",
+      q: "Est-ce qu'Nexartis est conforme à la réglementation Factur-X ?",
+      a: "Oui. Depuis septembre 2026, la facture électronique est obligatoire. Nexartis est certifié conforme Factur-X — vous ne risquez aucune amende.",
     },
   ];
 
@@ -174,7 +174,7 @@ export default function LocalPageTemplate({
           <h2
             className="text-center font-syne text-2xl font-extrabold text-navy md:text-3xl"
           >
-            Pourquoi les artisans de {ville} choisissent NexArtis
+            Pourquoi les artisans de {ville} choisissent Nexartis
           </h2>
 
           <div
@@ -293,7 +293,7 @@ export default function LocalPageTemplate({
             className="flex flex-col items-center text-center"
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
-              Rejoignez les artisans de {ville} sur NexArtis
+              Rejoignez les artisans de {ville} sur Nexartis
             </h2>
             <p className="mb-10 max-w-lg font-manrope text-lg font-light text-gray-400">
               14 jours d&apos;essai gratuit. Sans carte bancaire. Sans

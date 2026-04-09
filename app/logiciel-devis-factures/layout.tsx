@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Créez vos devis et factures artisan rapidement — NexArtis",
+  title: "Créez vos devis et factures artisan rapidement — Nexartis",
   description:
     "Logiciel de devis et facturation pour artisans. Signature électronique, TVA automatique, conforme Factur-X 2026. Essai gratuit 14 jours.",
 };

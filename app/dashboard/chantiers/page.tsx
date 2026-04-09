@@ -34,14 +34,14 @@ function statutToFilter(statut: string): ChantierFilter {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '\u2014'
+  if (!dateStr) return '—'
   const d = new Date(dateStr)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function formatMoney(amount: number | null): string {
-  if (amount == null) return '0 \u20ac'
-  return amount.toLocaleString('fr-FR') + ' \u20ac'
+  if (amount == null) return '0 €'
+  return amount.toLocaleString('fr-FR') + ' €'
 }
 
 function getInitials(name: string): string {
@@ -160,7 +160,7 @@ export default function ChantiersListPage() {
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Client / Chantier', 'Avancement', 'Date d\u00e9but', 'Statut', 'Devis\u00e9 TTC', 'Factur\u00e9 TTC', 'Encaiss\u00e9', '\u00c9quipe', 'Actions'].map((col) => (
+              {['Client / Chantier', 'Avancement', 'Date début', 'Statut', 'Devisé TTC', 'Facturé TTC', 'Encaissé', 'Équipe', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -173,9 +173,9 @@ export default function ChantiersListPage() {
           <tbody>
             {filtered.map((chantier: Record<string, unknown>, idx: number) => {
               const client = clientMap.get(chantier.client_id as string)
-              const clientName = client ? `${client.prenom ?? ''} ${client.nom ?? ''}`.trim() : '\u2014'
+              const clientName = client ? `${client.prenom ?? ''} ${client.nom ?? ''}`.trim() : '—'
               const avancement = computeAvancement(chantier)
-              const initials = clientName !== '\u2014' ? getInitials(clientName) : '?'
+              const initials = clientName !== '—' ? getInitials(clientName) : '?'
 
               return (
                 <tr
@@ -203,7 +203,7 @@ export default function ChantiersListPage() {
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${
                       statutToFilter(chantier.statut as string) === 'En cours' ? 'bg-blue-50 text-blue-700' :
-                      statutToFilter(chantier.statut as string) === 'Termin\u00e9s' ? 'bg-green-50 text-green-700' :
+                      statutToFilter(chantier.statut as string) === 'Terminés' ? 'bg-green-50 text-green-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {statutToFilter(chantier.statut as string)}
@@ -282,7 +282,7 @@ export default function ChantiersListPage() {
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <HardHat size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun chantier trouv\u00e9</p>
+            <p className="text-sm font-manrope text-gray-500">Aucun chantier trouvé</p>
           </div>
         )}
       </div>

@@ -24,13 +24,20 @@ html {
 }
 
 body {
-  font-family: 'Manrope', sans-serif;
-  font-size: 17px;
-  line-height: 1.75;
+  font-family: 'Plus Jakarta Sans', 'Manrope', sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
   color: #0f1a3a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Shimmer effect on progress bars */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Syne', sans-serif;
@@ -124,4 +131,31 @@ details summary::-webkit-details-marker {
 ::selection {
   background: #5ab4e0;
   color: white;
+}
+
+@media print {
+  nav, header, aside, footer,
+  .no-print,
+  [class*="sticky"],
+  [class*="fixed"],
+  [class*="bottom-"],
+  [class*="top-0"] {
+    display: none !important;
+  }
+  body { background: white !important; margin: 0 !important; }
+  main, [class*="lg:ml-"] {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  .bg-white.shadow-xl {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+  }
+  table, .grid, [style*="display:grid"] {
+    page-break-inside: avoid;
+  }
+  .grid.grid-cols-2 {
+    page-break-inside: avoid;
+  }
 }

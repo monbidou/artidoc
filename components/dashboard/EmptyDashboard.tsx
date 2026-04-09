@@ -36,14 +36,14 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
       <div className="max-w-2xl w-full mx-auto py-16 px-4 text-center">
         <Image
           src="/images/logo-nexartis.png"
-          alt="NexArtis"
+          alt="Nexartis"
           width={80}
           height={80}
           className="h-20 w-auto mx-auto"
         />
 
         <h1 className="font-syne font-extrabold text-2xl text-[#1a1a2e] mt-6">
-          Bienvenue sur NexArtis{userName ? `, ${userName}` : ''} !
+          Bienvenue sur Nexartis{userName ? `, ${userName}` : ''} !
         </h1>
 
         <p className="font-manrope text-[#6b7280] mt-2">

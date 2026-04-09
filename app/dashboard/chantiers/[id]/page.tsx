@@ -174,9 +174,9 @@ export default function ChantierDetailPage() {
 
       {/* Info cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <InfoCard label="Devisé" value={`${deviseTTC.toLocaleString('fr-FR')} \u20ac`} />
-        <InfoCard label="Facturé" value={`${factureTTC.toLocaleString('fr-FR')} \u20ac`} />
-        <InfoCard label="Encaissé" value={`${encaisse.toLocaleString('fr-FR')} \u20ac`} />
+        <InfoCard label="Devisé" value={`${deviseTTC.toLocaleString('fr-FR')} €`} />
+        <InfoCard label="Facturé" value={`${factureTTC.toLocaleString('fr-FR')} €`} />
+        <InfoCard label="Encaissé" value={`${encaisse.toLocaleString('fr-FR')} €`} />
         <InfoCard label="Marge estimée" value={`${margeEstimee}%`} valueColor="text-green-600" />
       </div>
 

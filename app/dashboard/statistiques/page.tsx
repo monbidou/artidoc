@@ -2,18 +2,17 @@
 
 import { useState, useMemo } from "react";
 import { useFactures, useDevis, useChantiers, LoadingSkeleton } from "@/lib/hooks";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-// --- Month names with correct Unicode ---
 const MONTH_NAMES = [
-  "Jan", "F\u00e9v", "Mar", "Avr", "Mai", "Jun",
-  "Jul", "Ao\u00fb", "Sep", "Oct", "Nov", "D\u00e9c",
+  "Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+  "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc",
 ];
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " \u20AC";
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " €";
 }
 
-// --- Stat card component ---
 function StatCard({
   label,
   value,
@@ -39,7 +38,6 @@ function StatCard({
   );
 }
 
-// --- Section header ---
 function SectionHeader({ title }: { title: string }) {
   return (
     <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-4 mt-10 first:mt-0">
@@ -48,10 +46,8 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-// --- Page ---
 export default function StatistiquesPage() {
-  const [period, setPeriod] = useState("Mois");
-  const periods = ["Semaine", "Mois", "Trimestre", "Ann\u00e9e"];
+  const [chartYear, setChartYear] = useState(new Date().getFullYear());
 
   const { data: factures, loading: loadingF } = useFactures();
   const { data: devis, loading: loadingD } = useDevis();
@@ -59,29 +55,40 @@ export default function StatistiquesPage() {
 
   const loading = loadingF || loadingD || loadingCh;
 
-  // Computed stats
   const stats = useMemo(() => {
     const facs = factures.map((f) => f as Record<string, unknown>);
     const devs = devis.map((d) => d as Record<string, unknown>);
     const chants = chantiers.map((c) => c as Record<string, unknown>);
 
-    // --- CA ---
-    const paidFactures = facs.filter((f) => (f.statut as string) === "payee");
+    // CA facturé = toutes les factures émises (hors brouillon)
+    const emittedFactures = facs.filter((f) => {
+      const s = (f.statut as string) ?? "";
+      return s !== "brouillon";
+    });
+    const totalCAFacture = emittedFactures.reduce((s, f) => s + ((f.montant_ttc as number) ?? 0), 0);
+
+    // CA encaissé = factures payées ou archivées
+    const paidFactures = facs.filter((f) => {
+      const s = (f.statut as string) ?? "";
+      return s === "payee" || s === "archivee" || s === "Encaissée";
+    });
     const totalCA = paidFactures.reduce((s, f) => s + ((f.montant_ttc as number) ?? 0), 0);
 
-    // Monthly chart: group factures by month of date_facture
+    const resteAEncaisser = totalCAFacture - totalCA;
+
     const monthlyFacture: number[] = new Array(12).fill(0);
     const monthlyEncaisse: number[] = new Array(12).fill(0);
-    const currentYear = new Date().getFullYear();
 
     for (const f of facs) {
-      const dateStr = f.date_facture as string | null;
+      const statut = (f.statut as string) ?? "";
+      if (statut === "brouillon") continue;
+      const dateStr = (f.date_facture as string) || (f.date_emission as string) || (f.created_at as string);
       if (!dateStr) continue;
       const d = new Date(dateStr);
-      if (d.getFullYear() !== currentYear) continue;
+      if (d.getFullYear() !== chartYear) continue;
       const month = d.getMonth();
       monthlyFacture[month] += (f.montant_ttc as number) ?? 0;
-      if ((f.statut as string) === "payee") {
+      if (statut === "payee" || statut === "archivee" || statut === "Encaissée") {
         monthlyEncaisse[month] += (f.montant_ttc as number) ?? 0;
       }
     }
@@ -93,12 +100,9 @@ export default function StatistiquesPage() {
     }));
 
     const maxChartValue = Math.max(...chartData.map((d) => d.facture), 1);
-
-    // Round up to nice y-axis
     const yMax = Math.ceil(maxChartValue / 5000) * 5000;
     const yAxisValues = [0, Math.round(yMax / 3), Math.round((yMax * 2) / 3), yMax];
 
-    // --- Devis ---
     const totalDevis = devs.length;
     const signedDevis = devs.filter((d) => {
       const s = (d.statut as string) ?? "";
@@ -113,8 +117,6 @@ export default function StatistiquesPage() {
       ? Math.round(devisMontants.reduce((a, b) => a + b, 0) / devisMontants.length)
       : 0;
 
-    // --- Factures stats ---
-    const totalFacturesHT = facs.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0);
     const impayees = facs.filter((f) => {
       const s = (f.statut as string) ?? "";
       return s === "en_retard" || s === "en_attente" || s === "partielle";
@@ -132,7 +134,6 @@ export default function StatistiquesPage() {
       ? Math.round((totalPaye / totalFacturesTTC) * 100)
       : 0;
 
-    // --- Planning ---
     const chantiersActifs = chants.filter((c) => {
       const s = (c.statut as string) ?? "";
       return s === "en_cours" || s === "planifie";
@@ -140,18 +141,19 @@ export default function StatistiquesPage() {
 
     return {
       totalCA,
+      totalCAFacture,
+      resteAEncaisser,
       chartData,
       maxChartValue: yMax || 1,
       yAxisValues,
       tauxTransformation,
       montantMoyenDevis,
-      totalFacturesHT,
       montantImpaye,
       facturesEnRetard,
       tauxEncaissement,
       chantiersActifs,
     };
-  }, [factures, devis, chantiers]);
+  }, [factures, devis, chantiers, chartYear]);
 
   if (loading) {
     return (
@@ -169,115 +171,52 @@ export default function StatistiquesPage() {
   return (
     <div className="min-h-screen bg-gray-50/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page title */}
         <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-8">
           Statistiques
         </h1>
 
-        {/* ===================== */}
-        {/* Section 1: Chiffre d'affaires */}
-        {/* ===================== */}
         <SectionHeader title="Chiffre d'affaires" />
 
         <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-          {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <p className="text-sm text-[#6b7280] font-manrope">
-                Total CA ann&eacute;e
+                CA encaissé {chartYear}
               </p>
-              <p className="font-syne font-bold text-3xl text-[#1a1a2e]">
-                {formatCurrency(stats.totalCA)} HT
+              <p className="font-syne font-bold text-3xl text-[#22c55e]">
+                {formatCurrency(stats.totalCA)}
               </p>
-            </div>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden self-start">
-              {periods.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    period === p
-                      ? "bg-[#0f1a3a] text-white"
-                      : "text-[#6b7280] hover:bg-gray-50"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div className="flex gap-6 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm bg-[#5ab4e0]" />
-              <span className="text-xs text-[#6b7280]">CA factur&eacute;</span>
+              <div className="flex gap-4 mt-1">
+                <span className="text-xs text-[#6b7280] font-manrope">Facturé : <strong className="text-[#1a1a2e]">{formatCurrency(stats.totalCAFacture)}</strong></span>
+                <span className="text-xs text-[#6b7280] font-manrope">Reste : <strong className="text-[#e87a2a]">{formatCurrency(stats.resteAEncaisser)}</strong></span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
-              <span className="text-xs text-[#6b7280]">
-                CA encaiss&eacute;
-              </span>
+              <button onClick={() => setChartYear(chartYear - 1)} className="px-3 py-1.5 text-xs font-medium text-[#6b7280] hover:bg-gray-50 border border-gray-200 rounded-lg">&larr; {chartYear - 1}</button>
+              <span className="px-3 py-1.5 text-xs font-bold bg-[#0f1a3a] text-white rounded-lg">{chartYear}</span>
+              <button onClick={() => setChartYear(chartYear + 1)} disabled={chartYear >= new Date().getFullYear()} className="px-3 py-1.5 text-xs font-medium text-[#6b7280] hover:bg-gray-50 border border-gray-200 rounded-lg disabled:opacity-30">{chartYear + 1} &rarr;</button>
             </div>
           </div>
 
-          {/* Chart (larger) */}
-          <div className="flex items-end gap-1">
-            {/* Y-axis */}
-            <div className="flex flex-col justify-between h-[280px] mr-3 pb-6">
-              {[...stats.yAxisValues].reverse().map((v) => (
-                <span key={v} className="text-xs text-[#6b7280] leading-none">
-                  {v === 0 ? "0" : `${(v / 1000).toFixed(0)}k`}
-                </span>
-              ))}
-            </div>
-
-            {/* Bars */}
-            <div className="flex-1 flex items-end gap-2">
-              {stats.chartData.map((d) => {
-                const barH = (d.facture / stats.maxChartValue) * 280;
-                const greenH = (d.encaisse / stats.maxChartValue) * 280;
-                return (
-                  <div
-                    key={d.month}
-                    className="flex-1 flex flex-col items-center group"
-                  >
-                    {/* Tooltip on hover */}
-                    <div className="hidden group-hover:block text-xs text-center mb-1">
-                      <span className="text-[#5ab4e0] font-medium">
-                        {d.facture.toLocaleString("fr-FR")} &euro;
-                      </span>
-                      <br />
-                      <span className="text-[#22c55e] font-medium">
-                        {d.encaisse.toLocaleString("fr-FR")} &euro;
-                      </span>
-                    </div>
-                    <div
-                      className="w-full relative rounded-t-sm"
-                      style={{ height: `${barH}px` }}
-                    >
-                      <div
-                        className="absolute bottom-0 w-full bg-[#5ab4e0] rounded-t-sm"
-                        style={{ height: `${barH}px` }}
-                      />
-                      <div
-                        className="absolute bottom-0 w-full bg-[#22c55e] rounded-t-sm opacity-70"
-                        style={{ height: `${greenH}px` }}
-                      />
-                    </div>
-                    <span className="text-xs text-[#6b7280] mt-2">
-                      {d.month}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stats.chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6b7280' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+              <Tooltip
+                formatter={(value, name) => [
+                  `${Number(value).toLocaleString('fr-FR')} €`,
+                  name === 'facture' ? 'CA facturé' : 'CA encaissé',
+                ]}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
+              />
+              <Legend formatter={(value: string) => value === 'facture' ? 'CA facturé' : 'CA encaissé'} />
+              <Bar dataKey="facture" fill="#5ab4e0" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="encaisse" fill="#22c55e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* ===================== */}
-        {/* Section 2: Devis */}
-        {/* ===================== */}
         <SectionHeader title="Devis" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -286,23 +225,20 @@ export default function StatistiquesPage() {
             valueColor="text-[#22c55e]"
             size="3xl"
           />
-          <StatCard label="D\u00e9lai moyen signature" value="\u2014" />
+          <StatCard label="Délai moyen signature" value="—" />
           <StatCard label="Montant moyen" value={formatCurrency(stats.montantMoyenDevis)} />
           <StatCard
-            label="Devis sign\u00e9s"
+            label="Devis signés"
             value={`${devis.filter((d) => { const s = ((d as Record<string, unknown>).statut as string) ?? ''; return s === 'signe' || s === 'facture'; }).length}`}
           />
         </div>
 
-        {/* ===================== */}
-        {/* Section 3: Factures */}
-        {/* ===================== */}
         <SectionHeader title="Factures" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="D\u00e9lai moyen paiement" value="\u2014" />
+          <StatCard label="Délai moyen paiement" value="—" />
           <StatCard
-            label="Montant impay\u00e9"
-            value={formatCurrency(stats.montantImpaye)}
+            label="Reste à encaisser"
+            value={formatCurrency(stats.resteAEncaisser)}
             valueColor="text-[#e87a2a]"
           />
           <StatCard
@@ -313,13 +249,10 @@ export default function StatistiquesPage() {
           <StatCard label="Taux encaissement" value={`${stats.tauxEncaissement}%`} />
         </div>
 
-        {/* ===================== */}
-        {/* Section 4: Planning */}
-        {/* ===================== */}
         <SectionHeader title="Planning" />
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          <StatCard label="Taux occupation" value="\u2014" />
-          <StatCard label="Jour le plus charg\u00e9" value="\u2014" />
+          <StatCard label="Taux occupation" value="—" />
+          <StatCard label="Jour le plus chargé" value="—" />
           <StatCard label="Chantiers actifs" value={String(stats.chantiersActifs)} />
         </div>
       </div>

@@ -27,6 +27,7 @@ import {
 
 interface Client {
   id: string
+  prenom?: string
   nom: string
   type: string
   email: string
@@ -119,7 +120,7 @@ export default function ClientDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">{client.nom}</h1>
+          <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">{`${client.prenom ?? ''} ${client.nom}`.trim()}</h1>
           <span className="inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium bg-gray-100 text-gray-600">
             {client.type || 'Particulier'}
           </span>

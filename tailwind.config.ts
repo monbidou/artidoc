@@ -27,6 +27,7 @@ const config: Config = {
       fontFamily: {
         syne: ['Syne', 'sans-serif'],
         manrope: ['Manrope', 'sans-serif'],
+        jakarta: ['Plus Jakarta Sans', 'sans-serif'],
       },
     },
   },

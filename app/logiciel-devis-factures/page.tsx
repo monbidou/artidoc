@@ -88,7 +88,7 @@ const prestations = [
 const faqItems = [
   {
     q: "Puis-je cr\u00e9er un devis depuis mon t\u00e9l\u00e9phone\u00a0?",
-    a: "Oui, NexArtis est enti\u00e8rement responsive. Cr\u00e9ez, modifiez et envoyez vos devis directement depuis votre smartphone, m\u00eame sur chantier.",
+    a: "Oui, Nexartis est enti\u00e8rement responsive. Cr\u00e9ez, modifiez et envoyez vos devis directement depuis votre smartphone, m\u00eame sur chantier.",
   },
   {
     q: "La signature \u00e9lectronique a-t-elle une valeur juridique\u00a0?",
@@ -96,7 +96,7 @@ const faqItems = [
   },
   {
     q: "Comment fonctionne la TVA automatique\u00a0?",
-    a: "Lorsque vous cr\u00e9ez un devis, NexArtis d\u00e9tecte automatiquement le taux de TVA applicable (5.5% pour la r\u00e9novation \u00e9nerg\u00e9tique, 10% pour les travaux d\u2019am\u00e9lioration, 20% pour le neuf) en fonction du type de prestation.",
+    a: "Lorsque vous cr\u00e9ez un devis, Nexartis d\u00e9tecte automatiquement le taux de TVA applicable (5.5% pour la r\u00e9novation \u00e9nerg\u00e9tique, 10% pour les travaux d\u2019am\u00e9lioration, 20% pour le neuf) en fonction du type de prestation.",
   },
   {
     q: "Puis-je importer mes anciens devis depuis un autre logiciel\u00a0?",
@@ -104,7 +104,7 @@ const faqItems = [
   },
   {
     q: "Qu\u2019est-ce que la facturation \u00e9lectronique Factur-X 2026\u00a0?",
-    a: "D\u00e8s septembre 2026, toutes les entreprises devront \u00e9mettre des factures au format \u00e9lectronique Factur-X. NexArtis g\u00e9n\u00e8re d\u00e9j\u00e0 vos factures dans ce format, vous \u00eates donc pr\u00eat d\u00e8s aujourd\u2019hui.",
+    a: "D\u00e8s septembre 2026, toutes les entreprises devront \u00e9mettre des factures au format \u00e9lectronique Factur-X. Nexartis g\u00e9n\u00e8re d\u00e9j\u00e0 vos factures dans ce format, vous \u00eates donc pr\u00eat d\u00e8s aujourd\u2019hui.",
   },
 ];
 
@@ -150,7 +150,7 @@ export default function LogicielDevisFacturesPage() {
             className="mx-auto mt-6 max-w-2xl font-manrope text-lg leading-relaxed text-gray-300"
           >
             Fini les soir&eacute;es perdues &agrave; remplir des devis sur Excel.
-            NexArtis g&eacute;n&egrave;re vos documents professionnels en quelques
+            Nexartis g&eacute;n&egrave;re vos documents professionnels en quelques
             clics, avec signature &eacute;lectronique et TVA automatique.
           </p>
           <div
@@ -172,7 +172,7 @@ export default function LogicielDevisFacturesPage() {
           <h2
             className="mb-12 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
           >
-            Voici &agrave; quoi ressemble un devis NexArtis
+            Voici &agrave; quoi ressemble un devis Nexartis
           </h2>
 
           <div
@@ -386,7 +386,7 @@ export default function LogicielDevisFacturesPage() {
               </p>
               <p>
                 <strong className="text-sky">
-                  NexArtis g&eacute;n&egrave;re d&eacute;j&agrave; toutes vos factures au format
+                  Nexartis g&eacute;n&egrave;re d&eacute;j&agrave; toutes vos factures au format
                   Factur-X.
                 </strong>{" "}
                 Vous n&apos;avez rien &agrave; faire, rien &agrave; changer : vos
@@ -466,7 +466,7 @@ export default function LogicielDevisFacturesPage() {
           <div
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
-              Essayez NexArtis gratuitement
+              Essayez Nexartis gratuitement
             </h2>
             <p className="mx-auto mb-8 max-w-lg font-manrope text-lg text-gray-400">
               14 jours gratuits pour cr&eacute;er vos devis et factures

@@ -19,16 +19,16 @@ import { usePrestations, insertRow, deleteRow, LoadingSkeleton, ErrorBanner } fr
 // Types & Constants
 // -------------------------------------------------------------------
 
-type Categorie = 'Toutes' | 'Fournitures' | "Main d'\u0153uvre" | 'Ouvrages' | 'D\u00e9placements'
-type CategorieValue = 'Fournitures' | "Main d'\u0153uvre" | 'Ouvrages' | 'D\u00e9placements'
+type Categorie = 'Toutes' | 'Fournitures' | "Main d'œuvre" | 'Ouvrages' | 'Déplacements'
+type CategorieValue = 'Fournitures' | "Main d'œuvre" | 'Ouvrages' | 'Déplacements'
 
-const CATEGORY_FILTERS: Categorie[] = ['Toutes', 'Fournitures', "Main d'\u0153uvre", 'Ouvrages', 'D\u00e9placements']
+const CATEGORY_FILTERS: Categorie[] = ['Toutes', 'Fournitures', "Main d'œuvre", 'Ouvrages', 'Déplacements']
 
 const CATEGORY_STYLES: Record<string, string> = {
   'Fournitures': 'bg-blue-50 text-blue-700',
-  "Main d'\u0153uvre": 'bg-green-50 text-green-700',
+  "Main d'œuvre": 'bg-green-50 text-green-700',
   'Ouvrages': 'bg-violet-50 text-violet-700',
-  'D\u00e9placements': 'bg-orange-50 text-orange-700',
+  'Déplacements': 'bg-orange-50 text-orange-700',
 }
 
 function isOlderThan6Months(dateStr: string | null): boolean {
@@ -40,7 +40,7 @@ function isOlderThan6Months(dateStr: string | null): boolean {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014'
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
@@ -183,7 +183,7 @@ export default function BibliothequePage() {
         {needsUpdate > 0 && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50">
             <AlertTriangle size={14} className="text-amber-500" />
-            <span className="text-sm font-manrope font-medium text-amber-700">{needsUpdate} \u00e0 mettre \u00e0 jour</span>
+            <span className="text-sm font-manrope font-medium text-amber-700">{needsUpdate} à mettre à jour</span>
           </div>
         )}
       </div>
@@ -193,7 +193,7 @@ export default function BibliothequePage() {
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-gray-50">
-              {['D\u00e9signation', 'Unit\u00e9', 'Prix HT', 'TVA', 'Cat\u00e9gorie', 'Derni\u00e8re MAJ', 'Actions'].map((col) => (
+              {['Désignation', 'Unité', 'Prix HT', 'TVA', 'Catégorie', 'Dernière MAJ', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -222,7 +222,7 @@ export default function BibliothequePage() {
                     {(prestation.designation as string) ?? ''}
                   </td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{(prestation.unite as string) ?? ''}</td>
-                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{prixHT.toLocaleString('fr-FR')}&nbsp;\u20AC</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{prixHT.toLocaleString('fr-FR')}&nbsp;€</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{tva}%</td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${CATEGORY_STYLES[cat] ?? 'bg-gray-50 text-gray-700'}`}>
@@ -233,7 +233,7 @@ export default function BibliothequePage() {
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-manrope text-gray-600">{formatDate(updatedAt)}</span>
                       {outdated && (
-                        <span className="flex items-center gap-1 text-amber-500" title="Prix \u00e0 v\u00e9rifier">
+                        <span className="flex items-center gap-1 text-amber-500" title="Prix à vérifier">
                           <AlertTriangle size={14} />
                         </span>
                       )}
@@ -284,7 +284,7 @@ export default function BibliothequePage() {
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <BookOpen size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucune prestation trouv\u00e9e</p>
+            <p className="text-sm font-manrope text-gray-500">Aucune prestation trouvée</p>
           </div>
         )}
       </div>
@@ -293,7 +293,6 @@ export default function BibliothequePage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5">
-            {/* Modal header */}
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouvelle prestation</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -301,9 +300,9 @@ export default function BibliothequePage() {
               </button>
             </div>
 
-            {/* D\u00e9signation */}
+            {/* Désignation */}
             <div>
-              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">D\u00e9signation</label>
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Désignation</label>
               <input
                 type="text"
                 value={modalDesignation}
@@ -313,19 +312,19 @@ export default function BibliothequePage() {
               />
             </div>
 
-            {/* Unit\u00e9 + Prix HT */}
+            {/* Unité + Prix HT */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Unit\u00e9</label>
+                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Unité</label>
                 <select
                   value={modalUnite}
                   onChange={(e) => setModalUnite(e.target.value)}
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 >
-                  <option value="U">U (Unit\u00e9)</option>
+                  <option value="U">U (Unité)</option>
                   <option value="Fft">Fft (Forfait)</option>
-                  <option value="m\u00b2">m\u00b2</option>
-                  <option value="ml">ml (M\u00e8tre lin\u00e9aire)</option>
+                  <option value="m²">m²</option>
+                  <option value="ml">ml (Mètre linéaire)</option>
                   <option value="h">h (Heure)</option>
                 </select>
               </div>
@@ -335,13 +334,13 @@ export default function BibliothequePage() {
                   type="number"
                   value={modalPrix}
                   onChange={(e) => setModalPrix(e.target.value)}
-                  placeholder="0,00 \u20AC"
+                  placeholder="0,00 €"
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 />
               </div>
             </div>
 
-            {/* TVA + Cat\u00e9gorie */}
+            {/* TVA + Catégorie */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">TVA</label>
@@ -356,16 +355,16 @@ export default function BibliothequePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Cat\u00e9gorie</label>
+                <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Catégorie</label>
                 <select
                   value={modalCategorie}
                   onChange={(e) => setModalCategorie(e.target.value as CategorieValue)}
                   className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
                 >
                   <option value="Fournitures">Fournitures</option>
-                  <option value="Main d&apos;\u0153uvre">Main d&apos;\u0153uvre</option>
+                  <option value="Main d'œuvre">Main d&apos;œuvre</option>
                   <option value="Ouvrages">Ouvrages</option>
-                  <option value="D\u00e9placements">D\u00e9placements</option>
+                  <option value="Déplacements">Déplacements</option>
                 </select>
               </div>
             </div>

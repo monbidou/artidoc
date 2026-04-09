@@ -8,18 +8,18 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser, useEntreprise } from '@/lib/hooks'
 import {
   Home,
-  ClipboardList,
-  FileText,
-  Receipt,
-  ShoppingCart,
-  Calendar,
-  Users,
-  Building2,
-  HardHat,
-  BookOpen,
-  BarChart3,
-  Download,
-  Settings,
+  LayoutGrid,
+  FilePenLine,
+  Banknote,
+  ShoppingBag,
+  CalendarDays,
+  UserRound,
+  Warehouse,
+  UsersRound,
+  Library,
+  TrendingUp,
+  ArrowDownToLine,
+  SlidersHorizontal,
   Search,
   Bell,
   Menu,
@@ -27,6 +27,9 @@ import {
   MoreHorizontal,
   LogOut,
   ChevronDown,
+  FileText,
+  Receipt,
+  Calendar,
 } from 'lucide-react'
 
 // -------------------------------------------------------------------
@@ -46,24 +49,24 @@ interface NavItem {
 const NAV_GROUPS: NavItem[][] = [
   [{ label: 'Accueil', href: '/dashboard', icon: Home }],
   [
-    { label: 'Chantiers', href: '/dashboard/chantiers', icon: ClipboardList },
-    { label: 'Devis', href: '/dashboard/devis', icon: FileText },
-    { label: 'Factures', href: '/dashboard/factures', icon: Receipt },
-    { label: 'Achats', href: '/dashboard/achats', icon: ShoppingCart },
+    { label: 'Chantiers', href: '/dashboard/chantiers', icon: LayoutGrid },
+    { label: 'Devis', href: '/dashboard/devis', icon: FilePenLine },
+    { label: 'Factures', href: '/dashboard/factures', icon: Banknote },
+    { label: 'Achats', href: '/dashboard/achats', icon: ShoppingBag },
   ],
-  [{ label: 'Planning', href: '/dashboard/planning', icon: Calendar }],
+  [{ label: 'Planning', href: '/dashboard/planning', icon: CalendarDays }],
   [
-    { label: 'Clients', href: '/dashboard/clients', icon: Users },
-    { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Building2 },
-    { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: HardHat },
-  ],
-  [
-    { label: 'Bibliothèque', href: '/dashboard/bibliotheque', icon: BookOpen },
-    { label: 'Statistiques', href: '/dashboard/statistiques', icon: BarChart3 },
+    { label: 'Clients', href: '/dashboard/clients', icon: UserRound },
+    { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Warehouse },
+    { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: UsersRound },
   ],
   [
-    { label: 'Importer', href: '/dashboard/import', icon: Download },
-    { label: 'Paramètres', href: '/dashboard/parametres', icon: Settings },
+    { label: 'Bibliothèque', href: '/dashboard/bibliotheque', icon: Library },
+    { label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp },
+  ],
+  [
+    { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
+    { label: 'Paramètres', href: '/dashboard/parametres', icon: SlidersHorizontal },
   ],
 ]
 
@@ -95,9 +98,9 @@ const CREATE_OPTIONS = [
 
 const BOTTOM_NAV: NavItem[] = [
   { label: 'Accueil', href: '/dashboard', icon: Home },
-  { label: 'Devis', href: '/dashboard/devis', icon: FileText },
-  { label: 'Factures', href: '/dashboard/factures', icon: Receipt },
-  { label: 'Planning', href: '/dashboard/planning', icon: Calendar },
+  { label: 'Devis', href: '/dashboard/devis', icon: FilePenLine },
+  { label: 'Factures', href: '/dashboard/factures', icon: Banknote },
+  { label: 'Planning', href: '/dashboard/planning', icon: CalendarDays },
   { label: 'Plus...', href: '#more', icon: MoreHorizontal },
 ]
 
@@ -148,6 +151,7 @@ function Sidebar({
   userName,
   entrepriseNom,
   entrepriseMetier,
+  entrepriseLogo,
   userLoading,
 }: {
   collapsed: boolean
@@ -158,6 +162,7 @@ function Sidebar({
   userName: string
   entrepriseNom: string
   entrepriseMetier: string
+  entrepriseLogo: string
   userLoading: boolean
 }) {
   const router = useRouter()
@@ -202,42 +207,52 @@ function Sidebar({
           md:translate-x-0
         `}
       >
-        {/* ---- Top: Logo ---- */}
-        <div className={`flex items-center gap-3 px-4 pt-5 pb-2 ${collapsed ? 'justify-center' : ''}`}>
-          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={80} height={80} quality={100} className="h-10 w-auto flex-shrink-0 object-contain" />
-          {!collapsed && (
-            <span className="font-syne font-extrabold text-white text-xl tracking-tight">
-              NexArtis
-            </span>
+        {/* ---- Top: Logo + Nom entreprise ---- */}
+        <div className={`flex flex-col items-center px-4 pt-6 pb-4 ${collapsed ? 'pt-4 pb-2' : ''}`}>
+          {/* Logo centré */}
+          <div className="flex items-center justify-center mb-3">
+            {entrepriseLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={entrepriseLogo}
+                alt={entrepriseNom || 'Logo'}
+                style={{
+                  height: collapsed ? 36 : 64,
+                  maxWidth: collapsed ? 36 : 160,
+                  objectFit: 'contain',
+                  filter: 'brightness(0) invert(1)',
+                }}
+              />
+            ) : (
+              <Image
+                src="/images/logo-nexartis.png"
+                alt="Nexartis"
+                width={64}
+                height={64}
+                quality={100}
+                className="object-contain"
+                style={{ height: collapsed ? 36 : 64, width: 'auto' }}
+              />
+            )}
+          </div>
+
+          {/* Nom entreprise centré, une seule fois, seulement si sidebar ouverte */}
+          {!collapsed && !userLoading && (
+            <p className="font-syne font-bold text-white text-sm text-center leading-tight truncate max-w-full">
+              {entrepriseNom || 'Mon Entreprise'}
+            </p>
           )}
+
           {/* Mobile close */}
           {mobileOpen && (
             <button
               onClick={onCloseMobile}
-              className="ml-auto text-white/60 hover:text-white md:hidden"
+              className="absolute top-4 right-4 text-white/60 hover:text-white md:hidden"
             >
               <X size={20} />
             </button>
           )}
         </div>
-
-        {/* Company info */}
-        {!collapsed && (
-          <div className="px-4 pb-4">
-            {userLoading ? (
-              <div className="space-y-1 animate-pulse">
-                <div className="h-3 w-28 bg-white/10 rounded" />
-                <div className="h-3 w-20 bg-white/10 rounded" />
-              </div>
-            ) : (
-              <p className="text-xs text-white/60 leading-tight">
-                {entrepriseNom || 'Mon Entreprise'}
-                <br />
-                {entrepriseMetier || ''}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* ---- Create button ---- */}
         <div className={`px-3 mb-2 ${collapsed ? 'px-2' : ''}`} ref={createRef}>
@@ -290,10 +305,10 @@ function Sidebar({
         )}
 
         {/* ---- Navigation ---- */}
-        <nav className="flex-1 px-1.5 space-y-1">
+        <nav className="flex-1 px-2 space-y-0.5">
           {NAV_GROUPS.map((group, gi) => (
             <div key={gi}>
-              {gi > 0 && <hr className="border-white/[0.08] my-1.5 mx-2" />}
+              {gi > 0 && <hr className="border-white/[0.06] my-1 mx-2.5" />}
               {group.map((item) => {
                 const active = isActive(pathname, item.href)
                 const Icon = item.icon
@@ -304,17 +319,34 @@ function Sidebar({
                     onClick={onCloseMobile}
                     title={collapsed ? item.label : undefined}
                     className={`
-                      flex items-center gap-3 py-2.5 rounded-md text-sm font-manrope font-medium transition-colors duration-100
-                      ${collapsed ? 'justify-center px-2' : 'px-4'}
+                      group/nav relative flex items-center rounded-lg text-[14px] font-jakarta font-medium
+                      transition-all duration-150 ease-out
+                      ${collapsed ? 'justify-center h-10 w-10 mx-auto' : 'gap-3 h-10 px-3 ml-1'}
                       ${
                         active
-                          ? 'bg-[rgba(90,180,224,0.15)] border-l-[3px] border-[#e87a2a] text-white'
-                          : 'border-l-[3px] border-transparent text-white/70 hover:bg-white/[0.06]'
+                          ? 'bg-[rgba(90,180,224,0.12)] text-white'
+                          : 'text-white/60 hover:bg-white/[0.05] hover:text-white/85'
                       }
                     `}
                   >
-                    <Icon size={20} className="flex-shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
+                    {/* Active indicator bar */}
+                    {active && !collapsed && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#e87a2a]" />
+                    )}
+                    <Icon
+                      size={19}
+                      strokeWidth={active ? 2.2 : 1.8}
+                      className={`flex-shrink-0 transition-all duration-150 ${
+                        active
+                          ? 'text-white'
+                          : 'text-white/50 group-hover/nav:text-white/75'
+                      }`}
+                    />
+                    {!collapsed && (
+                      <span className={`truncate ${active ? 'font-semibold' : ''}`}>
+                        {item.label}
+                      </span>
+                    )}
                   </Link>
                 )
               })}
@@ -376,32 +408,11 @@ function DashboardHeader({
   userLoading: boolean
 }) {
   return (
-    <header className="sticky top-0 z-30 h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
-      {/* Left */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onMenuClick}
-          className="p-1.5 rounded-md hover:bg-gray-100 md:hidden transition-colors"
-        >
-          <Menu size={22} className="text-[#1a1a2e]" />
-        </button>
-        <h1 className="font-syne font-bold text-xl text-[#1a1a2e]">{title}</h1>
-      </div>
-
-      {/* Right */}
-      <div className="flex items-center gap-3">
-        <button className="relative p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <Bell size={20} className="text-[#6b7280]" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-        </button>
-        <div className="w-8 h-8 rounded-full bg-[#5ab4e0] flex items-center justify-center">
-          {userLoading ? (
-            <div className="w-4 h-2 bg-white/30 rounded animate-pulse" />
-          ) : (
-            <span className="text-white text-xs font-syne font-bold">{userInitials}</span>
-          )}
-        </div>
-      </div>
+    <header className="sticky top-0 z-30 h-[60px] bg-white border-b border-gray-200 flex items-center px-4 lg:px-6">
+      <button onClick={onMenuClick} className="p-1.5 rounded-md hover:bg-gray-100 md:hidden transition-colors mr-3">
+        <Menu size={22} className="text-[#1a1a2e]" />
+      </button>
+      <h1 className="font-syne font-bold text-xl text-[#1a1a2e]">{title}</h1>
     </header>
   )
 }
@@ -484,6 +495,7 @@ export default function DashboardLayout({
   )
   const entrepriseNom = (entreprise?.nom as string) || ''
   const entrepriseMetier = (entreprise?.metier as string) || ''
+  const entrepriseLogo = (entreprise?.logo_url as string) || ''
 
   // Determine responsive state
   // collapsed = true on tablet (768-1024), false on desktop
@@ -532,6 +544,7 @@ export default function DashboardLayout({
           userName={userName}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
+          entrepriseLogo={entrepriseLogo}
           userLoading={isLoading}
         />
       </div>
@@ -547,6 +560,7 @@ export default function DashboardLayout({
           userName={userName}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
+          entrepriseLogo={entrepriseLogo}
           userLoading={isLoading}
         />
       </div>
@@ -562,6 +576,7 @@ export default function DashboardLayout({
           userName={userName}
           entrepriseNom={entrepriseNom}
           entrepriseMetier={entrepriseMetier}
+          entrepriseLogo={entrepriseLogo}
           userLoading={isLoading}
         />
       </div>

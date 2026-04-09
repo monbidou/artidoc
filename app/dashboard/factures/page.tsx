@@ -24,24 +24,25 @@ import { useFactures, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from
 // Types
 // -------------------------------------------------------------------
 
-type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard'
+type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard' | 'Archivées'
 
-const FILTER_OPTIONS: string[] = ['Toutes', 'Encaissées', 'Partielles', 'En attente', 'En retard']
+const FILTER_OPTIONS: string[] = ['Toutes', 'Encaissées', 'Partielles', 'En attente', 'En retard', 'Archivées']
 
 function getFactureCategory(f: Record<string, unknown>): FactureFilter {
   const statut = (f.statut as string) ?? ''
-  if (statut === 'payee') return 'Encaissées'
+  if (statut === 'payee' || statut === 'Encaissée') return 'Encaissées'
   if (statut === 'partielle') return 'Partielles'
   if (statut === 'en_retard') return 'En retard'
+  if (statut === 'archivee') return 'Archivées'
   return 'En attente'
 }
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' \u20AC'
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014'
+  if (!iso) return '—'
   const d = new Date(iso)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 }
@@ -81,7 +82,7 @@ export default function FacturesListPage() {
     const paidPercent = montantTtc > 0 ? Math.round((montantPaye / montantTtc) * 100) : 0
     const overdue = daysOverdue(f.date_echeance as string | null)
     const category = getFactureCategory(f)
-    const clientName = clientMap.get(f.client_id as string) ?? '\u2014'
+    const clientName = clientMap.get(f.client_id as string) || (f.client_nom as string) || '—'
     return { ...f, paidPercent, overdue, category, clientName, montantTtc, montantPaye } as EnrichedFacture
   })
 
@@ -101,12 +102,12 @@ export default function FacturesListPage() {
   // Compute stats
   const totalCount = enriched.length
   const totalHT = enriched.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
-  const encaissees = enriched.filter((f) => f.category === 'Encaissées')
-  const encaisseesHT = encaissees.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const encaissees = enriched.filter((f) => f.category === 'Encaissées' || f.category === 'Archivées')
+  const encaisseesHT = encaissees.reduce((s, f) => s + (f.montantTtc), 0)
   const resteList = enriched.filter((f) => f.category === 'Partielles' || f.category === 'En attente')
-  const resteHT = resteList.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const resteHT = resteList.reduce((s, f) => s + (f.montantTtc - f.montantPaye), 0)
   const retardList = enriched.filter((f) => f.category === 'En retard')
-  const retardHT = retardList.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
+  const retardHT = retardList.reduce((s, f) => s + (f.montantTtc - f.montantPaye), 0)
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cette facture ?')) return
@@ -213,7 +214,7 @@ export default function FacturesListPage() {
                   }`}
                 >
                   <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">
-                    {(facture.numero as string) ?? '\u2014'}
+                    {(facture.numero as string) ?? '—'}
                   </td>
                   <td className="px-4 py-3">
                     <PaymentBar percent={facture.paidPercent} restant={restantLabel} retard={retardLabel} />

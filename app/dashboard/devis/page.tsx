@@ -33,35 +33,32 @@ import {
 // Types & Constants
 // -------------------------------------------------------------------
 
-type DevisStatus = 'brouillon' | 'envoye' | 'finalise' | 'signe' | 'refuse' | 'expire' | 'facture'
+type DevisStatus = 'brouillon' | 'envoye' | 'signe' | 'refuse' | 'expire' | 'facture'
 
-const STATUS_LABELS: Record<DevisStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   brouillon: 'Brouillon',
-  envoye: 'Envoye',
-  finalise: 'Finalise',
-  signe: 'Signe',
-  refuse: 'Refuse',
-  expire: 'Expire',
-  facture: 'Facture',
+  envoye: 'Envoyé',
+  signe: 'Accepté',
+  refuse: 'Refusé',
+  expire: 'Expiré',
+  facture: 'Facturé',
 }
 
-const STATUS_STYLES: Record<DevisStatus, string> = {
+const STATUS_STYLES: Record<string, string> = {
   brouillon: 'bg-gray-100 text-gray-600',
   envoye: 'bg-blue-50 text-blue-700',
-  finalise: 'bg-violet-50 text-violet-700',
   signe: 'bg-green-50 text-green-700',
   refuse: 'bg-red-50 text-red-700',
   expire: 'bg-orange-50 text-orange-700',
   facture: 'bg-emerald-50 text-emerald-700',
 }
 
-const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoye', 'Signe', 'Refuse', 'Expire']
+const FILTER_OPTIONS = ['Tous', 'Brouillon', 'Envoyé', 'Accepté', 'Refusé']
 const FILTER_TO_STATUS: Record<string, DevisStatus> = {
   Brouillon: 'brouillon',
-  Envoye: 'envoye',
-  Signe: 'signe',
-  Refuse: 'refuse',
-  Expire: 'expire',
+  'Envoyé': 'envoye',
+  'Accepté': 'signe',
+  'Refusé': 'refuse',
 }
 
 const SORT_OPTIONS = ['Date', 'Montant', 'Client']

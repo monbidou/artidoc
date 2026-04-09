@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useDevis, useFactures, usePlanning, useClients, useIntervenants, LoadingSkeleton } from "@/lib/hooks";
+import { useState, useEffect, useRef } from "react";
+import { useDevis, useFactures, usePlanning, useClients, useIntervenants, useEntreprise, LoadingSkeleton } from "@/lib/hooks";
 import EmptyDashboard from "@/components/dashboard/EmptyDashboard";
+
+/* ───────────────────────────── Helpers ───────────────────────────── */
 
 function formatEuro(n: number) {
   return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " €";
@@ -20,7 +22,29 @@ function timeAgo(date: string) {
   return `il y a ${Math.floor(days / 7)} sem`;
 }
 
-// --- Page ---
+/* Animated number counter */
+function AnimatedNumber({ value, duration = 1200 }: { value: number; duration?: number }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef<number | null>(null);
+
+  useEffect(() => {
+    const start = ref.current ?? 0;
+    const startTime = performance.now();
+    function tick(now: number) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + (value - start) * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    ref.current = value;
+  }, [value, duration]);
+
+  return <>{display.toLocaleString("fr-FR")}</>;
+}
+
+/* ───────────────────────────── Page ───────────────────────────── */
 
 export default function DashboardPage() {
   const { data: factures, loading: fLoading } = useFactures();
@@ -28,11 +52,15 @@ export default function DashboardPage() {
   const { data: planning, loading: pLoading } = usePlanning();
   const { data: clients } = useClients();
   const { data: intervenants } = useIntervenants();
-  const [period, setPeriod] = useState("Mois");
+  const { entreprise } = useEntreprise();
+  const entrepriseNom = (entreprise?.nom as string) || '';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const loading = fLoading || dLoading || pLoading;
 
-  // Computed metrics
+  /* ── Computed metrics ── */
   const facturesPayees = factures.filter((f: Record<string, unknown>) => f.statut === 'payee');
   const caFacture = factures.reduce((sum: number, f: Record<string, unknown>) => sum + Number(f.montant_ttc || 0), 0);
   const caEncaisse = facturesPayees.reduce((sum: number, f: Record<string, unknown>) => sum + Number(f.montant_ttc || 0), 0);
@@ -40,22 +68,18 @@ export default function DashboardPage() {
   const facturesImpayees = factures.filter((f: Record<string, unknown>) => f.statut === 'en_retard' || f.statut === 'envoyee');
   const devisEnCours = devis.filter((d: Record<string, unknown>) => d.statut === 'envoye' || d.statut === 'brouillon');
   const devisEnCoursMontant = devisEnCours.reduce((sum: number, d: Record<string, unknown>) => sum + Number(d.montant_ht || 0), 0);
+  const tauxConversion = devis.length > 0
+    ? Math.round((devis.filter((d: Record<string, unknown>) => d.statut === 'signe').length / devis.length) * 100)
+    : 0;
 
-  // Client name resolver
+  /* ── Client name resolver ── */
   const clientName = (id: unknown) => {
     const c = clients.find((c: Record<string, unknown>) => c.id === id) as Record<string, unknown> | undefined;
     if (!c) return '';
     return c.prenom ? `${c.prenom} ${c.nom}` : String(c.nom || '');
   };
 
-  // Intervenant name
-  const intervenantName = (id: unknown) => {
-    const i = intervenants.find((i: Record<string, unknown>) => i.id === id) as Record<string, unknown> | undefined;
-    if (!i) return '';
-    return `${String(i.prenom || '').charAt(0)}. ${i.nom}`;
-  };
-
-  // Planning this week
+  /* ── Planning this week ── */
   const now = new Date();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
@@ -69,18 +93,25 @@ export default function DashboardPage() {
     return d >= monday && d <= friday;
   });
 
+  /* ── Planning grouped by day (detailed view) ── */
   const dayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
+  const dayFullLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
   const planningByDay = dayLabels.map((label, idx) => {
     const dayDate = new Date(monday);
     dayDate.setDate(monday.getDate() + idx);
     const dayStr = dayDate.toISOString().split('T')[0];
     const entries = weekPlanning.filter((p: Record<string, unknown>) => String(p.date_debut).startsWith(dayStr));
-    return { day: label, entries };
+    const isToday = dayDate.toDateString() === now.toDateString();
+    const dateStr = dayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    return { day: label, fullDay: dayFullLabels[idx], entries, isToday, dateStr };
   });
 
-  const bgColors = ["bg-[#5ab4e0]/10", "bg-[#e87a2a]/10", "bg-[#22c55e]/10", "bg-purple-500/10", "bg-amber-500/10", "bg-rose-500/10"];
+  // Only show days that have events OR today
+  const visibleDays = planningByDay.filter(d => d.entries.length > 0 || d.isToday);
 
-  // Chart data from factures grouped by month
+  const planningEventColors = ['#5ab4e0', '#e87a2a', '#22c55e', '#7c3aed', '#d4a017'];
+
+  /* ── Chart data ── */
   const monthLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
   const currentYear = new Date().getFullYear();
   const chartData = monthLabels.map((label, monthIdx) => {
@@ -95,10 +126,74 @@ export default function DashboardPage() {
   });
   const maxChartValue = Math.max(...chartData.map((d) => d.facture), 1);
   const yMax = Math.ceil(maxChartValue / 5000) * 5000 || 5000;
-  const yAxisValues = [0, Math.round(yMax / 3), Math.round((yMax * 2) / 3), yMax];
 
-  // Recent activity (last devis/factures by date)
-  type ActivityItem = { icon: string; desc: string; detail: string; amount: string; time: string };
+  /* ── À faire (todo items) ── */
+  type TodoItem = {
+    title: string;
+    desc: string;
+    amount: string;
+    dotColor: string;
+    amountColor: string;
+    tag: string;
+    tagBg: string;
+    tagColor: string;
+  };
+  const todoItems: TodoItem[] = [];
+
+  // Factures en retard
+  const facturesEnRetard = factures.filter((f: Record<string, unknown>) => f.statut === 'en_retard');
+  for (const f of facturesEnRetard) {
+    const cName = clientName(f.client_id) || (f.client_nom as string) || '';
+    const echeance = f.date_echeance ? new Date(f.date_echeance as string) : null;
+    const joursRetard = echeance ? Math.floor((Date.now() - echeance.getTime()) / 86400000) : 0;
+    todoItems.push({
+      title: `Facture ${f.numero} — en retard`,
+      desc: `${cName}${joursRetard > 0 ? ` · échue depuis ${joursRetard}j` : ''}`,
+      amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
+      dotColor: '#ef4444',
+      amountColor: '#ef4444',
+      tag: 'En retard',
+      tagBg: '#fef2f2',
+      tagColor: '#ef4444',
+    });
+  }
+
+  // Factures envoyées (bientôt dues)
+  const facturesEnvoyees = factures.filter((f: Record<string, unknown>) => f.statut === 'envoyee');
+  for (const f of facturesEnvoyees) {
+    const cName = clientName(f.client_id) || (f.client_nom as string) || '';
+    const echeance = f.date_echeance ? new Date(f.date_echeance as string) : null;
+    const joursRestants = echeance ? Math.ceil((echeance.getTime() - Date.now()) / 86400000) : 0;
+    todoItems.push({
+      title: `Facture ${f.numero} — bientôt due`,
+      desc: `${cName}${joursRestants > 0 ? ` · échéance dans ${joursRestants}j` : ''}`,
+      amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
+      dotColor: '#e87a2a',
+      amountColor: '#e87a2a',
+      tag: 'À relancer',
+      tagBg: '#fff7ed',
+      tagColor: '#e87a2a',
+    });
+  }
+
+  // Devis envoyés sans réponse
+  const devisEnvoyes = devis.filter((d: Record<string, unknown>) => d.statut === 'envoye');
+  for (const d of devisEnvoyes) {
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
+    todoItems.push({
+      title: `Devis ${d.numero} — sans réponse`,
+      desc: `${cName} · envoyé ${timeAgo(d.created_at as string)}`,
+      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      dotColor: '#7c3aed',
+      amountColor: '#7c3aed',
+      tag: 'Relancer',
+      tagBg: '#f5f3ff',
+      tagColor: '#7c3aed',
+    });
+  }
+
+  /* ── Recent activity ── */
+  type ActivityItem = { icon: 'paid' | 'sent' | 'doc'; desc: string; detail: string; amount: string; time: string; dotColor: string };
   const activityData: ActivityItem[] = [];
   const sortedDevis = [...devis].sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
     new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime()
@@ -109,18 +204,22 @@ export default function DashboardPage() {
 
   for (const d of sortedDevis) {
     const statusLabel = d.statut === 'signe' ? 'signé' : d.statut === 'envoye' ? 'envoyé' : 'créé';
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
+    const dotColor = d.statut === 'signe' ? '#22c55e' : d.statut === 'envoye' ? '#5ab4e0' : '#7c3aed';
     activityData.push({
-      icon: "📄", desc: `Devis ${d.numero} ${statusLabel}`,
-      detail: clientName(d.client_id), amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
-      time: timeAgo(d.created_at as string),
+      icon: "doc", desc: cName || `Devis ${statusLabel}`,
+      detail: `Devis ${d.numero} · ${statusLabel}`, amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      time: timeAgo(d.created_at as string), dotColor,
     });
   }
   for (const f of sortedFactures) {
     const statusLabel = f.statut === 'payee' ? 'payée' : 'envoyée';
+    const cName = clientName(f.client_id) || (f.client_nom as string) || '';
+    const dotColor = f.statut === 'payee' ? '#22c55e' : '#5ab4e0';
     activityData.push({
-      icon: f.statut === 'payee' ? "✅" : "🧾", desc: `Facture ${f.numero} ${statusLabel}`,
-      detail: clientName(f.client_id), amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
-      time: timeAgo(f.created_at as string),
+      icon: f.statut === 'payee' ? "paid" : "sent", desc: cName || `Facture ${statusLabel}`,
+      detail: `Facture ${f.numero} · ${statusLabel}`, amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
+      time: timeAgo(f.created_at as string), dotColor,
     });
   }
   activityData.sort((a, b) => {
@@ -128,14 +227,22 @@ export default function DashboardPage() {
     return parse(a.time) - parse(b.time);
   });
 
-  // Empty state
+  /* ── Empty / Loading ── */
   const hasData = factures.length > 0 || devis.length > 0;
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-6">Tableau de bord</h1>
-        <LoadingSkeleton rows={8} />
+      <div className="max-w-[1360px] mx-auto px-9 py-8">
+        <div className="mb-8 space-y-3">
+          <div className="h-4 w-48 bg-[#e2e8f0] rounded-lg animate-pulse" />
+          <div className="h-10 w-72 bg-[#e2e8f0] rounded-lg animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[18px] mb-7">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="h-40 bg-[#e2e8f0] rounded-[20px] animate-pulse" style={{animationDelay: `${i * 100}ms`}} />
+          ))}
+        </div>
+        <LoadingSkeleton rows={6} />
       </div>
     );
   }
@@ -144,161 +251,524 @@ export default function DashboardPage() {
     return <EmptyDashboard userName="" />;
   }
 
+  /* ── Stagger animation ── */
+  const stagger = (i: number) => ({
+    opacity: mounted ? 1 : 0,
+    transform: mounted ? 'translateY(0)' : 'translateY(14px)',
+    transition: `all 0.55s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.06}s`,
+  });
+
+  /* ── KPI data ── */
+  const kpis = [
+    {
+      label: 'CA Facturé',
+      value: caFacture,
+      unit: '€',
+      sub: `TTC · ${new Date().toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}`,
+      color: '#5ab4e0',
+      barWidth: '100%',
+    },
+    {
+      label: 'Encaissé',
+      value: caEncaisse,
+      unit: '€',
+      sub: 'TTC réglé',
+      color: '#22c55e',
+      barWidth: caFacture > 0 ? `${Math.min((caEncaisse / caFacture) * 100, 100)}%` : '0%',
+    },
+    {
+      label: 'À encaisser',
+      value: resteAEncaisser,
+      unit: '€',
+      sub: `${facturesImpayees.length} facture${facturesImpayees.length > 1 ? 's' : ''} en attente`,
+      color: '#e87a2a',
+      barWidth: caFacture > 0 ? `${Math.min((resteAEncaisser / caFacture) * 100, 100)}%` : '0%',
+      valueColor: '#e87a2a',
+    },
+    {
+      label: 'Conversion',
+      value: tauxConversion,
+      unit: '%',
+      sub: `${devisEnCours.length} devis · ${formatEuro(devisEnCoursMontant)} HT`,
+      color: '#7c3aed',
+      barWidth: `${tauxConversion}%`,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-6">Tableau de bord</h1>
+    <div className="min-h-screen" style={{background: '#f6f8fb'}}>
+      <div className="max-w-[1360px] mx-auto" style={{padding: '36px'}}>
 
-        {/* Alerts */}
-        {facturesImpayees.length > 0 && (
-          <div className="space-y-3 mb-8">
-            <div className="bg-[#fff7ed] border-l-4 border-[#e87a2a] p-4 rounded flex items-center justify-between">
-              <span className="text-sm text-[#1a1a2e]">
-                ⚠ {facturesImpayees.length} facture{facturesImpayees.length > 1 ? 's' : ''} en attente de paiement
-              </span>
-              <Link href="/dashboard/factures" className="text-sm font-semibold text-[#e87a2a] hover:underline whitespace-nowrap ml-4">
-                Voir les factures &rarr;
-              </Link>
-            </div>
+        {/* ═══════════════════ GREETING ═══════════════════ */}
+        <div style={stagger(0)} className="mb-9 flex items-end justify-between flex-wrap gap-5">
+          <div>
+            <p className="font-jakarta text-[13px] font-semibold tracking-[0.05em] uppercase mb-2" style={{color: '#7b8ba3'}}>
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <h1 className="font-jakarta font-extrabold leading-[1.2]" style={{fontSize: '34px', letterSpacing: '-0.025em'}}>
+              <span className="inline-block" style={{
+                opacity: mounted ? 1 : 0,
+                transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                transition: 'all 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
+              }}>Bonjour{entrepriseNom ? ', ' : ''}</span>
+              <span className="inline-block" style={{
+                background: 'linear-gradient(135deg, #5ab4e0, #2d8bc9)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                opacity: mounted ? 1 : 0,
+                transform: mounted ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.97)',
+                transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.5s',
+              }}>{entrepriseNom}</span>
+            </h1>
           </div>
-        )}
-
-        {/* Metric cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <p className="text-sm text-[#6b7280] font-manrope mb-1">CA facturé</p>
-            <p className="font-syne font-bold text-2xl text-[#1a1a2e]">{formatEuro(caFacture)} HT</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <p className="text-sm text-[#6b7280] font-manrope mb-1">CA encaissé</p>
-            <p className="font-syne font-bold text-2xl text-[#1a1a2e]">{formatEuro(caEncaisse)}</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <p className="text-sm text-[#6b7280] font-manrope mb-1">Reste à encaisser</p>
-            <p className="font-syne font-bold text-2xl text-[#e87a2a]">{formatEuro(resteAEncaisser)}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#e87a2a]/10 text-xs font-medium text-[#e87a2a]">
-              {facturesImpayees.length} facture{facturesImpayees.length > 1 ? 's' : ''}
-            </span>
-          </div>
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <p className="text-sm text-[#6b7280] font-manrope mb-1">Devis en cours</p>
-            <p className="font-syne font-bold text-2xl text-[#1a1a2e]">{devisEnCours.length}</p>
-            <span className="text-sm text-[#6b7280] mt-1 inline-block">{formatEuro(devisEnCoursMontant)} HT</span>
+          <div className="flex gap-2.5">
+            <Link href="/dashboard/devis/nouveau"
+              aria-label="Créer un nouveau devis"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] text-white text-sm font-jakarta font-bold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+              style={{minHeight: '48px', width: '170px', background: '#0f1a3a'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau devis
+            </Link>
+            <Link href="/dashboard/factures/nouveau"
+              aria-label="Créer une nouvelle facture"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] text-white text-sm font-jakarta font-bold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+              style={{minHeight: '48px', width: '170px', background: 'linear-gradient(135deg, #e87a2a, #f09050)'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouvelle facture
+            </Link>
           </div>
         </div>
 
-        {/* Two columns: Planning + Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Planning de la semaine</h2>
-                <Link href="/dashboard/planning" className="text-sm text-[#5ab4e0] hover:underline">
-                  Voir le planning complet &rarr;
+        {/* ═══════════════════ KPI BENTO ═══════════════════ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[18px] mb-7" role="region" aria-label="Indicateurs clés">
+          {kpis.map((kpi, i) => (
+            <div
+              key={kpi.label}
+              style={stagger(i + 1)}
+              className="relative overflow-hidden rounded-[20px] border transition-all duration-300 hover:-translate-y-0.5 group"
+            >
+              {/* Card background + shadow via style to avoid Tailwind purge issues */}
+              <div className="absolute inset-0" style={{
+                background: '#ffffff',
+                border: '1px solid #e6ecf2',
+                borderRadius: '20px',
+                boxShadow: '0 1px 2px rgba(15,26,58,0.02), 0 4px 16px rgba(15,26,58,0.045)',
+              }} />
+
+              {/* Decorative circle */}
+              <div
+                className="absolute -top-5 -right-5 w-[100px] h-[100px] rounded-full transition-all duration-400 opacity-[0.12] group-hover:opacity-[0.22] group-hover:scale-[1.15]"
+                style={{background: kpi.color}}
+              />
+
+              <div className="relative p-7">
+                {/* Label with dot */}
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background: kpi.color}} />
+                  <span className="font-jakarta text-[13px] font-bold tracking-[0.01em]" style={{color: '#445068'}}>{kpi.label}</span>
+                </div>
+
+                {/* Big value */}
+                <p className="font-jakarta font-extrabold leading-none mb-1.5" style={{
+                  fontSize: '40px',
+                  letterSpacing: '-0.04em',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: kpi.valueColor || '#0f1a3a',
+                }}>
+                  <AnimatedNumber value={kpi.value} />
+                  <span className="font-bold ml-0.5" style={{fontSize: '22px', color: '#7b8ba3'}}>{kpi.unit}</span>
+                </p>
+
+                {/* Sub text */}
+                <p className="font-jakarta text-[13px] font-medium mb-[18px]" style={{color: '#7b8ba3'}}>{kpi.sub}</p>
+
+                {/* Progress bar with shimmer */}
+                <div className="h-1 rounded-full overflow-hidden" style={{background: '#eef1f6'}}>
+                  <div
+                    className="h-full rounded-full overflow-hidden relative"
+                    style={{
+                      width: mounted ? kpi.barWidth : '0%',
+                      background: kpi.color,
+                      transition: `width 1.5s cubic-bezier(0.22, 1, 0.36, 1) ${0.5 + i * 0.15}s`,
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '50%',
+                      height: '100%',
+                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                      animation: 'shimmer 2.5s ease-in-out infinite 1.5s',
+                    }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ═══════════════════ ROW 2: À FAIRE + CHART ═══════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+          {/* ── À Faire ── */}
+          <div
+            style={{
+              ...stagger(5),
+              background: 'linear-gradient(135deg, #fffbf7 0%, #fff 40%)',
+              borderColor: 'rgba(232,122,42,0.15)',
+            }}
+            className="rounded-[20px] border shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
+          >
+            <div style={{padding: '28px 30px'}}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-syne font-bold text-[17px]">À faire</h2>
+                  <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
+                    Actions qui nécessitent votre attention
+                  </p>
+                </div>
+                {todoItems.length > 0 && (
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-[10px]" style={{
+                    background: 'rgba(239,68,68,0.08)',
+                    color: '#ef4444',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    {todoItems.length} action{todoItems.length > 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+
+              {/* Todo list */}
+              <div className="flex flex-col gap-[3px]">
+                {todoItems.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{background: '#f1f5f9'}}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <p className="font-jakarta text-sm font-medium" style={{color: '#7b8ba3'}}>Tout est à jour !</p>
+                  </div>
+                ) : (
+                  todoItems.slice(0, 5).map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3.5 rounded-[14px] transition-all duration-150 hover:bg-white/80"
+                      style={{
+                        padding: '14px 16px',
+                        opacity: mounted ? 1 : 0,
+                        transform: mounted ? 'translateX(0)' : 'translateX(10px)',
+                        transition: `all 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${0.35 + i * 0.06}s`,
+                      }}
+                    >
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background: item.dotColor}} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-jakarta text-sm font-bold truncate" style={{color: '#0f1a3a'}}>{item.title}</p>
+                        <p className="font-jakarta text-xs font-medium mt-0.5 truncate" style={{color: '#7b8ba3'}}>{item.desc}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-jakarta font-extrabold text-[15px]" style={{
+                          color: item.amountColor,
+                          fontVariantNumeric: 'tabular-nums',
+                          letterSpacing: '-0.02em',
+                        }}>{item.amount}</p>
+                        <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-[7px] mt-1" style={{
+                          background: item.tagBg,
+                          color: item.tagColor,
+                        }}>{item.tag}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Graphique CA ── */}
+          <div
+            style={stagger(6)}
+            className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
+          >
+            <div style={{padding: '28px 30px'}}>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-syne font-bold text-[17px]">Chiffre d&apos;affaires</h2>
+                  <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
+                    12 mois · {currentYear}
+                  </p>
+                </div>
+                <Link href="/dashboard/statistiques"
+                  className="inline-flex items-center gap-1 font-jakarta text-[13px] font-bold px-3.5 py-2.5 rounded-[10px] transition-all duration-200 hover:bg-[rgba(90,180,224,0.06)]"
+                  style={{color: '#5ab4e0', minHeight: '44px'}}>
+                  Statistiques
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </Link>
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {planningByDay.map((day) => (
-                  <div key={day.day} className="min-h-[120px]">
-                    <p className="text-xs font-semibold text-[#6b7280] text-center mb-2 uppercase tracking-wide">{day.day}</p>
-                    <div className="space-y-2">
-                      {day.entries.length === 0 ? (
-                        <div className="border-2 border-dashed border-gray-200 rounded-lg p-2 flex items-center justify-center min-h-[80px]">
-                          <span className="text-xs text-[#6b7280]">Libre</span>
-                        </div>
-                      ) : (
-                        day.entries.map((entry: Record<string, unknown>, j: number) => (
-                          <div key={j} className={`${bgColors[j % bgColors.length]} rounded-lg p-2`}>
-                            <p className="text-xs text-[#6b7280]">{intervenantName(entry.intervenant_id)}</p>
-                            <p className="text-sm font-semibold text-[#1a1a2e]">{clientName(entry.client_id)}</p>
-                            <p className="text-xs text-[#5ab4e0]">{String(entry.titre || '')}</p>
-                            <p className="text-xs text-[#6b7280] mt-0.5">{String(entry.heure_debut || '8:00')}→{String(entry.heure_fin || '17:00')}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <h2 className="font-syne font-bold text-lg text-[#1a1a2e] mb-4">Activité récente</h2>
-              {activityData.length === 0 ? (
-                <p className="text-sm text-[#6b7280] font-manrope py-8 text-center">Aucune activité pour le moment</p>
-              ) : (
-                <div>
-                  {activityData.slice(0, 8).map((item, i) => (
-                    <div key={i} className={`py-3 flex gap-3 items-start ${i < Math.min(activityData.length, 8) - 1 ? "border-b border-gray-100" : ""}`}>
-                      <span className="text-lg mt-0.5">{item.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#1a1a2e]">{item.desc}</p>
-                        <p className="text-xs text-[#6b7280]">
-                          {item.detail}
-                          {item.amount && <span className="text-[#1a1a2e] font-medium"> &mdash; {item.amount}</span>}
-                        </p>
-                      </div>
-                      <span className="text-xs text-[#6b7280] whitespace-nowrap mt-1">{item.time}</span>
-                    </div>
-                  ))}
+
+              {/* Legend */}
+              <div className="flex gap-5 mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded" style={{background: '#0f1a3a'}} />
+                  <span className="font-jakarta text-[13px] font-semibold" style={{color: '#445068'}}>Facturé</span>
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded" style={{background: '#22c55e'}} />
+                  <span className="font-jakarta text-[13px] font-semibold" style={{color: '#445068'}}>Encaissé</span>
+                </div>
+              </div>
+
+              {/* Chart bars */}
+              <div className="flex items-end gap-2.5" style={{height: '210px'}} role="img" aria-label={`Graphique chiffre d'affaires ${currentYear}`}>
+                {chartData.map((d, i) => {
+                  const isCurrentMonth = i === new Date().getMonth();
+                  const barH = maxChartValue > 0 ? Math.max((d.facture / yMax) * 100, 4) : 6;
+                  const greenH = maxChartValue > 0 ? Math.max((d.encaisse / yMax) * 100, 0) : 0;
+                  return (
+                    <div key={d.month} className="flex-1 flex flex-col items-center group/bar relative cursor-default">
+                      {/* Tooltip */}
+                      <div className="absolute -top-[38px] left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 scale-90 group-hover/bar:scale-100 transition-all duration-200 pointer-events-none z-10">
+                        <div className="text-white text-xs font-bold px-3.5 py-[7px] rounded-[10px] whitespace-nowrap" style={{
+                          background: '#0f1a3a',
+                          boxShadow: '0 4px 16px rgba(15,26,58,0.3)',
+                          letterSpacing: '-0.01em',
+                        }}>
+                          {d.facture > 0 ? formatEuro(d.facture) : '—'}
+                        </div>
+                      </div>
+                      <div className="w-full flex items-end gap-[3px]" style={{height: '170px'}}>
+                        <div
+                          className="flex-1 transition-all duration-700 ease-out group-hover/bar:brightness-110"
+                          style={{
+                            height: mounted ? `${barH}%` : '0%',
+                            transitionDelay: `${i * 35}ms`,
+                            background: isCurrentMonth ? '#0f1a3a' : '#e4e9f0',
+                            borderRadius: '6px 6px 2px 2px',
+                          }}
+                        />
+                        <div
+                          className="flex-1 transition-all duration-700 ease-out group-hover/bar:brightness-110"
+                          style={{
+                            height: mounted ? `${greenH}%` : '0%',
+                            transitionDelay: `${80 + i * 35}ms`,
+                            background: isCurrentMonth ? '#22c55e' : '#d1fae5',
+                            borderRadius: '6px 6px 2px 2px',
+                          }}
+                        />
+                      </div>
+                      <span className="font-jakarta text-xs font-semibold mt-3.5" style={{
+                        color: isCurrentMonth ? '#0f1a3a' : '#a8b5c5',
+                        fontWeight: isCurrentMonth ? 800 : 600,
+                      }}>
+                        {d.month}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* CA Chart */}
-        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Chiffre d&apos;affaires</h2>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-              {["Semaine", "Mois", "Trimestre", "Année"].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${period === p ? "bg-[#0f1a3a] text-white" : "text-[#6b7280] hover:bg-gray-50"}`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-6 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm bg-[#5ab4e0]" />
-              <span className="text-xs text-[#6b7280]">CA facturé</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
-              <span className="text-xs text-[#6b7280]">CA encaissé</span>
-            </div>
-          </div>
-          <div className="flex items-end gap-1">
-            <div className="flex flex-col justify-between h-[200px] mr-2 pb-6">
-              {[...yAxisValues].reverse().map((v) => (
-                <span key={v} className="text-xs text-[#6b7280] leading-none">
-                  {v === 0 ? "0" : `${(v / 1000).toFixed(0)}k`}
-                </span>
-              ))}
-            </div>
-            <div className="flex-1 flex items-end gap-1">
-              {chartData.map((d) => {
-                const barH = maxChartValue > 0 ? (d.facture / yMax) * 200 : 0;
-                const greenH = maxChartValue > 0 ? (d.encaisse / yMax) * 200 : 0;
-                return (
-                  <div key={d.month} className="flex-1 flex flex-col items-center">
-                    <div className="w-full relative rounded-t-sm" style={{ height: `${barH}px` }}>
-                      <div className="absolute bottom-0 w-full bg-[#5ab4e0] rounded-t-sm" style={{ height: `${barH}px` }} />
-                      <div className="absolute bottom-0 w-full bg-[#22c55e] rounded-t-sm opacity-70" style={{ height: `${greenH}px` }} />
-                    </div>
-                    <span className="text-xs text-[#6b7280] mt-2">{d.month}</span>
+        {/* ═══════════════════ ROW 3: PLANNING + ACTIVITY ═══════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+          {/* ── Planning semaine (detailed) ── */}
+          <div
+            style={stagger(7)}
+            className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
+          >
+            <div style={{padding: '28px 30px'}}>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-syne font-bold text-[17px]">Planning de la semaine</h2>
+                  <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
+                    Semaine du {monday.getDate()} au {friday.getDate()} {monday.toLocaleDateString('fr-FR', {month: 'long'})}
+                  </p>
+                </div>
+                <Link href="/dashboard/planning"
+                  className="inline-flex items-center gap-1 font-jakarta text-[13px] font-bold px-3.5 py-2.5 rounded-[10px] transition-all duration-200 hover:bg-[rgba(90,180,224,0.06)]"
+                  style={{color: '#5ab4e0', minHeight: '44px'}}>
+                  Tout voir
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </Link>
+              </div>
+
+              {/* Planning days */}
+              <div>
+                {visibleDays.length === 0 ? (
+                  <div className="text-center py-8 border-2 border-dashed rounded-[14px]" style={{borderColor: '#e8ecf1'}}>
+                    <p className="font-jakarta text-[13px] font-medium" style={{color: '#7b8ba3'}}>Aucune intervention cette semaine</p>
                   </div>
-                );
-              })}
+                ) : (
+                  visibleDays.map((day, di) => (
+                    <div key={day.day} className="mb-4 last:mb-0">
+                      {/* Day header */}
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <span className="font-syne text-xs font-bold uppercase tracking-[0.06em] px-3.5 py-1.5 rounded-[10px]" style={{
+                          background: day.isToday ? '#0f1a3a' : '#f0f3f7',
+                          color: day.isToday ? '#fff' : '#7b8ba3',
+                        }}>
+                          {day.day}
+                        </span>
+                        <span className="font-jakarta text-[13px] font-medium" style={{color: '#7b8ba3'}}>
+                          {day.dateStr}{day.isToday ? ' (aujourd\'hui)' : ''}
+                        </span>
+                      </div>
+
+                      {/* Events */}
+                      {day.entries.length === 0 ? (
+                        <div className="text-center py-5 border-2 border-dashed rounded-[14px] mb-2" style={{borderColor: '#e8ecf1'}}>
+                          <span className="font-jakarta text-[13px] font-medium" style={{color: '#a8b5c5'}}>Aucune intervention</span>
+                        </div>
+                      ) : (
+                        day.entries.map((entry: Record<string, unknown>, ei: number) => {
+                          const eventColor = planningEventColors[ei % planningEventColors.length];
+                          const startDate = new Date(entry.date_debut as string);
+                          const endDate = entry.date_fin ? new Date(entry.date_fin as string) : null;
+                          const hour = startDate.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+                          const durationMs = endDate ? endDate.getTime() - startDate.getTime() : 0;
+                          const durationH = durationMs > 0 ? Math.round(durationMs / 3600000 * 10) / 10 : 0;
+                          const durationStr = durationH > 0 ? `${durationH}h` : '';
+                          const cName = clientName(entry.client_id);
+                          const titre = String(entry.titre || '');
+                          const adresse = String(entry.adresse || entry.lieu || '');
+
+                          return (
+                            <div
+                              key={ei}
+                              className="flex items-stretch gap-4 mb-2 rounded-[14px] border bg-white transition-all duration-200 hover:translate-x-[3px]"
+                              style={{
+                                padding: '16px 18px',
+                                borderColor: '#e6ecf2',
+                                opacity: mounted ? 1 : 0,
+                                transform: mounted ? 'translateX(0)' : 'translateX(10px)',
+                                transition: `all 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${0.5 + di * 0.08 + ei * 0.05}s`,
+                              }}
+                            >
+                              {/* Time */}
+                              <div className="flex-shrink-0" style={{width: '58px'}}>
+                                <p className="font-jakarta font-extrabold text-[17px]" style={{
+                                  color: '#0f1a3a',
+                                  fontVariantNumeric: 'tabular-nums',
+                                  letterSpacing: '-0.02em',
+                                }}>{hour}</p>
+                                {durationStr && (
+                                  <p className="font-jakarta text-[11px] font-semibold mt-0.5" style={{color: '#7b8ba3'}}>{durationStr}</p>
+                                )}
+                              </div>
+
+                              {/* Color bar */}
+                              <div className="w-[3px] rounded-full flex-shrink-0 self-stretch" style={{background: eventColor}} />
+
+                              {/* Details */}
+                              <div className="flex-1 min-w-0">
+                                {cName && <p className="font-jakarta text-[15px] font-bold" style={{color: '#0f1a3a'}}>{cName}</p>}
+                                {titre && <p className="font-jakarta text-[13px] mt-0.5" style={{color: '#445068'}}>{titre}</p>}
+                                {adresse && (
+                                  <p className="flex items-center gap-1.5 font-jakarta text-xs mt-1.5" style={{color: '#7b8ba3'}}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a8b5c5" strokeWidth="2" className="flex-shrink-0" aria-hidden="true">
+                                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    {adresse}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Activité récente ── */}
+          <div
+            style={stagger(8)}
+            className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
+          >
+            <div style={{padding: '28px 30px'}}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-syne font-bold text-[17px]">Activité récente</h2>
+                <Link href="/dashboard/devis"
+                  className="inline-flex items-center gap-1 font-jakarta text-[13px] font-bold px-3.5 py-2.5 rounded-[10px] transition-all duration-200 hover:bg-[rgba(90,180,224,0.06)]"
+                  style={{color: '#5ab4e0', minHeight: '44px'}}>
+                  Tout voir
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </Link>
+              </div>
+
+              <div>
+                {activityData.slice(0, 7).map((item, i) => {
+                  const isPaid = item.icon === 'paid';
+                  const isSent = item.icon === 'sent';
+                  const iconColor = isPaid ? '#22c55e' : isSent ? '#5ab4e0' : '#7c3aed';
+                  const iconBg = isPaid ? 'rgba(34,197,94,0.07)' : isSent ? 'rgba(90,180,224,0.07)' : 'rgba(124,58,237,0.07)';
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3.5 rounded-[14px] transition-colors duration-150 hover:bg-[#f8fafb] cursor-default"
+                      style={{
+                        padding: '13px 14px',
+                        opacity: mounted ? 1 : 0,
+                        transform: mounted ? 'translateX(0)' : 'translateX(10px)',
+                        transition: `all 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${0.52 + i * 0.05}s`,
+                      }}
+                    >
+                      {/* Icon */}
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{background: iconBg}}
+                      >
+                        {isPaid ? (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        ) : isSent ? (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        ) : (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16h12V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-jakarta text-sm font-bold truncate" style={{color: '#0f1a3a'}}>
+                          <span className="inline-block w-[7px] h-[7px] rounded-full mr-1.5 align-middle" style={{background: item.dotColor}} />
+                          {item.detail}
+                        </p>
+                        <p className="font-jakarta text-xs font-medium truncate mt-0.5" style={{color: '#7b8ba3'}}>{item.desc}</p>
+                      </div>
+
+                      {/* Amount + time */}
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <p className="font-jakarta font-extrabold text-[15px]" style={{
+                          color: isPaid ? '#22c55e' : '#0f1a3a',
+                          fontVariantNumeric: 'tabular-nums',
+                          letterSpacing: '-0.02em',
+                        }}>{item.amount}</p>
+                        <p className="font-jakarta text-[11px] font-medium mt-0.5" style={{color: '#a8b5c5'}}>{item.time}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {activityData.length === 0 && (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{background: '#f1f5f9'}}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <p className="font-jakarta text-sm font-medium" style={{color: '#7b8ba3'}}>Aucune activité récente</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Spacer bottom */}
+        <div className="h-10" />
       </div>
     </div>
   );

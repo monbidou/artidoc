@@ -44,6 +44,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Subscription check for dashboard routes
+  if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const { data: entreprise } = await supabase
+      .from('entreprises')
+      .select('date_expiration')
+      .eq('user_id', user.id)
+      .single()
+
+    if (entreprise?.date_expiration) {
+      const expDate = new Date(entreprise.date_expiration)
+      if (expDate < new Date()) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/subscription-expired'
+        return NextResponse.redirect(url)
+      }
+    }
+  }
+
   // Redirect logged-in users away from auth pages and homepage
   if (
     user &&

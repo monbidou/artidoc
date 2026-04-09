@@ -48,7 +48,7 @@ const exclusiveFeatures = [
   },
   {
     title: "Alertes conflits en temps r\u00e9el",
-    desc: "Un artisan d\u00e9j\u00e0 affect\u00e9 ailleurs\u00a0? NexArtis vous pr\u00e9vient imm\u00e9diatement avec une alerte visuelle. Fini les surprises.",
+    desc: "Un artisan d\u00e9j\u00e0 affect\u00e9 ailleurs\u00a0? Nexartis vous pr\u00e9vient imm\u00e9diatement avec une alerte visuelle. Fini les surprises.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -99,7 +99,7 @@ export default function PlanningChantierPage() {
             <br />
             <span className="text-sky">alertes conflits</span>
             <br />
-            <span className="text-gold">&mdash; Exclusif NexArtis</span>
+            <span className="text-gold">&mdash; Exclusif Nexartis</span>
           </h1>
 
           <p
@@ -129,7 +129,7 @@ export default function PlanningChantierPage() {
           <h2
             className="mb-14 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
           >
-            Avant vs Apr&egrave;s NexArtis
+            Avant vs Apr&egrave;s Nexartis
           </h2>
 
           <div className="grid gap-8 md:grid-cols-2">
@@ -198,7 +198,7 @@ export default function PlanningChantierPage() {
             >
               <div className="mb-6 inline-block rounded-full bg-sky/10 px-4 py-1.5">
                 <span className="font-syne text-sm font-bold text-sky">
-                  APR&Egrave;S NEXARTIS
+                  APR&Egrave;S Nexartis
                 </span>
               </div>
 
@@ -248,7 +248,7 @@ export default function PlanningChantierPage() {
                 </div>
               </div>
               <p className="mb-6 text-center font-manrope text-xs italic text-emerald-500">
-                Planning NexArtis &mdash; conflits d&eacute;tect&eacute;s, &eacute;quipe notifi&eacute;e, planning toujours &agrave; jour
+                Planning Nexartis &mdash; conflits d&eacute;tect&eacute;s, &eacute;quipe notifi&eacute;e, planning toujours &agrave; jour
               </p>
 
               <ul className="space-y-3">

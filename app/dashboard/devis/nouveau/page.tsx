@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft, Mic, MicOff, X } from 'lucide-react'
 import { useClients, useChantiers, useEntreprise, insertRow, LoadingSkeleton } from '@/lib/hooks'
+import { createClient } from '@/lib/supabase/client'
 
 // -------------------------------------------------------------------
 // Types
@@ -51,7 +52,7 @@ function formatCurrency(n: number): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-const inputCls = 'w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] transition-colors placeholder:text-gray-400'
+const inputCls = 'w-full h-11 rounded-xl border-2 border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/20 transition-all bg-white placeholder:text-gray-400'
 
 // -------------------------------------------------------------------
 // Voice Modal
@@ -192,6 +193,8 @@ function NouveauDevisPage() {
   const [clientAdresse, setClientAdresse] = useState('')
   const [clientTelephone, setClientTelephone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
+  const [clientCodePostal, setClientCodePostal] = useState('')
+  const [clientVille, setClientVille] = useState('')
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
 
   // Chantier (free text)
@@ -313,7 +316,7 @@ function NouveauDevisPage() {
         description: chantierDesc || null,
         conditions_paiement: conditionsStr,
         notes_internes: notes || null,
-        notes_client: `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
+        notes_client: `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
         montant_ht: totalHT,
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
@@ -332,6 +335,36 @@ function NouveauDevisPage() {
           ordre: i + 1,
         })
       }
+      // Sauvegarder/mettre à jour le client dans la table clients
+      if (clientNom.trim()) {
+        try {
+          const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: existing } = await supabase
+              .from('clients')
+              .select('id')
+              .eq('user_id', user.id)
+              .ilike('nom', `%${clientNom.trim()}%`)
+              .single()
+            const clientData = {
+              nom: `${clientCivilite ? clientCivilite + ' ' : ''}${clientNom}`.trim(),
+              adresse: clientAdresse || null,
+              code_postal: clientCodePostal || null,
+              ville: clientVille || null,
+              telephone: clientTelephone || null,
+              email: clientEmail || null,
+              user_id: user.id,
+            }
+            if (!existing) {
+              await supabase.from('clients').insert(clientData)
+            } else {
+              await supabase.from('clients').update(clientData).eq('id', existing.id)
+            }
+          }
+        } catch { /* silencieux si échec */ }
+      }
+
       if (action === 'brouillon') {
         setToastMsg('Brouillon sauvegardé')
         setTimeout(() => setToastMsg(null), 3000)
@@ -343,7 +376,7 @@ function NouveauDevisPage() {
       setError((err as Error).message)
       setSaving(false)
     }
-  }, [clientCivilite, clientNom, clientAdresse, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router])
+  }, [clientCivilite, clientNom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router])
 
   useEffect(() => {
     autosaveTimer.current = setInterval(() => { handleSave('brouillon') }, 60000)
@@ -414,6 +447,7 @@ function NouveauDevisPage() {
               <p className="text-xs font-manrope font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Client</p>
               <p className="text-sm font-manrope text-[#1a1a2e] font-medium">{clientCivilite ? `${clientCivilite} ` : ''}{clientNom || 'Non renseigné'}</p>
               {clientAdresse && <p className="text-sm font-manrope text-[#6b7280]">{clientAdresse}</p>}
+              {(clientCodePostal || clientVille) && <p className="text-sm font-manrope text-[#6b7280]">{clientCodePostal} {clientVille}</p>}
             </div>
             {chantierDesc && (
               <div className="mb-8"><p className="text-xs font-manrope font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Chantier</p><p className="text-sm font-manrope text-[#1a1a2e]">{chantierDesc}</p></div>
@@ -498,7 +532,7 @@ function NouveauDevisPage() {
           {/* Right: Client + Chantier */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             {/* Client */}
-            <div>
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Client</label>
                 <div className="relative">
@@ -507,7 +541,7 @@ function NouveauDevisPage() {
                     <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 w-72 max-h-48 overflow-y-auto">
                       {clients.map(c => (
                         <button key={c.id} onClick={() => {
-                          setClientNom(c.nom); setClientAdresse(c.adresse || ''); setClientTelephone(c.telephone || ''); setClientEmail(c.email || ''); setClientDropdownOpen(false)
+                          setClientNom(c.nom); setClientAdresse(c.adresse || ''); setClientCodePostal((c as unknown as Record<string,string>).code_postal || ''); setClientVille((c as unknown as Record<string,string>).ville || ''); setClientTelephone(c.telephone || ''); setClientEmail(c.email || ''); setClientDropdownOpen(false)
                         }} className="w-full text-left px-3 py-2 text-sm font-manrope hover:bg-gray-50 border-b border-gray-100 last:border-0">
                           <span className="font-medium">{c.nom}</span>
                           {c.adresse && <span className="text-[#6b7280]"> — {c.adresse}</span>}
@@ -529,6 +563,10 @@ function NouveauDevisPage() {
                   <input type="text" value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="Nom / Prénom" className={inputCls} />
                 </div>
                 <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
+                  <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
+                </div>
                 <input type="tel" value={clientTelephone} onChange={e => setClientTelephone(e.target.value)} placeholder="Téléphone" className={inputCls} />
                 <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="Email" className={inputCls} />
               </div>
@@ -581,7 +619,9 @@ function NouveauDevisPage() {
                   {line.type === 'line' ? (
                     <>
                       <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
-                      <input type="text" value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} list="unit-suggestions" className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" />
+                      <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
+                        {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
                       <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border-0 outline-none bg-transparent mt-1.5" min={0} step={0.01} />
                       <span className="text-sm font-semibold text-right mt-1.5">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '--'}</span>
                     </>
@@ -589,7 +629,7 @@ function NouveauDevisPage() {
                   <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500 mt-1.5"><Trash2 size={14} /></button>
                 </div>
               ))}
-              <datalist id="unit-suggestions">{UNIT_SUGGESTIONS.map(u => <option key={u} value={u} />)}</datalist>
+              {/* Units are now in select dropdowns */}
               <div className="flex flex-wrap gap-2 p-4">
                 <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
                 <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Section</button>
@@ -660,10 +700,21 @@ function NouveauDevisPage() {
 
         {/* Bottom buttons */}
         <div className="flex flex-wrap items-center gap-3 justify-end pb-8">
-          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-12 px-6 rounded-lg border border-gray-300 text-sm font-manrope font-medium text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">💾 Brouillon</button>
-          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-12 px-6 rounded-lg bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">✅ Enregistrer</button>
-          <div className="w-px h-8 bg-gray-200 mx-1" />
-          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-12 px-8 rounded-lg bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] disabled:opacity-50">📤 Envoyer</button>
+          <button onClick={() => handleSave('brouillon')} disabled={saving}
+            className="h-12 px-6 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Brouillon
+          </button>
+          <button onClick={() => handleSave('enregistrer')} disabled={saving}
+            className="h-12 px-8 rounded-xl bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Enregistrer
+          </button>
+          <button onClick={() => handleSave('envoyer')} disabled={saving}
+            className="h-12 px-8 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Envoyer
+          </button>
         </div>
       </div>
 
@@ -694,10 +745,21 @@ function TopBar({ showPreview, setShowPreview, saving, onDraft, onFinish, onSend
         <button onClick={() => setShowPreview(true)} className={`px-4 py-1.5 rounded-md text-sm font-manrope font-medium transition-colors ${showPreview ? 'bg-white shadow-sm text-[#1a1a2e]' : 'text-[#6b7280]'}`}>Aperçu</button>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onDraft} disabled={saving} className="h-9 px-3 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">💾 Brouillon</button>
-        <button onClick={onFinish} disabled={saving} className="h-9 px-3 rounded-lg bg-emerald-600 text-white text-sm font-syne font-bold hover:bg-emerald-700 disabled:opacity-50">✅ Enregistrer</button>
-        <div className="w-px h-6 bg-gray-200 mx-1" />
-        <button onClick={onSend} disabled={saving} className="h-9 px-3 rounded-lg bg-[#e87a2a] text-white text-sm font-syne font-bold hover:bg-[#f09050] disabled:opacity-50">📤 Envoyer</button>
+        <button onClick={onDraft} disabled={saving}
+          className="h-9 px-4 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-50">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Brouillon
+        </button>
+        <button onClick={onFinish} disabled={saving}
+          className="h-9 px-4 rounded-xl bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Enregistrer
+        </button>
+        <button onClick={onSend} disabled={saving}
+          className="h-9 px-4 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] transition-all flex items-center gap-2 disabled:opacity-50">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Envoyer
+        </button>
       </div>
     </div>
   )

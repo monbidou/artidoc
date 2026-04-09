@@ -7,6 +7,11 @@ export default function Hero() {
         <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
           {/* Left column — Text */}
           <div className="flex flex-col items-start">
+            <div className="mb-6 flex items-center gap-3">
+              <img src="/images/logo-nexartis.png" alt="Nexartis" className="h-[80px] w-auto object-contain" />
+              <span className="font-syne text-[48px] font-[800] leading-none text-white">Nexartis</span>
+            </div>
+
             <span className="mb-6 inline-block rounded-full bg-[#f5c842] px-4 py-1.5 text-sm font-semibold text-[#0f1a3a]">
               Conçu en Gironde · Pour les artisans de toute la France
             </span>
