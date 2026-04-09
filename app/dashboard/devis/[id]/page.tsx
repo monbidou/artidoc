@@ -96,7 +96,7 @@ const STATUT_STYLES: Record<string, string> = {
 // -------------------------------------------------------------------
 
 const printStyles = `
-@page { margin: 8mm 10mm; size: A4 portrait; }
+@page { margin: 7mm 9mm; size: A4 portrait; }
 @media print {
   nav, header, aside, .no-print, [class*="lg:w-80"],
   [class*="no-print"], button, a[href] { display: none !important; }
@@ -119,6 +119,47 @@ const printStyles = `
   .grid { display: block !important; }
   .grid-cols-2, .grid-cols-1 { display: grid !important; grid-template-columns: 1fr 1fr !important; }
   p, div { orphans: 3; widows: 3; }
+
+  /* ── Compactage titre ── */
+  .print-header-block { margin-bottom: 6px !important; }
+  .print-devis-title { font-size: 24px !important; letter-spacing: 2px !important; }
+
+  /* ── Compactage dates ── */
+  .print-dates { margin-bottom: 8px !important; padding: 4px 0 !important; gap: 12px !important; font-size: 12px !important; }
+  .print-dates span { font-size: 12px !important; }
+
+  /* ── Compactage cadres artisan/client ── */
+  .print-info-box { padding: 8px !important; }
+  .print-info-box > div:first-child { margin-bottom: 4px !important; font-size: 9px !important; }
+  .print-info-box > div:nth-child(2) { font-size: 13px !important; margin-bottom: 2px !important; }
+  .print-info-lines { line-height: 1.45 !important; font-size: 11.5px !important; }
+  .print-info-lines div { font-size: 11.5px !important; line-height: 1.45 !important; }
+
+  /* ── Compactage objet ── */
+  .print-zone .mb-4.p-3 { margin-bottom: 6px !important; padding: 5px 8px !important; }
+
+  /* ── Compactage tableau ── */
+  .print-table { margin-bottom: 6px !important; }
+  .print-table th, .print-table td { padding-top: 3px !important; padding-bottom: 3px !important; padding-left: 6px !important; padding-right: 6px !important; font-size: 11px !important; line-height: 1.3 !important; }
+  .print-table thead tr th { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 9.5px !important; }
+
+  /* ── Compactage bas de page ── */
+  .print-bottom { gap: 8px !important; margin-bottom: 4px !important; }
+  .print-bottom .py-2 { padding-top: 4px !important; padding-bottom: 4px !important; }
+  .print-bottom .py-1\\.5 { padding-top: 3px !important; padding-bottom: 3px !important; }
+  .print-bottom .mt-2 { margin-top: 4px !important; }
+  .print-bottom .mt-3 { margin-top: 6px !important; }
+  .print-bottom .pt-2 { padding-top: 4px !important; }
+  .print-bottom h4 { font-size: 11px !important; margin-bottom: 2px !important; }
+  .print-bottom p { font-size: 11px !important; line-height: 1.4 !important; }
+  .print-bottom span { font-size: 11px !important; }
+  .print-bottom .text-lg { font-size: 13px !important; }
+  .print-bottom .p-3 { padding: 5px 8px !important; }
+
+  /* ── Compactage signatures ── */
+  .print-sigs { margin-top: 6px !important; gap: 8px !important; }
+  .print-sig-box { min-height: 52px !important; padding: 6px !important; }
+  .print-sig-box .mt-8 { margin-top: 12px !important; }
 }`
 
 // -------------------------------------------------------------------
@@ -310,8 +351,8 @@ export default function DevisDetailPage() {
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
 
             {/* HEADER : titre DEVIS + numéro */}
-            <div style={{textAlign:'center', marginBottom:14}}>
-              <div style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
+            <div className="print-header-block" style={{textAlign:'center', marginBottom:14}}>
+              <div className="print-devis-title" style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
               <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
             </div>
 
@@ -319,7 +360,7 @@ export default function DevisDetailPage() {
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
             {/* Dates — sous le trait bleu, au-dessus des cadres */}
-            <div style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'20px', marginBottom:20, padding:'10px 0'}}>
+            <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'20px', marginBottom:20, padding:'10px 0'}}>
               <span style={{fontSize:15, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
               {devis.date_validite && <span style={{fontSize:15, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
               {devis.date_debut_travaux && <span style={{fontSize:15, color:'#374151'}}>Début travaux : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_debut_travaux)}</strong></span>}
@@ -329,10 +370,10 @@ export default function DevisDetailPage() {
             {/* 2 CADRES : artisan gauche, client droite — bordures complètes colorées */}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18, alignItems:'stretch'}}>
               {/* Cadre artisan — bordure bleue complète */}
-              <div style={{border:'2px solid #2563eb', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
+              <div className="print-info-box" style={{border:'2px solid #2563eb', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:10}}>Artisan</div>
                 <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
-                <div style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
+                <div className="print-info-lines" style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
                   {Boolean(entreprise?.adresse) && <div>{entreprise?.adresse as string}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{entreprise?.code_postal as string} {entreprise?.ville as string}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {entreprise?.siret as string}</div>}
@@ -340,9 +381,9 @@ export default function DevisDetailPage() {
                 </div>
               </div>
               {/* Cadre client — bordure verte complète */}
-              <div style={{border:'2px solid #10b981', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
+              <div className="print-info-box" style={{border:'2px solid #10b981', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:10}}>Client</div>
-                <div style={{lineHeight:2}}>
+                <div className="print-info-lines" style={{lineHeight:2}}>
                   {devis.notes_client ? (() => {
                     const parts = devis.notes_client.split(' | ')
                     return parts.map((info: string, i: number) => (
@@ -375,7 +416,7 @@ export default function DevisDetailPage() {
 
             {/* ═══ TABLEAU (sans colonne TVA) ═══ */}
             {lignes.length > 0 && (
-              <table className="w-full mb-8">
+              <table className="w-full mb-8 print-table">
                 <thead>
                   <tr className="bg-[#2563eb] text-white">
                     <th className="px-3 py-2.5 text-left text-xs font-manrope font-semibold uppercase w-10">N°</th>
@@ -402,7 +443,7 @@ export default function DevisDetailPage() {
             )}
 
             {/* ═══ BAS DE PAGE : 2 colonnes ═══ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
               {/* Gauche : conditions */}
               <div>
                 {devis.conditions_paiement && (
@@ -453,15 +494,15 @@ export default function DevisDetailPage() {
             </div>
 
             {/* ═══ SIGNATURES ═══ */}
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
+            <div className="print-sigs grid grid-cols-2 gap-4 mt-4">
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
                 <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 48, objectFit: 'contain' }} />
                 )}
               </div>
-              <div className="border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
                 <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
                 <div className="mt-8 border-t border-gray-200 pt-1 text-[11px] text-[#9ca3af]">...... / ...... / ..........</div>
               </div>
