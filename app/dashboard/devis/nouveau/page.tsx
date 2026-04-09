@@ -21,7 +21,7 @@ interface LineItem {
   type: 'line' | 'section' | 'text'
 }
 
-interface ClientRecord { id: string; nom: string; adresse?: string; telephone?: string; email?: string }
+interface ClientRecord { id: string; nom: string; prenom?: string; adresse?: string; telephone?: string; email?: string; code_postal?: string; ville?: string }
 interface ChantierRecord { id: string; nom: string; description?: string }
 
 // -------------------------------------------------------------------
@@ -190,6 +190,7 @@ function NouveauDevisPage() {
   // Client fields (free text)
   const [clientCivilite, setClientCivilite] = useState('')
   const [clientNom, setClientNom] = useState('')
+  const [clientPrenom, setClientPrenom] = useState('')
   const [clientAdresse, setClientAdresse] = useState('')
   const [clientTelephone, setClientTelephone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -279,6 +280,9 @@ function NouveauDevisPage() {
 
   const totalTVA = Object.values(tvaGroups).reduce((s, g) => s + g.tva, 0)
   const totalTTC = totalHT + totalTVA
+  const acomptePct = selectedPayments.has('acompte') && acomptePercent ? parseFloat(acomptePercent) : 0
+  const acompteMontant = acomptePct > 0 ? totalTTC * (acomptePct / 100) : 0
+  const resteAPayer = totalTTC - acompteMontant
 
   // --- Build conditions string ---
   const conditionsStr = [
@@ -304,7 +308,7 @@ function NouveauDevisPage() {
     const numero = `D-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
 
     try {
-      const clientDisplay = `${clientCivilite ? clientCivilite + ' ' : ''}${clientNom || ''}`.trim()
+      const clientDisplay = `${clientCivilite ? clientCivilite + ' ' : ''}${clientPrenom ? clientPrenom + ' ' : ''}${clientNom || ''}`.trim()
       const devisData: Record<string, unknown> = {
         numero,
         statut,
@@ -317,6 +321,7 @@ function NouveauDevisPage() {
         conditions_paiement: conditionsStr,
         notes_internes: notes || null,
         notes_client: `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
+        acompte_pourcent: acomptePct > 0 ? acomptePct : null,
         montant_ht: totalHT,
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
@@ -348,7 +353,9 @@ function NouveauDevisPage() {
               .ilike('nom', `%${clientNom.trim()}%`)
               .single()
             const clientData = {
-              nom: `${clientCivilite ? clientCivilite + ' ' : ''}${clientNom}`.trim(),
+              civilite: clientCivilite || null,
+              nom: clientNom.trim(),
+              prenom: clientPrenom.trim() || null,
               adresse: clientAdresse || null,
               code_postal: clientCodePostal || null,
               ville: clientVille || null,
@@ -360,6 +367,18 @@ function NouveauDevisPage() {
               await supabase.from('clients').insert(clientData)
             } else {
               await supabase.from('clients').update(clientData).eq('id', existing.id)
+            }
+            // Sauvegarder le chantier/prestation dans la table chantiers
+            if (chantierDesc.trim()) {
+              const { data: existingChantier } = await supabase
+                .from('chantiers')
+                .select('id')
+                .eq('user_id', user.id)
+                .ilike('nom', `%${chantierDesc.trim()}%`)
+                .single()
+              if (!existingChantier) {
+                await supabase.from('chantiers').insert({ nom: chantierDesc.trim(), user_id: user.id })
+              }
             }
           }
         } catch { /* silencieux si échec */ }
@@ -376,7 +395,7 @@ function NouveauDevisPage() {
       setError((err as Error).message)
       setSaving(false)
     }
-  }, [clientCivilite, clientNom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router])
+  }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router, acomptePct])
 
   useEffect(() => {
     autosaveTimer.current = setInterval(() => { handleSave('brouillon') }, 60000)
@@ -387,6 +406,7 @@ function NouveauDevisPage() {
   const handleVoiceResult = (data: Record<string, unknown>) => {
     if (data.client_civilite) setClientCivilite(data.client_civilite as string)
     if (data.client_nom) setClientNom(data.client_nom as string)
+    if (data.client_prenom) setClientPrenom(data.client_prenom as string)
     if (data.client_adresse) setClientAdresse(data.client_adresse as string)
     if (data.client_telephone) setClientTelephone(data.client_telephone as string)
     if (data.client_email) setClientEmail(data.client_email as string)
@@ -541,9 +561,18 @@ function NouveauDevisPage() {
                     <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 w-72 max-h-48 overflow-y-auto">
                       {clients.map(c => (
                         <button key={c.id} onClick={() => {
-                          setClientNom(c.nom); setClientAdresse(c.adresse || ''); setClientCodePostal((c as unknown as Record<string,string>).code_postal || ''); setClientVille((c as unknown as Record<string,string>).ville || ''); setClientTelephone(c.telephone || ''); setClientEmail(c.email || ''); setClientDropdownOpen(false)
+                          const nomParts = c.nom.split(' ')
+                          setClientCivilite((c as unknown as Record<string,string>).civilite || '')
+                          setClientNom(nomParts[nomParts.length - 1] || c.nom)
+                          setClientPrenom(c.prenom || (nomParts.length > 1 ? nomParts.slice(0, -1).join(' ') : ''))
+                          setClientAdresse(c.adresse || '')
+                          setClientCodePostal(c.code_postal || '')
+                          setClientVille(c.ville || '')
+                          setClientTelephone(c.telephone || '')
+                          setClientEmail(c.email || '')
+                          setClientDropdownOpen(false)
                         }} className="w-full text-left px-3 py-2 text-sm font-manrope hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                          <span className="font-medium">{c.nom}</span>
+                          <span className="font-medium">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</span>
                           {c.adresse && <span className="text-[#6b7280]"> — {c.adresse}</span>}
                         </button>
                       ))}
@@ -560,8 +589,9 @@ function NouveauDevisPage() {
                     <option value="Mme">Mme</option>
                     <option value="Société">Société</option>
                   </select>
-                  <input type="text" value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="Nom / Prénom" className={inputCls} />
+                  <input type="text" value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="Nom" className={inputCls} />
                 </div>
+                <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
                 <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
                 <div className="grid grid-cols-2 gap-2">
                   <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
@@ -674,8 +704,20 @@ function NouveauDevisPage() {
             ))}
             <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{showTvaOnDevis && !autoEntrepreneur ? 'Total TTC' : 'Total'}</span><span className="font-semibold">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span></div>
             {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
+            {acompteMontant > 0 && (
+              <>
+                <div className="flex justify-between py-1.5 text-sm font-manrope border-t mt-1 pt-2">
+                  <span className="text-[#5ab4e0] font-medium">Acompte à verser ({acomptePct}%)</span>
+                  <span className="text-[#5ab4e0] font-semibold">{formatCurrency(acompteMontant)}</span>
+                </div>
+                <div className="flex justify-between py-1.5 text-sm font-manrope">
+                  <span className="text-[#6b7280]">Reste à facturer</span>
+                  <span className="font-semibold text-[#1a1a2e]">{formatCurrency(resteAPayer)}</span>
+                </div>
+              </>
+            )}
             <div className="bg-[#5ab4e0] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
-              <span className="font-syne font-bold text-sm">NET A PAYER</span><span className="font-syne font-bold text-lg">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span>
+              <span className="font-syne font-bold text-sm">NET À PAYER</span><span className="font-syne font-bold text-lg">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span>
             </div>
           </div>
         </div>
@@ -689,10 +731,22 @@ function NouveauDevisPage() {
                 {selectedPayments.has(opt.id) ? '✓ ' : '☐ '}{opt.label}
               </button>
             ))}
-            <button onClick={() => togglePayment('acompte')} className={`px-3 py-1.5 rounded-full text-sm font-manrope border transition-colors ${selectedPayments.has('acompte') ? 'bg-[#5ab4e0]/10 border-[#5ab4e0] text-[#5ab4e0] font-medium' : 'border-gray-200 text-[#6b7280] hover:border-gray-400'}`}>
-              {selectedPayments.has('acompte') ? '✓ ' : '☐ '}Acompte de
-              <input type="text" value={acomptePercent} onChange={e => setAcomptePercent(e.target.value)} className="w-10 mx-1 text-center border-b border-current bg-transparent outline-none" placeholder="..." />%
-            </button>
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-manrope border transition-colors ${selectedPayments.has('acompte') ? 'bg-[#5ab4e0]/10 border-[#5ab4e0] text-[#5ab4e0] font-medium' : 'border-gray-200 text-[#6b7280]'}`}>
+              <button type="button" onClick={() => togglePayment('acompte')} className="shrink-0">
+                {selectedPayments.has('acompte') ? '✓' : '☐'}
+              </button>
+              <span className="shrink-0">Acompte de</span>
+              <input
+                type="number"
+                value={acomptePercent}
+                onChange={e => { setAcomptePercent(e.target.value); if (!selectedPayments.has('acompte')) togglePayment('acompte') }}
+                onClick={e => e.stopPropagation()}
+                className="w-12 text-center bg-transparent outline-none border-b border-current"
+                placeholder="..."
+                min={0} max={100} step={1}
+              />
+              <span className="shrink-0">%</span>
+            </div>
           </div>
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Conditions personnalisées (optionnel)</label><textarea value={conditionsLibres} onChange={e => setConditionsLibres(e.target.value)} rows={2} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes internes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes visibles uniquement par vous" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>

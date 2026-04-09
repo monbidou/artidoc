@@ -32,9 +32,12 @@ interface DevisRecord {
   statut: string
   client_id: string
   chantier_id?: string
-  date_devis?: string
+  date_emission?: string
   date_validite?: string
+  date_debut_travaux?: string
+  duree_estimee?: string
   conditions_paiement?: string
+  acompte_pourcent?: number
   objet?: string
   description?: string
   notes_client?: string
@@ -45,6 +48,7 @@ interface DevisRecord {
 interface ClientRecord {
   id: string
   nom: string
+  prenom?: string
   adresse?: string
   code_postal?: string
   ville?: string
@@ -269,9 +273,12 @@ export default function DevisDetailPage() {
             {/* HEADER : titre DEVIS centré en haut */}
             <div style={{textAlign:'center', marginBottom:16}}>
               <div style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
-              <div style={{fontSize:13, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
-              <div style={{fontSize:12, color:'#6b7280', marginTop:2}}>
-                {formatDate(devis.created_at)}{devis.date_validite && ` · Valide jusqu'au ${formatDate(devis.date_validite)}`}
+              <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
+              <div style={{fontSize:13, color:'#6b7280', marginTop:6, display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'12px'}}>
+                <span>Date : <strong>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
+                {devis.date_validite && <span>Valide jusqu'au : <strong>{formatDate(devis.date_validite)}</strong></span>}
+                {devis.date_debut_travaux && <span>Début travaux : <strong>{formatDate(devis.date_debut_travaux)}</strong></span>}
+                {devis.duree_estimee && <span>Durée : <strong>{devis.duree_estimee}</strong></span>}
               </div>
             </div>
 
@@ -280,15 +287,11 @@ export default function DevisDetailPage() {
 
             {/* 2 CADRES : artisan gauche, client droite */}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16, alignItems:'stretch'}}>
-              {/* Cadre artisan */}
-              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:14, borderTop:'3px solid #2563eb', display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:8}}>Artisan</div>
-                {Boolean(entreprise?.logo_url) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{height:48, maxWidth:120, objectFit:'contain', marginBottom:8, mixBlendMode:'multiply', display:'block'}} />
-                )}
-                <div style={{fontSize:15, fontWeight:700, color:'#111', marginBottom:4}}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
-                <div style={{fontSize:13, color:'#6b7280', lineHeight:1.8}}>
+              {/* Cadre artisan — sans logo pour uniformité avec cadre client */}
+              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:16, borderTop:'3px solid #2563eb', display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:10}}>Artisan</div>
+                <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
+                <div style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
                   {Boolean(entreprise?.adresse) && <div>{entreprise?.adresse as string}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{entreprise?.code_postal as string} {entreprise?.ville as string}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {entreprise?.siret as string}</div>}
@@ -296,24 +299,25 @@ export default function DevisDetailPage() {
                 </div>
               </div>
               {/* Cadre client */}
-              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:14, borderTop:'3px solid #10b981', display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:8}}>Client</div>
-                <div style={{fontSize:14, color:'#374151', lineHeight:1.8}}>
-                  {devis.notes_client ? (
-                    devis.notes_client.split(' | ').map((info: string, i: number) => (
-                      <div key={i} style={{fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 15 : 13}}>
+              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:16, borderTop:'3px solid #10b981', display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:10}}>Client</div>
+                <div style={{lineHeight:2}}>
+                  {devis.notes_client ? (() => {
+                    const parts = devis.notes_client.split(' | ')
+                    return parts.map((info: string, i: number) => (
+                      <div key={i} style={{fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 16 : 14}}>
                         {info}
                       </div>
                     ))
-                  ) : (
+                  })() : (
                     <>
-                      <div style={{fontWeight:700, color:'#111', fontSize:15}}>{client?.nom ?? 'Non renseigné'}</div>
-                      {client?.adresse && <div style={{color:'#6b7280', fontSize:13}}>{client.adresse}</div>}
+                      <div style={{fontWeight:700, color:'#111', fontSize:16}}>{client?.prenom ? `${client.prenom} ${client.nom}` : (client?.nom ?? 'Non renseigné')}</div>
+                      {client?.adresse && <div style={{color:'#6b7280', fontSize:14}}>{client.adresse}</div>}
                       {(client?.code_postal || client?.ville) && (
-                        <div style={{color:'#6b7280', fontSize:13}}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
+                        <div style={{color:'#6b7280', fontSize:14}}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
                       )}
-                      {client?.telephone && <div style={{color:'#6b7280', fontSize:13}}>{client.telephone}</div>}
-                      {client?.email && <div style={{color:'#6b7280', fontSize:13}}>{client.email}</div>}
+                      {client?.telephone && <div style={{color:'#6b7280', fontSize:14}}>{client.telephone}</div>}
+                      {client?.email && <div style={{color:'#6b7280', fontSize:14}}>{client.email}</div>}
                     </>
                   )}
                 </div>
@@ -385,6 +389,21 @@ export default function DevisDetailPage() {
                   <span className="text-[#1a1a2e] font-bold">Total TTC</span>
                   <span className="text-[#1a1a2e] font-bold">{formatCurrency(totalTTC)}</span>
                 </div>
+                {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (() => {
+                  const acompteMnt = totalTTC * (devis.acompte_pourcent / 100)
+                  return (
+                    <>
+                      <div className="flex justify-between py-1.5 text-sm font-manrope border-t mt-1 pt-2">
+                        <span className="text-[#2563eb] font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
+                        <span className="text-[#2563eb] font-semibold">{formatCurrency(acompteMnt)}</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm font-manrope">
+                        <span className="text-[#6b7280]">Reste à facturer</span>
+                        <span className="font-semibold">{formatCurrency(totalTTC - acompteMnt)}</span>
+                      </div>
+                    </>
+                  )
+                })()}
                 <div className="bg-[#2563eb] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
                   <span className="font-syne font-bold text-sm">NET À PAYER</span>
                   <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
