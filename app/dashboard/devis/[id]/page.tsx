@@ -474,52 +474,31 @@ export default function DevisDetailPage() {
               </table>
             )}
 
-            {/* ═══ GESTION DES DÉCHETS (loi AGEC) ═══ */}
+            {/* ═══ GESTION DES DÉCHETS (loi AGEC) — compact, demi-largeur ═══ */}
             {(devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) && (
-              <div className="mb-4 p-4 bg-[#fef9f0] rounded-lg border border-[#e87a2a]/30">
-                <h4 className="font-manrope font-semibold text-[#e87a2a] mb-3 uppercase tracking-wider" style={{fontSize:11}}>Gestion des déchets (loi AGEC)</h4>
-                <div className="space-y-1.5">
-                  {devis.dechets_nature && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Nature : </span>
-                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_nature}</span>
-                    </div>
-                  )}
-                  {devis.dechets_quantite && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Quantité estimée : </span>
-                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_quantite}</span>
-                    </div>
-                  )}
-                  {devis.dechets_responsable && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Enlèvement par : </span>
-                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_responsable}</span>
-                    </div>
-                  )}
-                  {devis.dechets_tri && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Tri : </span>
-                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_tri}</span>
-                    </div>
-                  )}
-                  {devis.dechets_collecte_nom && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Point de collecte : </span>
-                      <span className="text-sm font-manrope text-[#1a1a2e]">
-                        {devis.dechets_collecte_nom}
-                        {devis.dechets_collecte_adresse && ` — ${devis.dechets_collecte_adresse}`}
-                        {devis.dechets_collecte_type && ` (${devis.dechets_collecte_type})`}
-                      </span>
-                    </div>
-                  )}
-                  {devis.dechets_cout != null && devis.dechets_cout > 0 && (
-                    <div>
-                      <span className="text-xs font-manrope text-[#6b7280]">Coût estimé : </span>
-                      <span className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatCurrency(devis.dechets_cout)} TTC</span>
-                      <span className="text-[10px] font-manrope ml-2 px-1.5 py-0.5 rounded bg-gray-100 text-[#6b7280]">{devis.dechets_inclure_cout ? 'Inclus dans le total' : 'À titre informatif'}</span>
-                    </div>
-                  )}
+              <div className="mb-4 max-w-[50%]">
+                <div className="px-3 py-2 bg-[#fef9f0] rounded border border-[#e87a2a]/20">
+                  <h4 className="font-manrope font-semibold text-[#e87a2a] mb-1 uppercase tracking-wider" style={{fontSize:9}}>Déchets (AGEC)</h4>
+                  <div className="space-y-0.5" style={{fontSize:10}}>
+                    {devis.dechets_nature && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Nature :</span> {devis.dechets_nature}</div>
+                    )}
+                    {devis.dechets_quantite && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Qté :</span> {devis.dechets_quantite}</div>
+                    )}
+                    {devis.dechets_responsable && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Enlèvement :</span> {devis.dechets_responsable}</div>
+                    )}
+                    {devis.dechets_tri && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Tri :</span> {devis.dechets_tri}</div>
+                    )}
+                    {devis.dechets_collecte_nom && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Collecte :</span> {devis.dechets_collecte_nom}{devis.dechets_collecte_adresse && ` — ${devis.dechets_collecte_adresse}`}{devis.dechets_collecte_type && ` (${devis.dechets_collecte_type})`}</div>
+                    )}
+                    {devis.dechets_cout != null && devis.dechets_cout > 0 && (
+                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Coût :</span> <span className="font-medium">{formatCurrency(devis.dechets_cout)} TTC</span> <span className="text-[9px] ml-1 px-1 py-px rounded bg-gray-100 text-[#9ca3af]">{devis.dechets_inclure_cout ? 'Inclus' : 'Informatif'}</span></div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -596,22 +575,22 @@ export default function DevisDetailPage() {
               </div>
             </div>
 
-            {/* ═══ SIGNATURES ═══ */}
-            <div className="print-sigs grid grid-cols-2 gap-4 mt-3">
-              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
-                <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
+            {/* ═══ SIGNATURES — compact ═══ */}
+            <div className="print-sigs grid grid-cols-2 gap-3 mt-2">
+              <div className="print-sig-box border border-dashed border-gray-300 rounded p-2" style={{ minHeight: 40 }}>
+                <div className="text-[8px] font-bold tracking-widest uppercase text-[#9ca3af] mb-0.5">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(entreprise?.signature_base64 || '')} alt="Signature" style={{ height: 38, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.signature_base64 || '')} alt="Signature" style={{ height: 28, objectFit: 'contain' }} />
                 )}
                 {!entreprise?.signature_base64 && Boolean(entreprise?.tampon_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(entreprise?.tampon_base64 || '')} alt="Tampon" style={{ height: 38, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.tampon_base64 || '')} alt="Tampon" style={{ height: 28, objectFit: 'contain' }} />
                 )}
               </div>
-              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
-                <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
-                <div className="mt-5 border-t border-gray-200 pt-1 text-[10px] text-[#9ca3af]">...... / ...... / ..........</div>
+              <div className="print-sig-box border border-dashed border-gray-300 rounded p-2" style={{ minHeight: 40 }}>
+                <div className="text-[8px] font-bold tracking-widest uppercase text-[#9ca3af] mb-0.5">Bon pour accord — Signature client</div>
+                <div className="mt-3 border-t border-gray-200 pt-0.5 text-[9px] text-[#9ca3af]">...... / ...... / ..........</div>
               </div>
             </div>
 
