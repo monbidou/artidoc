@@ -215,18 +215,25 @@ function Sidebar({
       >
         {/* ---- Top: Logo + Nom entreprise ---- */}
         <div className={`flex flex-col items-center px-4 pt-6 pb-4 ${collapsed ? 'pt-4 pb-2' : ''}`}>
-          {/* Logo centré */}
-          <div className="flex items-center justify-center mb-3">
+          {/* Logo centré dans un cercle blanc */}
+          <div
+            className="flex items-center justify-center mb-3 rounded-full bg-white overflow-hidden"
+            style={{
+              width: collapsed ? 40 : 72,
+              height: collapsed ? 40 : 72,
+              padding: collapsed ? 4 : 8,
+              flexShrink: 0,
+            }}
+          >
             {entrepriseLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={entrepriseLogo}
                 alt={entrepriseNom || 'Logo'}
                 style={{
-                  height: collapsed ? 36 : 64,
-                  maxWidth: collapsed ? 36 : 160,
+                  width: '100%',
+                  height: '100%',
                   objectFit: 'contain',
-                  filter: 'brightness(0) invert(1)',
                 }}
               />
             ) : (
@@ -237,7 +244,7 @@ function Sidebar({
                 height={64}
                 quality={100}
                 className="object-contain"
-                style={{ height: collapsed ? 36 : 64, width: 'auto' }}
+                style={{ width: '100%', height: '100%' }}
               />
             )}
           </div>
