@@ -81,6 +81,7 @@ export interface FactureData {
   date_emission?: string
   date_echeance?: string
   date_prestation?: string
+  objet?: string
   clientNom: string
   clientAdresse?: string
   clientType?: string

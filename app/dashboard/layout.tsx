@@ -217,10 +217,11 @@ function Sidebar({
         <div className={`flex flex-col items-center px-4 pt-6 pb-4 ${collapsed ? 'pt-4 pb-2' : ''}`}>
           {/* Logo dans un rectangle blanc arrondi */}
           <div
-            className="flex items-center justify-center mb-3 bg-white overflow-hidden"
+            className="flex items-center justify-center mb-3 bg-white overflow-hidden transition-all duration-200"
             style={{
               width: collapsed ? 44 : '90%',
               height: collapsed ? 44 : 100,
+              maxHeight: 100,
               borderRadius: collapsed ? 10 : 14,
               padding: collapsed ? 4 : 8,
               flexShrink: 0,
@@ -233,8 +234,9 @@ function Sidebar({
                 alt={entrepriseNom || 'Logo'}
                 style={{
                   maxWidth: '100%',
-                  maxHeight: '100%',
+                  maxHeight: 100,
                   objectFit: 'contain',
+                  transition: 'all 0.2s ease',
                 }}
               />
             ) : (
