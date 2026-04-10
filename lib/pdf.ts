@@ -539,7 +539,7 @@ export function generateFacturePdf(data: FactureData): string {
   const ent = data.entreprise
   let y = 14
 
-  // Header — Logo à gauche (compact), FACTURE centré — même style que devis
+  // ── HEADER — copie conforme du devis ──────────────────────────
   const logoW = 30
   const logoH = 30
   const pageW = 210
@@ -548,10 +548,9 @@ export function generateFacturePdf(data: FactureData): string {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
       doc.addImage(ent.logo_url, logoFormat, 14, y - 2, logoW, logoH)
-    } catch { /* logo invalide, on continue sans */ }
+    } catch { /* logo invalide */ }
   }
 
-  // FACTURE centré
   doc.setFontSize(26)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
@@ -562,14 +561,15 @@ export function generateFacturePdf(data: FactureData): string {
 
   y += Math.max(logoH + 2, 22)
 
-  // Gradient line
+  // ── GRADIENT LINE ─────────────────────────────────────────────
+  const gradW = 182
   doc.setFillColor(37, 99, 235)
-  doc.rect(14, y, 91, 1, 'F')
+  doc.rect(14, y, gradW / 2, 1, 'F')
   doc.setFillColor(147, 197, 253)
-  doc.rect(105, y, 91, 1, 'F')
+  doc.rect(14 + gradW / 2, y, gradW / 2, 1, 'F')
   y += 4
 
-  // Dates en ligne
+  // ── DATES en ligne ────────────────────────────────────────────
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
@@ -580,68 +580,90 @@ export function generateFacturePdf(data: FactureData): string {
   doc.text(dateParts.join('    '), pageW / 2, y + 2, { align: 'center' })
   y += 7
 
-  // 2 boxes — bordures colorées complètes
+  // ── 2 CADRES: ARTISAN + CLIENT (identique au devis) ──────────
   const boxH = 36
   const boxW = 86
   const lx = 14
   const rx = 14 + boxW + 10
 
-  // Artisan box
+  // Artisan box — bordure bleue complète (même ordre de champs que devis)
   doc.setDrawColor(37, 99, 235)
   doc.setLineWidth(0.6)
   doc.rect(lx, y, boxW, boxH)
 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...BLUE)
+  doc.setTextColor(37, 99, 235)
   doc.text('ARTISAN', lx + 4, y + 5)
+
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(26, 26, 46)
   doc.text(ent.nom || '', lx + 4, y + 10)
+
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  let ey = y + 14
-  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ey); ey += 3.2 }
-  if (ent.adresse) { doc.text(ent.adresse, lx + 4, ey); ey += 3.2 }
-  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ey); ey += 3.2 }
-  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ey); ey += 3.2 }
-  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ey) }
+  let ay = y + 14
+  if (ent.adresse) { doc.text(ent.adresse, lx + 4, ay); ay += 3.2 }
+  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ay); ay += 3.2 }
+  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ay); ay += 3.2 }
+  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ay); ay += 3.2 }
+  if (ent.tva_intracommunautaire) { doc.text(`TVA : ${ent.tva_intracommunautaire}`, lx + 4, ay); ay += 3.2 }
+  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
+  if (ent.email) { doc.text(ent.email, lx + 4, ay) }
 
-  doc.setDrawColor(...GREEN)
+  // Client box — bordure verte complète
+  doc.setDrawColor(16, 185, 129)
   doc.setLineWidth(0.6)
   doc.rect(rx, y, boxW, boxH)
 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...GREEN)
+  doc.setTextColor(16, 185, 129)
   doc.text('CLIENT', rx + 4, y + 5)
+
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(26, 26, 46)
   doc.text(data.clientNom, rx + 4, y + 10)
+
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  {
-    let fy = y + 14
-    if (data.clientAdresse) {
-      const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
-      for (const part of clientParts) {
-        doc.text(part, rx + 4, fy, { maxWidth: boxW - 8 })
-        fy += 3.5
-      }
+  let cy = y + 14
+  if (data.clientAdresse) {
+    const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    for (const part of clientParts) {
+      doc.text(part, rx + 4, cy, { maxWidth: boxW - 8 })
+      cy += 3.5
     }
   }
 
   y += boxH + 4
 
-  // Table
+  // ── OBJET (comme devis) ───────────────────────────────────────
+  if (data.objet) {
+    doc.setFillColor(239, 246, 255)
+    doc.rect(14, y, 182, 10, 'F')
+    doc.setFillColor(37, 99, 235)
+    doc.rect(14, y, 1.2, 10, 'F')
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(37, 99, 235)
+    doc.text('Objet :', 19, y + 4)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(40)
+    doc.text(data.objet, 34, y + 4, { maxWidth: 158 })
+    y += 14
+  }
+
+  // ── TABLE (avec colonne N° comme devis) ───────────────────────
   autoTable(doc, {
     startY: y,
-    head: [['Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
-    body: data.lignes.map((l) => [
+    head: [['N°', 'Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
+    body: data.lignes.map((l, i) => [
+      String(i + 1),
       l.designation,
       String(l.quantite),
       l.unite,
@@ -649,100 +671,150 @@ export function generateFacturePdf(data: FactureData): string {
       fmt(l.quantite * l.prix_unitaire_ht),
     ]),
     theme: 'grid',
-    headStyles: { fillColor: BLUE, fontSize: 7.5, font: 'helvetica', textColor: [255, 255, 255] },
+    headStyles: { fillColor: BLUE, fontSize: 7.5, font: 'helvetica', halign: 'center', textColor: [255, 255, 255] },
     bodyStyles: { fontSize: 7.5 },
     alternateRowStyles: { fillColor: [248, 250, 255] },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10 },
+      2: { halign: 'center', cellWidth: 14 },
+      3: { halign: 'center', cellWidth: 16 },
+      4: { halign: 'right', cellWidth: 26 },
+      5: { halign: 'right', cellWidth: 26 },
+    },
     margin: { left: 14, right: 14 },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   y = (doc as any).lastAutoTable.finalY + 6
 
-  // Totals (right-aligned)
-  const tvaGroups = computeTvaGroups(data.lignes)
-  const tx = 130
-  doc.setFontSize(8)
+  // ── BAS DE PAGE: 2 colonnes (identique au devis) ──────────────
+  const leftX = 14
+  const rightX = 110
+  let leftY = y
+  let rightY = y
 
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Total HT', tx, y)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ht), 196, y, { align: 'right' })
-  y += 5
+  // --- COLONNE GAUCHE ---
 
-  for (const rate of Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)) {
-    doc.setTextColor(100)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`TVA ${rate}%`, tx, y)
-    doc.setTextColor(26, 26, 46)
-    doc.text(fmt(tvaGroups[rate]), 196, y, { align: 'right' })
-    y += 4.5
-  }
-
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Total TTC', tx, y)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ttc), 196, y, { align: 'right' })
-  y += 7
-
-  // NET À PAYER
-  doc.setFillColor(...BLUE)
-  doc.roundedRect(tx, y - 4, 66, 11, 2, 2, 'F')
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(255, 255, 255)
-  doc.text('NET À PAYER', tx + 4, y + 3)
-  doc.text(fmt(data.montant_ttc), 192, y + 3, { align: 'right' })
-  y += 16
-
-  // Conditions + penalties
+  // Conditions de paiement
   if (data.notes) {
-    y = ensureSpace(doc, y, 15)
-    doc.setFontSize(7.5)
+    leftY = ensureSpace(doc, leftY, 15)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...BLUE)
+    doc.text('Conditions de paiement', leftX, leftY)
+    leftY += 4
+    doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(80)
-    const splitNotes = doc.splitTextToSize(data.notes, 180)
-    doc.text(splitNotes, 14, y)
-    y += splitNotes.length * 3.2 + 3
+    const splitCond = doc.splitTextToSize(data.notes, 88)
+    doc.text(splitCond, leftX, leftY)
+    leftY += splitCond.length * 3.2
+    leftY += 2
   }
 
-  // Pénalités de retard — obligatoire sur toute facture
-  y = ensureSpace(doc, y, 14)
+  // Pénalités de retard
+  leftY = ensureSpace(doc, leftY, 12)
   doc.setFontSize(6.5)
   doc.setTextColor(120)
   doc.setFont('helvetica', 'normal')
-  doc.text('En cas de retard de paiement, pénalités exigibles : 3x le taux d\'intérêt légal en vigueur.', 14, y)
-  y += 3
+  doc.text('En cas de retard de paiement, pénalités exigibles : 3x le taux d\'intérêt légal en vigueur.', leftX, leftY)
+  leftY += 3
   if (data.clientType === 'professionnel') {
-    doc.text('Indemnité forfaitaire pour frais de recouvrement due par le débiteur professionnel : 40 €.', 14, y)
-    y += 3
+    doc.text('Indemnité forfaitaire pour frais de recouvrement due par le débiteur professionnel : 40 €.', leftX, leftY)
+    leftY += 3
   }
-  doc.text('Escompte pour paiement anticipé : néant.', 14, y)
-  y += 5
+  doc.text('Escompte pour paiement anticipé : néant.', leftX, leftY)
+  leftY += 4
 
   // TVA mentions
   const tvaMentions = getTvaMentions(data.lignes)
   if (tvaMentions.length > 0) {
-    y = ensureSpace(doc, y, 15)
+    leftY = ensureSpace(doc, leftY, 15)
     doc.setDrawColor(200)
-    doc.line(14, y, 196, y)
-    y += 3
+    doc.line(leftX, leftY, leftX + 88, leftY)
+    leftY += 3
     doc.setFontSize(6)
     doc.setFont('helvetica', 'italic')
     doc.setTextColor(107, 114, 128)
     for (const mention of tvaMentions) {
-      const lines = doc.splitTextToSize(mention, 180)
-      y = ensureSpace(doc, y, lines.length * 2.5 + 2)
-      doc.text(lines, 14, y)
-      y += lines.length * 2.5 + 2
+      const lines = doc.splitTextToSize(mention, 88)
+      leftY = ensureSpace(doc, leftY, lines.length * 2.5 + 2)
+      doc.text(lines, leftX, leftY)
+      leftY += lines.length * 2.5 + 2
     }
   }
 
-  // Footer
-  addFooterLegal(doc, ent, y + 4)
+  // --- COLONNE DROITE: TOTAUX ---
+  rightY = ensureSpace(doc, rightY, 50)
+
+  const tvaGroups = computeTvaGroups(data.lignes)
+  doc.setFontSize(8)
+
+  doc.setTextColor(100)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Total HT', rightX, rightY)
+  doc.setTextColor(26, 26, 46)
+  doc.setFont('helvetica', 'bold')
+  doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' })
+  rightY += 5
+
+  const sortedRates = Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)
+  for (const rate of sortedRates) {
+    doc.setTextColor(100)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`TVA ${rate}%`, rightX, rightY)
+    doc.setTextColor(26, 26, 46)
+    doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' })
+    rightY += 4.5
+  }
+
+  doc.setTextColor(100)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Total TTC', rightX, rightY)
+  doc.setTextColor(26, 26, 46)
+  doc.setFont('helvetica', 'bold')
+  doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' })
+  rightY += 7
+
+  // NET À PAYER banner
+  doc.setFillColor(...BLUE)
+  doc.roundedRect(rightX, rightY - 4, 86, 11, 2, 2, 'F')
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(255, 255, 255)
+  doc.text('NET À PAYER', rightX + 4, rightY + 3)
+  doc.text(fmt(data.montant_ttc), 192, rightY + 3, { align: 'right' })
+  rightY += 14
+
+  y = Math.max(leftY, rightY) + 6
+
+  // ── SIGNATURES (comme devis) ──────────────────────────────────
+  y = ensureSpace(doc, y, 30)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(60)
+  doc.text('Signature artisan', 14, y)
+  doc.text('Bon pour accord — Signature client', 110, y)
+  y += 3
+  doc.setDrawColor(200)
+  doc.setLineWidth(0.3)
+  doc.rect(14, y, 86, 22)
+  doc.rect(110, y, 86, 22)
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(150)
+  doc.text('Date : ....../....../..........', 114, y + 18)
+  y += 26
+
+  // ── MENTIONS LÉGALES ──────────────────────────────────────────
+  doc.setFontSize(6.5)
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(107, 114, 128)
+  doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', 14, y, { maxWidth: 182 })
+  y += 6
+
+  // ── FOOTER LÉGAL ──────────────────────────────────────────────
+  addFooterLegal(doc, ent, y)
 
   return doc.output('datauristring').split(',')[1]
 }

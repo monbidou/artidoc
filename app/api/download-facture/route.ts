@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       numero: facture.numero,
       date_emission: facture.date_emission || facture.created_at,
       date_echeance: facture.date_echeance,
+      objet: facture.objet || '',
       clientNom,
       clientAdresse,
       clientType,
