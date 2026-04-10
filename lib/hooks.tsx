@@ -14,7 +14,7 @@ type QueryState<T> = {
 
 function useSupabaseQuery<T>(
   table: string,
-  options?: { orderBy?: string; ascending?: boolean; filters?: Record<string, unknown> }
+  options?: { orderBy?: string; ascending?: boolean; filters?: Record<string, unknown>; includeDeleted?: boolean }
 ): QueryState<T> {
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,6 +28,20 @@ function useSupabaseQuery<T>(
     if (!user) { setError('Non connecté'); setLoading(false); return }
 
     let query = supabase.from(table).select('*').eq('user_id', user.id)
+
+    // Corbeille : par défaut on exclut les éléments supprimés
+    // Les tables avec deleted_at : devis, factures
+    const SOFT_DELETE_TABLES = ['devis', 'factures']
+    if (SOFT_DELETE_TABLES.includes(table)) {
+      if (options?.includeDeleted) {
+        // Mode corbeille : uniquement les supprimés
+        query = query.not('deleted_at', 'is', null)
+      } else {
+        // Mode normal : exclure les supprimés
+        query = query.is('deleted_at', null)
+      }
+    }
+
     if (options?.orderBy) query = query.order(options.orderBy, { ascending: options.ascending ?? false })
     if (options?.filters) {
       for (const [key, value] of Object.entries(options.filters)) {
@@ -111,6 +125,55 @@ async function deleteRow(table: string, id: string) {
   if (error) throw new Error(error.message)
 }
 
+// ── Corbeille (soft delete) ──────────────────────────────────
+
+/** Envoyer un élément à la corbeille (soft delete) */
+async function softDeleteRow(table: string, id: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const { error } = await supabase
+    .from(table)
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+}
+
+/** Restaurer un élément depuis la corbeille */
+async function restoreRow(table: string, id: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const { error } = await supabase
+    .from(table)
+    .update({ deleted_at: null })
+    .eq('id', id)
+    .eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+}
+
+/** Supprimer définitivement (suppression réelle en base) */
+async function permanentDeleteRow(table: string, id: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const { error } = await supabase.from(table).delete().eq('id', id).eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+}
+
+/** Purger les éléments de la corbeille de plus de 7 jours */
+async function purgeCorbeille() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non connecté')
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  // Supprimer les devis expirés
+  await supabase.from('devis').delete().eq('user_id', user.id).not('deleted_at', 'is', null).lt('deleted_at', sevenDaysAgo)
+  // Supprimer les factures expirées
+  await supabase.from('factures').delete().eq('user_id', user.id).not('deleted_at', 'is', null).lt('deleted_at', sevenDaysAgo)
+}
+
 // ── User / Entreprise ─────────────────────────────────────────
 
 function useUser() {
@@ -169,6 +232,8 @@ function usePrestations() { return useSupabaseQuery<Row>('prestations', { orderB
 function useChantiers() { return useSupabaseQuery<Row>('chantiers', { orderBy: 'created_at' }) }
 function useDevis() { return useSupabaseQuery<Row>('devis', { orderBy: 'created_at' }) }
 function useFactures() { return useSupabaseQuery<Row>('factures', { orderBy: 'created_at' }) }
+function useDeletedDevis() { return useSupabaseQuery<Row>('devis', { orderBy: 'created_at', includeDeleted: true }) }
+function useDeletedFactures() { return useSupabaseQuery<Row>('factures', { orderBy: 'created_at', includeDeleted: true }) }
 function useAchats() { return useSupabaseQuery<Row>('achats', { orderBy: 'date_achat' }) }
 function usePaiements() { return useSupabaseQuery<Row>('paiements', { orderBy: 'date_paiement' }) }
 function usePlanning() { return useSupabaseQuery<Row>('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
@@ -245,6 +310,10 @@ export {
   insertRow,
   updateRow,
   deleteRow,
+  softDeleteRow,
+  restoreRow,
+  permanentDeleteRow,
+  purgeCorbeille,
   useUser,
   useEntreprise,
   useClients,
@@ -254,6 +323,8 @@ export {
   useChantiers,
   useDevis,
   useFactures,
+  useDeletedDevis,
+  useDeletedFactures,
   useAchats,
   usePaiements,
   usePlanning,

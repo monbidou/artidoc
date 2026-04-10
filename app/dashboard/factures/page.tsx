@@ -18,7 +18,7 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react'
-import { useFactures, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { useFactures, useClients, softDeleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard' | 'Archivées'
 
@@ -117,10 +117,10 @@ export default function FacturesListPage() {
   const retardHT = retardList.reduce((s, f) => s + (f.montantTtc - f.montantPaye), 0)
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette facture ?')) return
+    if (!confirm('Envoyer cette facture à la corbeille ?')) return
     setDeleting(id)
     try {
-      await deleteRow('factures', id)
+      await softDeleteRow('factures', id)
       refetchF()
     } catch (err) {
       alert('Erreur lors de la suppression : ' + (err as Error).message)
@@ -148,11 +148,11 @@ export default function FacturesListPage() {
   }
 
   async function handleBulkDelete() {
-    if (!confirm(`Supprimer ${selected.size} facture${selected.size > 1 ? 's' : ''} ? Cette action est irréversible.`)) return
+    if (!confirm(`Envoyer ${selected.size} facture${selected.size > 1 ? 's' : ''} à la corbeille ?`)) return
     setBulkDeleting(true)
     try {
       for (const id of Array.from(selected)) {
-        await deleteRow('factures', id)
+        await softDeleteRow('factures', id)
       }
       setSelected(new Set())
       refetchF()

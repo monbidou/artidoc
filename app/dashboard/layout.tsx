@@ -31,6 +31,7 @@ import {
   Receipt,
   Calendar,
   Shield,
+  Trash2,
 } from 'lucide-react'
 
 const ADMIN_EMAIL = 'admin@nexartis.fr'
@@ -68,6 +69,7 @@ const NAV_GROUPS: NavItem[][] = [
   [
     { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
     { label: 'Paramètres', href: '/dashboard/parametres', icon: SlidersHorizontal },
+    { label: 'Corbeille', href: '/dashboard/corbeille', icon: Trash2 },
   ],
 ]
 
@@ -87,6 +89,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/statistiques': 'Statistiques',
   '/dashboard/import': 'Importer des données',
   '/dashboard/parametres': 'Paramètres',
+  '/dashboard/corbeille': 'Corbeille',
 }
 
 const CREATE_OPTIONS = [

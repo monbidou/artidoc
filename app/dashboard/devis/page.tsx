@@ -22,7 +22,7 @@ import {
   useDevis,
   useClients,
   useChantiers,
-  deleteRow,
+  softDeleteRow,
   insertRow,
   updateRow,
   LoadingSkeleton,
@@ -166,8 +166,8 @@ export default function DevisListPage() {
   }, [devisList, filter, search, sort, clientMap, chantierMap])
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer ce devis ? Cette action est irréversible.")) return
-    try { await deleteRow("devis", id); refetchDevis() }
+    if (!confirm("Envoyer ce devis à la corbeille ?")) return
+    try { await softDeleteRow("devis", id); refetchDevis() }
     catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
   }
 
@@ -192,9 +192,9 @@ export default function DevisListPage() {
     else setSelected(new Set(filtered.map(d => d.id as string)))
   }
   async function handleBulkDelete() {
-    if (!confirm(`Supprimer ${selected.size} devis ? Cette action est irréversible.`)) return
+    if (!confirm(`Envoyer ${selected.size} devis à la corbeille ?`)) return
     setBulkDeleting(true)
-    try { for (const id of Array.from(selected)) { await deleteRow("devis", id) }; setSelected(new Set()); refetchDevis() }
+    try { for (const id of Array.from(selected)) { await softDeleteRow("devis", id) }; setSelected(new Set()); refetchDevis() }
     catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
     setBulkDeleting(false)
   }

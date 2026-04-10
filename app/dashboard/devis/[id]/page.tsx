@@ -19,7 +19,7 @@ import {
   useEntreprise,
   insertRow,
   updateRow,
-  deleteRow,
+  softDeleteRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
 
@@ -268,9 +268,9 @@ export default function DevisDetailPage() {
   }
 
   async function handleDeleteDevis() {
-    if (!devis || !confirm('Supprimer ce devis ? Cette action est irréversible.')) return
+    if (!devis || !confirm('Envoyer ce devis à la corbeille ?')) return
     try {
-      await deleteRow('devis', devis.id)
+      await softDeleteRow('devis', devis.id)
       router.push('/dashboard/devis')
     } catch (err) {
       alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
@@ -316,10 +316,7 @@ export default function DevisDetailPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Print styles */}
       <style dangerouslySetInnerHTML={{ __html: printStyles }} />
-
-      {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 no-print">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/devis" className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
@@ -330,7 +327,6 @@ export default function DevisDetailPage() {
             {STATUT_LABELS[devis.statut] ?? devis.statut}
           </span>
         </div>
-
         <div className="flex items-center gap-2 relative">
           <button onClick={() => {
             const nomClient = client?.nom || devis.notes_client?.split(' | ')[0] || 'client'
@@ -341,10 +337,7 @@ export default function DevisDetailPage() {
           }} className="flex items-center gap-2 px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
             <Download size={14} /> Télécharger PDF
           </button>
-          <button
-            onClick={() => setActionsOpen(!actionsOpen)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-syne font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-          >
+          <button onClick={() => setActionsOpen(!actionsOpen)} className="flex items-center gap-2 px-4 py-2 text-sm font-syne font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
             Actions <ChevronDown size={14} />
           </button>
           {actionsOpen && (
@@ -355,11 +348,7 @@ export default function DevisDetailPage() {
                 { label: 'Envoyer par email', icon: SendHorizonal, action: () => setSendModalOpen(true), danger: false },
                 { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
               ].map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() => { action.action(); setActionsOpen(false) }}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors ${action.danger ? 'text-red-600' : 'text-[#1a1a2e]'}`}
-                >
+                <button key={action.label} onClick={() => { action.action(); setActionsOpen(false) }} className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors ${action.danger ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
                   <action.icon size={14} className="text-[#6b7280]" />
                   {action.label}
                 </button>
@@ -374,12 +363,9 @@ export default function DevisDetailPage() {
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
-
-            {/* LOGO en haut à gauche + DEVIS titre à droite */}
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14}}>
               <div style={{display:'flex', alignItems:'center', gap:12}}>
                 {Boolean(entreprise?.logo_url) && (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
                 <div>
