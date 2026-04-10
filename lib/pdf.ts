@@ -189,16 +189,16 @@ export function generateDevisPdf(data: DevisData): string {
   let y = 14
 
   // ── HEADER ──────────────────────────────────────────────────────
-  // Logo à gauche (plus gros), DEVIS centré, pas de nom entreprise
-  const logoW = 40
-  const logoH = 40
+  // Logo à gauche (imposant), DEVIS centré, pas de nom entreprise
+  const logoW = 50
+  const logoH = 50
   const pageW = 210
   let headerHeight = 22
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoW, logoH)
+      doc.addImage(ent.logo_url, logoFormat, 10, y - 4, logoW, logoH)
       headerHeight = logoH + 2
     } catch { /* logo invalide, on continue sans */ }
   }
@@ -559,16 +559,16 @@ export function generateFacturePdf(data: FactureData): string {
   const ent = data.entreprise
   let y = 14
 
-  // Header — Logo à gauche (plus gros), FACTURE centré
-  const logoW = 40
-  const logoH = 40
+  // Header — Logo à gauche (imposant), FACTURE centré
+  const logoW = 50
+  const logoH = 50
   const pageW = 210
   let headerHeight = 22
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoW, logoH)
+      doc.addImage(ent.logo_url, logoFormat, 10, y - 4, logoW, logoH)
       headerHeight = logoH + 2
     } catch { /* logo invalide, on continue sans */ }
   }

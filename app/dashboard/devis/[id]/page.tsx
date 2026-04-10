@@ -364,10 +364,10 @@ export default function DevisDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
-              {/* Logo à gauche — bien plus gros */}
-              <div style={{flex:'0 0 auto'}}>
+              {/* Logo à gauche — imposant */}
+              <div style={{flex:'0 0 auto', marginRight: 16}}>
                 {Boolean(entreprise?.logo_url) && (
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 90, maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
               </div>
               {/* DEVIS + Numéro centré */}
@@ -376,7 +376,7 @@ export default function DevisDetailPage() {
                 <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
               </div>
               {/* Espace symétrique pour centrer le titre */}
-              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 220 : 0}} />
+              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
             </div>
 
             {/* Ligne dégradé */}

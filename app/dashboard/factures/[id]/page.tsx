@@ -300,10 +300,10 @@ export default function FactureDetailPage() {
 
             {/* HEADER — Logo + titre centré */}
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
-              <div style={{flex:'0 0 auto'}}>
+              <div style={{flex:'0 0 auto', marginRight: 16}}>
                 {Boolean(entreprise?.logo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 90, maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
               </div>
               <div style={{textAlign:'center', flex:1}}>
@@ -314,7 +314,7 @@ export default function FactureDetailPage() {
                   {facture.date_echeance && ` · Échéance ${formatDate(facture.date_echeance)}`}
                 </div>
               </div>
-              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 220 : 0}} />
+              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
             </div>
 
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
