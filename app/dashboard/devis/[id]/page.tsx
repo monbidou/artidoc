@@ -560,27 +560,24 @@ export default function DevisDetailPage() {
             </div>
 
             {/* ═══ SIGNATURE ARTISAN + STATUT CLIENT ═══ */}
-            <div className="grid grid-cols-2 gap-4 mt-1">
-              {/* Signature artisan — compact */}
-              <div className="border border-gray-200 rounded p-2 flex items-center gap-3" style={{ minHeight: 44 }}>
+            <div className="grid grid-cols-[1fr_auto] gap-4 mt-2 items-end">
+              {/* Signature artisan — cadre imposant */}
+              <div className="border-2 border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center" style={{ width: 200, height: 90 }}>
+                <div className="text-[8px] font-manrope font-bold text-[#9ca3af] uppercase tracking-widest mb-1">Signature artisan</div>
                 {(Boolean(entreprise?.signature_base64) || Boolean(entreprise?.tampon_base64)) ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={String(entreprise?.signature_base64 || entreprise?.tampon_base64 || '')}
-                      alt={entreprise?.signature_base64 ? 'Signature' : 'Tampon'}
-                      style={{ height: 30, objectFit: 'contain' }}
-                    />
-                    <span className="text-[9px] font-manrope text-[#9ca3af] uppercase tracking-wider">Artisan</span>
-                  </>
-                ) : (
-                  <span className="text-[9px] font-manrope text-[#9ca3af] uppercase tracking-wider">Signature artisan</span>
-                )}
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={String(entreprise?.signature_base64 || entreprise?.tampon_base64 || '')}
+                    alt={entreprise?.signature_base64 ? 'Signature' : 'Tampon'}
+                    className="max-w-full"
+                    style={{ height: 60, objectFit: 'contain' }}
+                  />
+                ) : null}
               </div>
-              {/* Zone client — dynamique selon statut */}
-              <div className="border border-gray-200 rounded p-2 flex flex-col justify-center" style={{ minHeight: 44 }}>
+              {/* Zone client — discret, juste un statut */}
+              <div className="text-right pb-1">
                 {devis.date_signature ? (
-                  <div className="text-center">
+                  <div>
                     <div className="text-[10px] font-manrope font-semibold text-green-600">Signé électroniquement</div>
                     <div className="text-[9px] font-manrope text-[#6b7280]">
                       le {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
@@ -588,9 +585,7 @@ export default function DevisDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center">
-                    <div className="text-[9px] font-manrope text-[#9ca3af] uppercase tracking-wider">En attente de signature client</div>
-                  </div>
+                  <div className="text-[9px] font-manrope text-[#9ca3af] italic">En attente de signature client</div>
                 )}
               </div>
             </div>
