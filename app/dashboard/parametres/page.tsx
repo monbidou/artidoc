@@ -656,26 +656,94 @@ function LogoUploadSection({
         ctx.drawImage(img, 0, 0)
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const data = imageData.data
-        const corners = [
-          [data[0], data[1], data[2]],
-          [data[(canvas.width - 1) * 4], data[(canvas.width - 1) * 4 + 1], data[(canvas.width - 1) * 4 + 2]],
-          [data[(canvas.height - 1) * canvas.width * 4], data[(canvas.height - 1) * canvas.width * 4 + 1], data[(canvas.height - 1) * canvas.width * 4 + 2]],
-          [data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4], data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4 + 1], data[((canvas.height - 1) * canvas.width + canvas.width - 1) * 4 + 2]],
-        ]
-        const bgR = Math.round(corners.reduce((s, c) => s + c[0], 0) / 4)
-        const bgG = Math.round(corners.reduce((s, c) => s + c[1], 0) / 4)
-        const bgB = Math.round(corners.reduce((s, c) => s + c[2], 0) / 4)
-        const threshold = 40
+        const w = canvas.width
+        const h = canvas.height
+
+        // Échantillonner plus de pixels en bordure pour une meilleure détection du fond
+        const borderPixels: number[][] = []
+        const sampleStep = Math.max(1, Math.floor(Math.min(w, h) / 20))
+        // Bord haut et bas
+        for (let x = 0; x < w; x += sampleStep) {
+          borderPixels.push([data[x * 4], data[x * 4 + 1], data[x * 4 + 2]])
+          const bottomIdx = ((h - 1) * w + x) * 4
+          borderPixels.push([data[bottomIdx], data[bottomIdx + 1], data[bottomIdx + 2]])
+        }
+        // Bord gauche et droit
+        for (let yy = 0; yy < h; yy += sampleStep) {
+          const leftIdx = yy * w * 4
+          borderPixels.push([data[leftIdx], data[leftIdx + 1], data[leftIdx + 2]])
+          const rightIdx = (yy * w + w - 1) * 4
+          borderPixels.push([data[rightIdx], data[rightIdx + 1], data[rightIdx + 2]])
+        }
+
+        // Couleur de fond moyenne
+        const bgR = Math.round(borderPixels.reduce((s, c) => s + c[0], 0) / borderPixels.length)
+        const bgG = Math.round(borderPixels.reduce((s, c) => s + c[1], 0) / borderPixels.length)
+        const bgB = Math.round(borderPixels.reduce((s, c) => s + c[2], 0) / borderPixels.length)
+
+        // Double seuil : en dessous du bas → transparent, entre les deux → semi-transparent (lissage)
+        const thresholdLow = 35
+        const thresholdHigh = 65
+
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i], g = data[i + 1], b = data[i + 2]
           const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2)
-          if (dist < threshold) data[i + 3] = 0
+          if (dist < thresholdLow) {
+            // Fond certain → entièrement transparent
+            data[i + 3] = 0
+          } else if (dist < thresholdHigh) {
+            // Zone de transition → semi-transparent (lissage progressif)
+            const alpha = Math.round(((dist - thresholdLow) / (thresholdHigh - thresholdLow)) * data[i + 3])
+            data[i + 3] = alpha
+          }
+          // Au-dessus de thresholdHigh → garder le pixel tel quel
         }
+
         ctx.putImageData(imageData, 0, 0)
-        resolve(canvas.toDataURL('image/png'))
+
+        // Recadrer le logo (supprimer les marges transparentes)
+        const trimmed = trimTransparent(canvas)
+        resolve(trimmed.toDataURL('image/png'))
       }
       img.src = dataUrl
     })
+  }
+
+  /** Recadre un canvas en supprimant les marges transparentes */
+  const trimTransparent = (source: HTMLCanvasElement): HTMLCanvasElement => {
+    const ctx = source.getContext('2d')!
+    const w = source.width
+    const h = source.height
+    const data = ctx.getImageData(0, 0, w, h).data
+    let top = h, left = w, right = 0, bottom = 0
+
+    for (let yy = 0; yy < h; yy++) {
+      for (let xx = 0; xx < w; xx++) {
+        const alpha = data[(yy * w + xx) * 4 + 3]
+        if (alpha > 10) {
+          if (yy < top) top = yy
+          if (yy > bottom) bottom = yy
+          if (xx < left) left = xx
+          if (xx > right) right = xx
+        }
+      }
+    }
+
+    // Ajouter un petit padding (2%)
+    const pad = Math.max(2, Math.round(Math.max(right - left, bottom - top) * 0.02))
+    top = Math.max(0, top - pad)
+    left = Math.max(0, left - pad)
+    right = Math.min(w - 1, right + pad)
+    bottom = Math.min(h - 1, bottom + pad)
+
+    const trimW = right - left + 1
+    const trimH = bottom - top + 1
+    const trimmed = document.createElement('canvas')
+    trimmed.width = trimW
+    trimmed.height = trimH
+    const tCtx = trimmed.getContext('2d')!
+    tCtx.drawImage(source, left, top, trimW, trimH, 0, 0, trimW, trimH)
+    return trimmed
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

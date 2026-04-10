@@ -189,42 +189,33 @@ export function generateDevisPdf(data: DevisData): string {
   let y = 14
 
   // ── HEADER ──────────────────────────────────────────────────────
-  // Left: logo (large) + company name
-  const logoSize = 28
-  let headerTextX = 14
-  let headerYOffset = 0
+  // Logo à gauche (plus gros), DEVIS centré, pas de nom entreprise
+  const logoW = 40
+  const logoH = 40
+  const pageW = 210
+  let headerHeight = 22
+
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoSize, logoSize)
-      headerTextX = 14 + logoSize + 4
-      headerYOffset = 2
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoW, logoH)
+      headerHeight = logoH + 2
     } catch { /* logo invalide, on continue sans */ }
   }
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(15, 26, 58)
-  doc.text(ent.nom || 'Mon Entreprise', headerTextX, y + 4 + headerYOffset)
-  if (ent.forme_juridique) {
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100)
-    doc.text(ent.forme_juridique, headerTextX, y + 10 + headerYOffset)
-  }
 
-  // Right: DEVIS title
-  doc.setFontSize(28)
+  // DEVIS centré sur la page
+  doc.setFontSize(30)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', 196, y + 4, { align: 'right' })
+  doc.text('DEVIS', pageW / 2, y + 6, { align: 'center' })
   doc.setFontSize(11)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, 196, y + 11, { align: 'right' })
+  doc.text(`N° ${data.numero}`, pageW / 2, y + 14, { align: 'center' })
   doc.setFontSize(8)
   doc.setTextColor(100)
-  doc.text(fmtDate(data.date_emission), 196, y + 16, { align: 'right' })
+  doc.text(fmtDate(data.date_emission), pageW / 2, y + 20, { align: 'center' })
 
-  y += (ent.logo_url ? logoSize + 2 : 22)
+  y += headerHeight
 
   // ── GRADIENT LINE ──────────────────────────────────────────────
   // Simulate gradient with 2 rects
@@ -568,40 +559,32 @@ export function generateFacturePdf(data: FactureData): string {
   const ent = data.entreprise
   let y = 14
 
-  // Header — logo (large) + company name
-  const logoSize = 28
-  let headerTextX = 14
-  let headerYOffset = 0
+  // Header — Logo à gauche (plus gros), FACTURE centré
+  const logoW = 40
+  const logoH = 40
+  const pageW = 210
+  let headerHeight = 22
+
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoSize, logoSize)
-      headerTextX = 14 + logoSize + 4
-      headerYOffset = 2
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 4, logoW, logoH)
+      headerHeight = logoH + 2
     } catch { /* logo invalide, on continue sans */ }
   }
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(15, 26, 58)
-  doc.text(ent.nom || 'Mon Entreprise', headerTextX, y + 4 + headerYOffset)
-  if (ent.forme_juridique) {
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100)
-    doc.text(ent.forme_juridique, headerTextX, y + 10 + headerYOffset)
-  }
 
-  doc.setFontSize(28)
+  // FACTURE centré sur la page
+  doc.setFontSize(30)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('FACTURE', 196, y + 4, { align: 'right' })
+  doc.text('FACTURE', pageW / 2, y + 6, { align: 'center' })
   doc.setFontSize(11)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, 196, y + 11, { align: 'right' })
+  doc.text(`N° ${data.numero}`, pageW / 2, y + 14, { align: 'center' })
   doc.setFontSize(8)
   doc.setTextColor(100)
-  doc.text(fmtDate(data.date_emission), 196, y + 16, { align: 'right' })
-  y += (ent.logo_url ? logoSize + 2 : 22)
+  doc.text(fmtDate(data.date_emission), pageW / 2, y + 20, { align: 'center' })
+  y += headerHeight
 
   // Gradient line
   doc.setFillColor(37, 99, 235)

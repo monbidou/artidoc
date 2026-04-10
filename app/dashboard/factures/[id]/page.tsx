@@ -298,14 +298,31 @@ export default function FactureDetailPage() {
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-gray-200 p-8 print-zone">
 
-            {/* HEADER — même style que le devis */}
+            {/* HEADER — Logo + titre centré */}
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+              <div style={{flex:'0 0 auto'}}>
+                {Boolean(entreprise?.logo_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 90, maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                )}
+              </div>
+              <div style={{textAlign:'center', flex:1}}>
+                <div style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>FACTURE</div>
+                <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{facture.numero}</strong></div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                  {formatDate(facture.date_emission || facture.created_at)}
+                  {facture.date_echeance && ` · Échéance ${formatDate(facture.date_echeance)}`}
+                </div>
+              </div>
+              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 220 : 0}} />
+            </div>
+
+            <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
+
+            {/* Cadres Artisan + Client */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
               {/* Cadre bleu — Artisan / Émetteur */}
               <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, borderTop: '3px solid #2563eb', flex: '0 0 48%' }}>
-                {Boolean(entreprise?.logo_url) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', marginBottom: 8, mixBlendMode: 'multiply' }} />
-                )}
                 <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
                   <div style={{ fontWeight: 700, color: '#111', fontSize: 15 }}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
                   {Boolean(entreprise?.adresse) && <div>{entreprise?.adresse as string}</div>}
@@ -338,18 +355,7 @@ export default function FactureDetailPage() {
               </div>
             </div>
 
-            {/* Titre + numéro + dates */}
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#2563eb', letterSpacing: 2 }}>FACTURE</div>
-              <div style={{ fontSize: 13, color: '#374151', marginTop: 4 }}>N° <strong>{facture.numero}</strong></div>
-              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                {formatDate(facture.date_emission || facture.created_at)}
-                {facture.date_echeance && ` · Échéance ${formatDate(facture.date_echeance)}`}
-                {facture.date_envoi && ` · Envoyée le ${formatDate(facture.date_envoi)}`}
-              </div>
-            </div>
-
-            <div style={{ height: 3, background: 'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius: 2, marginBottom: 16 }} />
+            {/* (titre FACTURE déplacé dans le header au-dessus) */}
 
             {/* Objet */}
             {(facture.objet || facture.notes_client?.includes('|')) && (

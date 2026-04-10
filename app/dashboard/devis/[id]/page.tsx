@@ -363,20 +363,20 @@ export default function DevisDetailPage() {
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14}}>
-              <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+              {/* Logo à gauche — bien plus gros */}
+              <div style={{flex:'0 0 auto'}}>
                 {Boolean(entreprise?.logo_url) && (
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 60, maxWidth: 160, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 90, maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
-                <div>
-                  <div style={{fontSize:18, fontWeight:700, color:'#111'}}>{(entreprise?.nom as string) || ''}</div>
-                  {Boolean(entreprise?.forme_juridique) && <div style={{fontSize:11, color:'#6b7280'}}>{entreprise?.forme_juridique as string}</div>}
-                </div>
               </div>
-              <div style={{textAlign:'right'}}>
-                <div className="print-devis-title" style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
+              {/* DEVIS + Numéro centré */}
+              <div style={{textAlign:'center', flex:1}}>
+                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>DEVIS</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
               </div>
+              {/* Espace symétrique pour centrer le titre */}
+              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 220 : 0}} />
             </div>
 
             {/* Ligne dégradé */}
