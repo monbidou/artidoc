@@ -538,15 +538,15 @@ export default function DevisDetailPage() {
                 <div className="border-t border-gray-100 pt-3">
                   <h4 className="font-manrope font-semibold text-[11px] text-[#9ca3af] uppercase tracking-wider mb-2">Mentions légales</h4>
                   <div className="space-y-1.5 text-[11px] font-manrope text-[#6b7280] leading-relaxed">
-                    {(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
+                    {Boolean(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Assurance décennale :</span>{' '}
                         {String(entreprise?.assurance_nom || '')}
-                        {entreprise?.decennale_numero && ` — Police n° ${String(entreprise.decennale_numero)}`}
-                        {entreprise?.assurance_zone && ` — Zone : ${String(entreprise.assurance_zone)}`}
+                        {Boolean(entreprise?.decennale_numero) && ` — Police n° ${String(entreprise?.decennale_numero)}`}
+                        {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                       </p>
                     )}
-                    {entreprise?.mediateur && (
+                    {Boolean(entreprise?.mediateur) && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Médiateur de la consommation :</span>{' '}
                         {String(entreprise.mediateur)}
