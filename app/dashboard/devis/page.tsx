@@ -274,9 +274,9 @@ export default function DevisListPage() {
             {filtered.map((devis, idx) => {
               const statut = (devis.statut as DevisStatus) || "brouillon"
               return (
-                <tr key={devis.id as string} onClick={() => router.push(`/dashboard/devis/${devis.id}`)} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${idx % 2 === 1 ? "bg-[#f8f9fa]" : ""}`}>
+                <tr key={String(devis.id)} onClick={() => router.push(`/dashboard/devis/${devis.id}`)} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${idx % 2 === 1 ? "bg-[#f8f9fa]" : ""}`}>
                   <td className="px-3 py-3 w-10" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(devis.id as string)} onChange={() => toggleSelect(devis.id as string)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0] cursor-pointer" /></td>
-                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{devis.numero as string}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{String(devis.numero || '')}</td>
                   <td className="px-4 py-3"><span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[statut] || "bg-gray-100 text-gray-600"}`}>{STATUS_LABELS[statut] || statut}</span></td>
                   <td className="px-4 py-3"><div className="text-sm font-manrope font-medium text-[#1a1a2e]">{(devis.notes_client as string)?.split(" | ")[0] || getClientName(devis.client_id as string | null)}</div><div className="text-xs font-manrope text-gray-500">{(devis.objet as string) || (devis.description as string) || getChantierTitre(devis.chantier_id as string | null)}</div></td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(devis.updated_at as string)}</td>

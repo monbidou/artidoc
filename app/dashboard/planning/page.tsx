@@ -337,7 +337,7 @@ export default function PlanningPage() {
                                 const horaires = `${timeToLabel(intervention.date_debut as string)}-${timeToLabel(intervention.date_fin as string)}`
                                 return (
                                   <div
-                                    key={intervention.id as string}
+                                    key={String(intervention.id)}
                                     className={`rounded-lg p-2.5 ${color.bg} border-l-4 ${color.border} cursor-pointer hover:shadow-sm transition-shadow`}
                                   >
                                     <p className="text-[15px] font-manrope font-bold text-[#0f1a3a] leading-tight">{clientName}</p>
@@ -394,7 +394,7 @@ export default function PlanningPage() {
                   const nom = (cr.nom as string) ?? ''
                   const prenom = (cr.prenom as string) ?? ''
                   return (
-                    <option key={cr.id as string} value={cr.id as string}>
+                    <option key={String(cr.id)} value={String(cr.id)}>
                       {`${prenom} ${nom}`.trim()}
                     </option>
                   )
@@ -416,7 +416,7 @@ export default function PlanningPage() {
                   const nom = (mr.nom as string) ?? ''
                   const prenom = (mr.prenom as string) ?? ''
                   return (
-                    <option key={mr.id as string} value={mr.id as string}>
+                    <option key={String(mr.id)} value={String(mr.id)}>
                       {`${prenom} ${nom}`.trim()}
                     </option>
                   )
@@ -436,7 +436,7 @@ export default function PlanningPage() {
                 {chantiers.map((ch) => {
                   const cr = ch as Record<string, unknown>
                   return (
-                    <option key={cr.id as string} value={cr.id as string}>
+                    <option key={String(cr.id)} value={String(cr.id)}>
                       {(cr.nom as string) ?? (cr.reference as string) ?? cr.id}
                     </option>
                   )

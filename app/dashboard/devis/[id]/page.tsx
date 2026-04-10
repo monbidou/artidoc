@@ -376,7 +376,7 @@ export default function DevisDetailPage() {
               {/* Logo à gauche — imposant */}
               <div style={{flex:'0 0 auto', marginRight: 16}}>
                 {Boolean(entreprise?.logo_url) && (
-                  <img src={entreprise?.logo_url as string} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
               </div>
               {/* DEVIS + Numéro centré */}
@@ -404,12 +404,12 @@ export default function DevisDetailPage() {
               {/* Cadre artisan — bordure bleue complète */}
               <div className="print-info-box" style={{border:'2px solid #2563eb', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:10}}>Artisan</div>
-                <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
+                <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
                 <div className="print-info-lines" style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
-                  {Boolean(entreprise?.adresse) && <div>{entreprise?.adresse as string}</div>}
-                  {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{entreprise?.code_postal as string} {entreprise?.ville as string}</div>}
-                  {Boolean(entreprise?.siret) && <div>SIRET : {entreprise?.siret as string}</div>}
-                  {Boolean(entreprise?.telephone) && <div>Tél : {entreprise?.telephone as string}</div>}
+                  {Boolean(entreprise?.adresse) && <div>{String(entreprise?.adresse || '')}</div>}
+                  {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}</div>}
+                  {Boolean(entreprise?.siret) && <div>SIRET : {String(entreprise?.siret || '')}</div>}
+                  {Boolean(entreprise?.telephone) && <div>Tél : {String(entreprise?.telephone || '')}</div>}
                 </div>
               </div>
               {/* Cadre client — bordure verte complète */}
@@ -602,11 +602,11 @@ export default function DevisDetailPage() {
                 <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 38, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.signature_base64 || '')} alt="Signature" style={{ height: 38, objectFit: 'contain' }} />
                 )}
                 {!entreprise?.signature_base64 && Boolean(entreprise?.tampon_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.tampon_base64 as string} alt="Tampon" style={{ height: 38, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.tampon_base64 || '')} alt="Tampon" style={{ height: 38, objectFit: 'contain' }} />
                 )}
               </div>
               <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
@@ -617,9 +617,9 @@ export default function DevisDetailPage() {
 
             {/* ═══ FOOTER LÉGAL ═══ */}
             <div style={{ marginTop: 10, paddingTop: 8, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.5, pageBreakBefore: 'avoid', breakBefore: 'avoid' }}>
-              {entreprise?.nom as string} — {entreprise?.adresse as string}, {entreprise?.code_postal as string} {entreprise?.ville as string}
-              {Boolean(entreprise?.siret) && ` — SIRET : ${entreprise?.siret as string}`}
-              {Boolean(entreprise?.email) && ` — Email : ${entreprise?.email as string}`}
+              {String(entreprise?.nom || '')} — {String(entreprise?.adresse || '')}, {String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}
+              {Boolean(entreprise?.siret) && ` — SIRET : ${String(entreprise?.siret || '')}`}
+              {Boolean(entreprise?.email) && ` — Email : ${String(entreprise?.email || '')}`}
               <br /><span style={{ color: '#d1d5db' }}>Généré via Nexartis — nexartis.fr</span>
             </div>
 

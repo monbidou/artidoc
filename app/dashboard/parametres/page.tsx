@@ -1023,7 +1023,7 @@ function SignatureSection({
           <div className="h-16 w-56 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={(activeMode === 'signature' ? currentSignature : currentTampon) as string}
+              src={String((activeMode === 'signature' ? currentSignature : currentTampon) || '')}
               alt={activeMode === 'signature' ? 'Signature' : 'Tampon'}
               className="max-h-full max-w-full object-contain"
             />

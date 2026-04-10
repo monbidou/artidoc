@@ -336,7 +336,7 @@ export default function AchatsPage() {
                 >
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{dateFormatted}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{fournisseurNom}</td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{(achat.description ?? '') as string}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{String(achat.description ?? '')}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-semibold text-[#1a1a2e]">{montantHT.toLocaleString('fr-FR')}&nbsp;&euro;</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{tauxTva}%</td>
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#0f1a3a]">{montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;&euro;</td>
@@ -420,8 +420,8 @@ export default function AchatsPage() {
                 {fournisseurs.map((f) => {
                   const rec = f as Record<string, unknown>
                   return (
-                    <option key={rec.id as string} value={rec.id as string}>
-                      {(rec.nom ?? rec.name ?? '') as string}
+                    <option key={String(rec.id)} value={String(rec.id)}>
+                      {String(rec.nom ?? rec.name ?? '')}
                     </option>
                   )
                 })}
@@ -489,8 +489,8 @@ export default function AchatsPage() {
                 {chantiers.map((c) => {
                   const rec = c as Record<string, unknown>
                   return (
-                    <option key={rec.id as string} value={rec.id as string}>
-                      {(rec.nom ?? rec.name ?? '') as string}
+                    <option key={String(rec.id)} value={String(rec.id)}>
+                      {String(rec.nom ?? rec.name ?? '')}
                     </option>
                   )
                 })}

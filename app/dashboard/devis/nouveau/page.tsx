@@ -599,14 +599,14 @@ function NouveauDevisPage() {
               <div>
                 {Boolean(entreprise?.logo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.logo_url as string} alt="Logo" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply', maxWidth: 160 }} />
+                  <img src={String(entreprise?.logo_url || '')} alt="Logo" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply', maxWidth: 160 }} />
                 )}
-                <h2 className="font-syne font-bold text-xl text-[#0f1a3a]">{(entreprise?.nom as string) || 'Mon Entreprise'}</h2>
+                <h2 className="font-syne font-bold text-xl text-[#0f1a3a]">{String(entreprise?.nom || 'Mon Entreprise')}</h2>
                 <p className="text-sm font-manrope text-[#6b7280] mt-1 leading-relaxed">
-                  {Boolean(entreprise?.adresse) && <>{entreprise?.adresse as string}<br /></>}
-                  {Boolean(entreprise?.code_postal || entreprise?.ville) && <>{entreprise?.code_postal as string} {entreprise?.ville as string}<br /></>}
-                  {Boolean(entreprise?.siret) && <>SIRET : {entreprise?.siret as string}<br /></>}
-                  {Boolean(entreprise?.telephone) && <>Tél. : {entreprise?.telephone as string}</>}
+                  {Boolean(entreprise?.adresse) && <>{String(entreprise?.adresse || '')}<br /></>}
+                  {Boolean(entreprise?.code_postal || entreprise?.ville) && <>{String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}<br /></>}
+                  {Boolean(entreprise?.siret) && <>SIRET : {String(entreprise?.siret || '')}<br /></>}
+                  {Boolean(entreprise?.telephone) && <>Tél. : {String(entreprise?.telephone || '')}</>}
                 </p>
               </div>
               <div className="text-right">
@@ -668,7 +668,7 @@ function NouveauDevisPage() {
                 {Boolean(entreprise?.signature_base64) ? (
                   <div className="h-20 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={entreprise?.signature_base64 as string} alt="Signature" className="max-h-full max-w-full object-contain" />
+                    <img src={String(entreprise?.signature_base64 || '')} alt="Signature" className="max-h-full max-w-full object-contain" />
                   </div>
                 ) : <div className="h-20" />}
               </div>

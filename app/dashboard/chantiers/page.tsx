@@ -179,7 +179,7 @@ export default function ChantiersListPage() {
 
               return (
                 <tr
-                  key={chantier.id as string}
+                  key={String(chantier.id)}
                   onClick={() => router.push(`/dashboard/chantiers/${chantier.id}`)}
                   className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
                     idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
@@ -187,7 +187,7 @@ export default function ChantiersListPage() {
                 >
                   <td className="px-4 py-3">
                     <div className="text-sm font-manrope font-medium text-[#1a1a2e]">{clientName}</div>
-                    <div className="text-xs font-manrope text-gray-500">{chantier.titre as string}</div>
+                    <div className="text-xs font-manrope text-gray-500">{String(chantier.titre || '')}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="min-w-[100px]">
