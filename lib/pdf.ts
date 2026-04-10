@@ -39,6 +39,9 @@ interface Entreprise {
   assurance_zone?: string
   couleur_principale?: string
   logo_url?: string
+  signature_base64?: string
+  tampon_base64?: string
+  mediateur?: string
 }
 
 interface Ligne {
@@ -513,6 +516,11 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setLineWidth(0.3)
   doc.rect(14, y, 86, 22)
   doc.rect(110, y, 86, 22)
+  // Signature ou tampon de l'artisan
+  const artisanVisual = data.entreprise.signature_base64 || data.entreprise.tampon_base64
+  if (artisanVisual) {
+    try { doc.addImage(artisanVisual, 'PNG', 16, y + 1, 0, 18) } catch { /* ignore if invalid */ }
+  }
   // Date line in client zone
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')

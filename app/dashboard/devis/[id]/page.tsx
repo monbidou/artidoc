@@ -604,6 +604,10 @@ export default function DevisDetailPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 38, objectFit: 'contain' }} />
                 )}
+                {!entreprise?.signature_base64 && Boolean(entreprise?.tampon_base64) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise?.tampon_base64 as string} alt="Tampon" style={{ height: 38, objectFit: 'contain' }} />
+                )}
               </div>
               <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
                 <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>

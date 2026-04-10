@@ -907,17 +907,30 @@ function SignatureSection({
   const [hasStrokes, setHasStrokes] = useState(false)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const currentSignature = entreprise.signature_base64 as string | undefined
+  const currentTampon = entreprise.tampon_base64 as string | undefined
+  // Mode actif : signature dessinée ou tampon uploadé
+  const activeMode: 'signature' | 'tampon' | null = currentSignature ? 'signature' : currentTampon ? 'tampon' : null
 
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
+    // Ratio entre la taille interne du canvas et la taille CSS affichée
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
     if ('touches' in e) {
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      }
     }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    }
   }
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
@@ -955,6 +968,7 @@ function SignatureSection({
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     setHasStrokes(false)
     setSuccess(null)
+    setErrorMsg(null)
   }
 
   const saveSignature = async () => {
@@ -962,10 +976,23 @@ function SignatureSection({
     if (!canvas) return
     setSaving(true)
     setSuccess(null)
+    setErrorMsg(null)
     try {
       const dataUrl = canvas.toDataURL('image/png')
-      await update({ signature_base64: dataUrl })
-      setSuccess('Signature enregistrée avec succès.')
+      // Si un tampon existe, on le supprime pour garder un seul des deux
+      await update({ signature_base64: dataUrl, tampon_base64: null })
+      setSuccess('Signature enregistrée. Elle apparaîtra sur vos devis.')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+    }
+    setSaving(false)
+  }
+
+  const removeSignature = async () => {
+    setSaving(true)
+    try {
+      await update({ signature_base64: null })
+      setSuccess('Signature supprimée.')
     } catch { /* ignored */ }
     setSaving(false)
   }
@@ -973,65 +1000,99 @@ function SignatureSection({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
       <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">
-        Ma signature
+        Signature / Tampon
       </h2>
-      <p className="font-manrope text-sm text-gray-500 mb-6">
-        Cette signature apparaîtra automatiquement sur vos devis.
-      </p>
 
-      {/* Current saved signature */}
-      {currentSignature && (
-        <div className="mb-6">
-          <p className="text-xs font-manrope text-gray-500 mb-2">Signature actuelle</p>
-          <div className="h-20 w-64 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={currentSignature} alt="Signature" className="max-h-full max-w-full object-contain" />
+      {/* Explication claire */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6">
+        <p className="text-sm text-blue-700 font-manrope">
+          <strong>Choisissez l&apos;un ou l&apos;autre</strong> : soit vous dessinez votre signature, soit vous uploadez une photo de votre tampon.
+          L&apos;élément choisi apparaîtra automatiquement sur vos devis et factures dans le cadre &quot;Signature artisan&quot;.
+        </p>
+      </div>
+
+      {/* Aperçu de l'élément actuel */}
+      {activeMode && (
+        <div className="mb-6 p-4 rounded-lg border border-green-200 bg-green-50">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <p className="text-sm font-manrope font-medium text-green-800">
+              {activeMode === 'signature' ? 'Signature dessinée active' : 'Tampon actif'}
+            </p>
           </div>
+          <div className="h-16 w-56 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={(activeMode === 'signature' ? currentSignature : currentTampon) as string}
+              alt={activeMode === 'signature' ? 'Signature' : 'Tampon'}
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+          <button
+            onClick={activeMode === 'signature' ? removeSignature : async () => { setSaving(true); await update({ tampon_base64: null }); setSaving(false); setSuccess(activeMode === 'tampon' ? 'Tampon supprimé.' : '') }}
+            disabled={saving}
+            className="mt-2 text-xs text-red-500 hover:text-red-700 font-manrope"
+          >
+            Supprimer {activeMode === 'signature' ? 'la signature' : 'le tampon'}
+          </button>
         </div>
       )}
 
-      {/* Canvas */}
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          width={500}
-          height={180}
-          className="w-full max-w-[500px] h-[180px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair touch-none"
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-        />
-        {!hasStrokes && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none max-w-[500px]">
-            <p className="font-manrope text-sm text-gray-400">Dessinez votre signature ici</p>
-          </div>
-        )}
+      {/* ═══ OPTION 1 : Dessiner une signature ═══ */}
+      <div className="mb-8">
+        <h3 className="font-syne font-bold text-base text-[#1a1a2e] mb-1">Option 1 — Dessiner ma signature</h3>
+        <p className="text-xs font-manrope text-gray-400 mb-3">Utilisez votre souris ou votre doigt sur mobile.</p>
+
+        <div className="relative">
+          <canvas
+            ref={canvasRef}
+            width={500}
+            height={180}
+            className="w-full max-w-[500px] h-[180px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair touch-none"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+          />
+          {!hasStrokes && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none max-w-[500px]">
+              <p className="font-manrope text-sm text-gray-400">Dessinez votre signature ici</p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex gap-3">
+          <button
+            onClick={saveSignature}
+            disabled={!hasStrokes || saving}
+            className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Enregistrement...' : 'Enregistrer la signature'}
+          </button>
+          <button
+            onClick={clearCanvas}
+            className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
+          >
+            Effacer
+          </button>
+        </div>
       </div>
 
-      <div className="mt-4 flex gap-3">
-        <button
-          onClick={saveSignature}
-          disabled={!hasStrokes || saving}
-          className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? 'Enregistrement...' : 'Enregistrer la signature'}
-        </button>
-        <button
-          onClick={clearCanvas}
-          className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
-        >
-          Effacer
-        </button>
+      {/* Séparateur OU */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="font-syne font-bold text-sm text-gray-400 uppercase">ou</span>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
+
+      {/* ═══ OPTION 2 : Uploader un tampon ═══ */}
+      <TamponUpload entreprise={entreprise} update={update} />
 
       <SuccessMessage message={success} />
-
-      {/* Tampon section */}
-      <TamponUpload entreprise={entreprise} update={update} />
+      {errorMsg && <p className="mt-3 text-sm text-red-600 font-manrope">{errorMsg}</p>}
     </div>
   )
 }
@@ -1047,84 +1108,174 @@ function TamponUpload({
   entreprise: Record<string, unknown>
   update: (v: Record<string, unknown>) => Promise<unknown>
 }) {
+  const [processing, setProcessing] = useState(false)
+  const [originalPreview, setOriginalPreview] = useState<string | null>(null)
+  const [removedBgPreview, setRemovedBgPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const currentTampon = entreprise.tampon_base64 as string | undefined
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const removeBackground = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const d = imageData.data
+        const w = canvas.width, h = canvas.height
 
-    if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image (JPG, PNG)')
-      return
-    }
+        // Échantillonner les pixels en bordure pour détecter le fond
+        const borderPixels: number[][] = []
+        const step = Math.max(1, Math.floor(Math.min(w, h) / 20))
+        for (let x = 0; x < w; x += step) {
+          borderPixels.push([d[x * 4], d[x * 4 + 1], d[x * 4 + 2]])
+          const bi = ((h - 1) * w + x) * 4
+          borderPixels.push([d[bi], d[bi + 1], d[bi + 2]])
+        }
+        for (let yy = 0; yy < h; yy += step) {
+          const li = yy * w * 4
+          borderPixels.push([d[li], d[li + 1], d[li + 2]])
+          const ri = (yy * w + w - 1) * 4
+          borderPixels.push([d[ri], d[ri + 1], d[ri + 2]])
+        }
 
-    setSaving(true)
-    setSuccess(null)
-    try {
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const dataUrl = reader.result as string
-        await update({ tampon_base64: dataUrl })
-        setSuccess('Tampon enregistré avec succès.')
-        setSaving(false)
+        const bgR = Math.round(borderPixels.reduce((s, c) => s + c[0], 0) / borderPixels.length)
+        const bgG = Math.round(borderPixels.reduce((s, c) => s + c[1], 0) / borderPixels.length)
+        const bgB = Math.round(borderPixels.reduce((s, c) => s + c[2], 0) / borderPixels.length)
+
+        const thresholdLow = 35, thresholdHigh = 65
+        for (let i = 0; i < d.length; i += 4) {
+          const dist = Math.sqrt((d[i] - bgR) ** 2 + (d[i + 1] - bgG) ** 2 + (d[i + 2] - bgB) ** 2)
+          if (dist < thresholdLow) d[i + 3] = 0
+          else if (dist < thresholdHigh) d[i + 3] = Math.round(((dist - thresholdLow) / (thresholdHigh - thresholdLow)) * d[i + 3])
+        }
+
+        ctx.putImageData(imageData, 0, 0)
+
+        // Recadrer (supprimer les marges transparentes)
+        const td = ctx.getImageData(0, 0, w, h).data
+        let top = h, left = w, right = 0, bottom = 0
+        for (let yy = 0; yy < h; yy++) {
+          for (let xx = 0; xx < w; xx++) {
+            if (td[(yy * w + xx) * 4 + 3] > 10) {
+              if (yy < top) top = yy; if (yy > bottom) bottom = yy
+              if (xx < left) left = xx; if (xx > right) right = xx
+            }
+          }
+        }
+        const pad = Math.max(2, Math.round(Math.max(right - left, bottom - top) * 0.02))
+        top = Math.max(0, top - pad); left = Math.max(0, left - pad)
+        right = Math.min(w - 1, right + pad); bottom = Math.min(h - 1, bottom + pad)
+        const tw = right - left + 1, th = bottom - top + 1
+        const trimmed = document.createElement('canvas')
+        trimmed.width = tw; trimmed.height = th
+        trimmed.getContext('2d')!.drawImage(canvas, left, top, tw, th, 0, 0, tw, th)
+
+        resolve(trimmed.toDataURL('image/png'))
       }
-      reader.readAsDataURL(file)
-    } catch {
-      setSaving(false)
-    }
+      img.src = dataUrl
+    })
   }
 
-  const handleRemove = async () => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string
+      setOriginalPreview(dataUrl)
+      setRemovedBgPreview(null)
+      setProcessing(true)
+      try {
+        const result = await removeBackground(dataUrl)
+        setRemovedBgPreview(result)
+      } catch { /* keep original */ }
+      setProcessing(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const saveTampon = async (dataUrl: string) => {
     setSaving(true)
     try {
-      await update({ tampon_base64: null })
-      setSuccess('Tampon supprimé.')
+      // Si une signature existe, on la supprime pour garder un seul des deux
+      await update({ tampon_base64: dataUrl, signature_base64: null })
+      setOriginalPreview(null)
+      setRemovedBgPreview(null)
     } catch { /* ignored */ }
     setSaving(false)
   }
 
   return (
-    <div className="mt-8 pt-8 border-t border-gray-200">
-      <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">
-        Mon tampon
-      </h2>
-      <p className="font-manrope text-sm text-gray-500 mb-6">
-        Ce tampon apparaîtra à côté de votre signature sur les devis. Utilisez un PNG avec fond transparent pour un meilleur rendu.
+    <div>
+      <h3 className="font-syne font-bold text-base text-[#1a1a2e] mb-1">Option 2 — Photo de mon tampon</h3>
+      <p className="text-xs font-manrope text-gray-400 mb-3">
+        Uploadez une photo de votre tampon. Le fond sera supprimé automatiquement.
+        Sur mobile, vous pouvez prendre une photo directement.
       </p>
 
-      {currentTampon && (
-        <div className="mb-6">
-          <p className="text-xs font-manrope text-gray-500 mb-2">Tampon actuel</p>
-          <div className="h-24 w-48 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={currentTampon} alt="Tampon" className="max-h-full max-w-full object-contain" />
-          </div>
-          <button
-            onClick={handleRemove}
-            disabled={saving}
-            className="mt-2 text-xs text-red-500 hover:text-red-700 font-manrope"
-          >
-            Supprimer le tampon
-          </button>
+      <div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-sm"
+        >
+          Choisir une photo du tampon
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </div>
+
+      {/* Processing */}
+      {processing && (
+        <div className="mt-4 flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
+          <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[#5ab4e0] font-manrope">Suppression du fond en cours...</p>
         </div>
       )}
 
-      <div>
-        <label className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] cursor-pointer transition-colors">
-          {saving ? 'Enregistrement...' : currentTampon ? 'Changer le tampon' : 'Uploader un tampon'}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/jpg"
-            onChange={handleUpload}
-            className="hidden"
-          />
-        </label>
-        <p className="text-xs text-gray-400 mt-1.5">PNG ou JPG. Sur mobile, vous pouvez prendre une photo directement.</p>
-      </div>
-
-      <SuccessMessage message={success} />
+      {/* Preview with choices */}
+      {!processing && originalPreview && (
+        <div className="mt-4 space-y-4">
+          {removedBgPreview && (
+            <div>
+              <p className="text-xs font-manrope text-gray-500 mb-2">Fond supprimé (recommandé)</p>
+              <div className="h-24 w-48 rounded-lg border border-gray-200 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjBmMGYwIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMGYwZjAiLz48L3N2Zz4=')] flex items-center justify-center p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={removedBgPreview} alt="Tampon sans fond" className="max-h-full max-w-full object-contain" />
+              </div>
+              <button
+                onClick={() => saveTampon(removedBgPreview)}
+                disabled={saving}
+                className="mt-2 h-9 px-5 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50"
+              >
+                {saving ? 'Enregistrement...' : 'Utiliser cette version'}
+              </button>
+            </div>
+          )}
+          <div>
+            <p className="text-xs font-manrope text-gray-500 mb-2">Photo originale</p>
+            <div className="h-24 w-48 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={originalPreview} alt="Tampon original" className="max-h-full max-w-full object-contain" />
+            </div>
+            <button
+              onClick={() => saveTampon(originalPreview)}
+              disabled={saving}
+              className="mt-2 h-9 px-5 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : 'Garder l\'original'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
