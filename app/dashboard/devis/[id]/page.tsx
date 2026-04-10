@@ -541,15 +541,15 @@ export default function DevisDetailPage() {
                     {(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Assurance décennale :</span>{' '}
-                        {entreprise?.assurance_nom as string}
-                        {entreprise?.decennale_numero && ` — Police n° ${entreprise?.decennale_numero as string}`}
-                        {entreprise?.assurance_zone && ` — Zone : ${entreprise?.assurance_zone as string}`}
+                        {String(entreprise?.assurance_nom || '')}
+                        {entreprise?.decennale_numero && ` — Police n° ${String(entreprise.decennale_numero)}`}
+                        {entreprise?.assurance_zone && ` — Zone : ${String(entreprise.assurance_zone)}`}
                       </p>
                     )}
                     {entreprise?.mediateur && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Médiateur de la consommation :</span>{' '}
-                        {entreprise?.mediateur as string}
+                        {String(entreprise.mediateur)}
                       </p>
                     )}
                     <p>Le client dispose d&apos;un délai de rétractation de 14 jours à compter de la signature du devis pour les travaux conclus hors établissement (art. L221-18 du Code de la consommation).</p>

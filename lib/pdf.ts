@@ -519,7 +519,7 @@ export function generateDevisPdf(data: DevisData): string {
   // Signature ou tampon de l'artisan
   const artisanVisual = data.entreprise.signature_base64 || data.entreprise.tampon_base64
   if (artisanVisual) {
-    try { doc.addImage(artisanVisual, 'PNG', 16, y + 1, 0, 18) } catch { /* ignore if invalid */ }
+    try { doc.addImage(artisanVisual, 'PNG', 16, y + 1, 0, 18) } catch (_e) { /* ignore if invalid */ }
   }
   // Date line in client zone
   doc.setFontSize(7)
