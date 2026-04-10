@@ -788,25 +788,10 @@ export function generateFacturePdf(data: FactureData): string {
 
   y = Math.max(leftY, rightY) + 6
 
-  // ── SIGNATURES (comme devis) ──────────────────────────────────
-  y = ensureSpace(doc, y, 30)
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(60)
-  doc.text('Signature artisan', 14, y)
-  doc.text('Bon pour accord — Signature client', 110, y)
-  y += 3
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
-  doc.rect(14, y, 86, 22)
-  doc.rect(110, y, 86, 22)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(150)
-  doc.text('Date : ....../....../..........', 114, y + 18)
-  y += 26
+  // ── PAS DE SIGNATURES SUR FACTURE (différence avec devis) ─────
 
-  // ── MENTIONS LÉGALES ──────────────────────────────────────────
+  // ── MENTION LÉGALE FACTURE ────────────────────────────────────
+  y = ensureSpace(doc, y, 8)
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'italic')
   doc.setTextColor(107, 114, 128)
