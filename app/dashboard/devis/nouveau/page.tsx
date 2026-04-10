@@ -869,9 +869,94 @@ function NouveauDevisPage() {
           </div>
           </>
 
-        {/* Totals */}
-        <div className="flex justify-end">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 w-80">
+        {/* Déchets + Totaux — côte à côte */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
+          {/* Gestion des déchets (loi AGEC) */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Gestion des déchets</label>
+              <span className="text-[9px] font-manrope text-[#e87a2a] border border-[#e87a2a]/40 px-1.5 py-0.5 rounded uppercase tracking-wide font-semibold">Loi AGEC</span>
+            </div>
+            {/* Nature + Quantité */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Nature des déchets</label>
+                <select value={dechetsNature} onChange={e => setDechetsNature(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                  <option value="Déchets non dangereux (câbles, emballages)">Déchets non dangereux (câbles, emballages)</option>
+                  <option value="Déchets d'équipements électriques (DEEE)">DEEE (équipements électriques)</option>
+                  <option value="Déchets inertes (gravats, plâtre, béton)">Déchets inertes (gravats, plâtre)</option>
+                  <option value="Mélange non dangereux">Mélange non dangereux</option>
+                  <option value="Déchets dangereux (amiante, peintures)">Déchets dangereux (amiante, peintures)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Quantité estimée</label>
+                <input type="text" value={dechetsQuantite} onChange={e => setDechetsQuantite(e.target.value)} placeholder="Ex : 0.5 tonne, 2 m³" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+              </div>
+            </div>
+            {/* Enlèvement + Tri + Coût */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Enlèvement par</label>
+                <select value={dechetsResponsable} onChange={e => setDechetsResponsable(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                  <option value="L'entreprise">L&apos;entreprise</option>
+                  <option value="Le client (maître d'ouvrage)">Le client</option>
+                  <option value="Prestataire externe">Prestataire externe</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Tri</label>
+                <select value={dechetsTri} onChange={e => setDechetsTri(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                  <option value="Tri sur le chantier">Tri sur le chantier</option>
+                  <option value="Collecte séparée">Collecte séparée</option>
+                  <option value="Évacuation en mélange">Évacuation en mélange</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Coût estimé TTC (€)</label>
+                <input type="number" value={dechetsCout} onChange={e => setDechetsCout(e.target.value)} placeholder="0.00" min={0} step={0.01} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+              </div>
+            </div>
+            {/* Point de collecte */}
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Point de collecte</label>
+              {!dechetsCollecteNom && (pointsCollecte?.length > 0 || dechetteriesProches.length > 0) && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {pointsCollecte?.map(p => (
+                    <button key={p.id} type="button" onClick={() => { setDechetsCollecteNom(p.nom); setDechetsCollecteAdresse(p.adresse || ''); setDechetsCollecteType(p.type_installation || 'Déchetterie') }}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-manrope bg-[#5ab4e0]/10 border border-[#5ab4e0]/30 text-[#5ab4e0] hover:bg-[#5ab4e0]/20 transition-colors font-medium">
+                      ★ {p.nom}
+                    </button>
+                  ))}
+                  {dechetteriesProches.slice(0, 5).map((d, i) => (
+                    <button key={`api-${i}`} type="button" onClick={() => { setDechetsCollecteNom(d.nom); setDechetsCollecteAdresse(`${d.adresse}, ${d.code_postal} ${d.commune}`); setDechetsCollecteType('Déchetterie') }}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-manrope border border-gray-200 text-[#6b7280] hover:border-gray-400 transition-colors">
+                      {d.nom} <span className="text-[#e87a2a]">({d.distance_km} km)</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {loadingDechetteries && !dechetsCollecteNom && <p className="text-[11px] font-manrope text-[#9ca3af] mb-2 animate-pulse">Recherche des déchetteries proches...</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="relative">
+                  <input type="text" value={dechetsCollecteNom} onChange={e => setDechetsCollecteNom(e.target.value)} placeholder="Nom / raison sociale" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+                  {dechetsCollecteNom && (
+                    <button type="button" onClick={() => { setDechetsCollecteNom(''); setDechetsCollecteAdresse(''); setDechetsCollecteType('') }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                  )}
+                </div>
+                <input type="text" value={dechetsCollecteAdresse} onChange={e => setDechetsCollecteAdresse(e.target.value)} placeholder="Adresse" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+                <select value={dechetsCollecteType} onChange={e => setDechetsCollecteType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                  <option value="Déchetterie">Déchetterie</option>
+                  <option value="Centre de tri">Centre de tri</option>
+                  <option value="Plateforme de recyclage">Plateforme de recyclage</option>
+                  <option value="Collecteur agréé">Collecteur agréé</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Totaux */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">Total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span></div>
             {showTvaOnDevis && !autoEntrepreneur && Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
               <div key={rate} className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {rate}%</span><span className="font-medium">{formatCurrency(group.tva)}</span></div>
@@ -927,95 +1012,6 @@ function NouveauDevisPage() {
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes internes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes visibles uniquement par vous" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
         </div>
 
-        {/* Gestion des déchets (loi AGEC — compact) */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Gestion des déchets</label>
-              <span className="text-[9px] font-manrope text-[#e87a2a] border border-[#e87a2a]/40 px-1.5 py-0.5 rounded uppercase tracking-wide font-semibold">Loi AGEC</span>
-            </div>
-          </div>
-
-          {/* Ligne 1 : Nature + Quantité */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Nature des déchets</label>
-              <select value={dechetsNature} onChange={e => setDechetsNature(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
-                <option value="Déchets non dangereux (câbles, emballages)">Déchets non dangereux (câbles, emballages)</option>
-                <option value="Déchets d'équipements électriques (DEEE)">DEEE (équipements électriques)</option>
-                <option value="Déchets inertes (gravats, plâtre, béton)">Déchets inertes (gravats, plâtre)</option>
-                <option value="Mélange non dangereux">Mélange non dangereux</option>
-                <option value="Déchets dangereux (amiante, peintures)">Déchets dangereux (amiante, peintures)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Quantité estimée</label>
-              <input type="text" value={dechetsQuantite} onChange={e => setDechetsQuantite(e.target.value)} placeholder="Ex : 0.5 tonne, 2 m³" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
-            </div>
-          </div>
-
-          {/* Ligne 2 : Enlèvement + Tri + Coût */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-            <div>
-              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Enlèvement par</label>
-              <select value={dechetsResponsable} onChange={e => setDechetsResponsable(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
-                <option value="L'entreprise">L&apos;entreprise</option>
-                <option value="Le client (maître d'ouvrage)">Le client</option>
-                <option value="Prestataire externe">Prestataire externe</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Tri</label>
-              <select value={dechetsTri} onChange={e => setDechetsTri(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
-                <option value="Tri sur le chantier">Tri sur le chantier</option>
-                <option value="Collecte séparée">Collecte séparée</option>
-                <option value="Évacuation en mélange">Évacuation en mélange</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Coût estimé TTC (€)</label>
-              <input type="number" value={dechetsCout} onChange={e => setDechetsCout(e.target.value)} placeholder="0.00" min={0} step={0.01} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
-            </div>
-          </div>
-
-          {/* Ligne 3 : Point de collecte */}
-          <div>
-            <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Point de collecte</label>
-            {/* Raccourcis : points sauvegardés ou déchetteries proches */}
-            {!dechetsCollecteNom && (pointsCollecte?.length > 0 || dechetteriesProches.length > 0) && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {pointsCollecte?.map(p => (
-                  <button key={p.id} type="button" onClick={() => { setDechetsCollecteNom(p.nom); setDechetsCollecteAdresse(p.adresse || ''); setDechetsCollecteType(p.type_installation || 'Déchetterie') }}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-manrope bg-[#5ab4e0]/10 border border-[#5ab4e0]/30 text-[#5ab4e0] hover:bg-[#5ab4e0]/20 transition-colors font-medium">
-                    ★ {p.nom}
-                  </button>
-                ))}
-                {dechetteriesProches.slice(0, 5).map((d, i) => (
-                  <button key={`api-${i}`} type="button" onClick={() => { setDechetsCollecteNom(d.nom); setDechetsCollecteAdresse(`${d.adresse}, ${d.code_postal} ${d.commune}`); setDechetsCollecteType('Déchetterie') }}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-manrope border border-gray-200 text-[#6b7280] hover:border-gray-400 transition-colors">
-                    {d.nom} <span className="text-[#e87a2a]">({d.distance_km} km)</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {loadingDechetteries && !dechetsCollecteNom && <p className="text-[11px] font-manrope text-[#9ca3af] mb-2 animate-pulse">Recherche des déchetteries proches...</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="relative">
-                <input type="text" value={dechetsCollecteNom} onChange={e => setDechetsCollecteNom(e.target.value)} placeholder="Nom / raison sociale" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
-                {dechetsCollecteNom && (
-                  <button type="button" onClick={() => { setDechetsCollecteNom(''); setDechetsCollecteAdresse(''); setDechetsCollecteType('') }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
-                )}
-              </div>
-              <input type="text" value={dechetsCollecteAdresse} onChange={e => setDechetsCollecteAdresse(e.target.value)} placeholder="Adresse" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
-              <select value={dechetsCollecteType} onChange={e => setDechetsCollecteType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
-                <option value="Déchetterie">Déchetterie</option>
-                <option value="Centre de tri">Centre de tri</option>
-                <option value="Plateforme de recyclage">Plateforme de recyclage</option>
-                <option value="Collecteur agréé">Collecteur agréé</option>
-              </select>
-            </div>
-          </div>
-        </div>
 
         {/* Bottom buttons */}
         <div className="flex flex-wrap items-center gap-3 justify-end pb-8">
