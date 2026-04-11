@@ -195,42 +195,43 @@ function addFooterLegal(doc: jsPDF, ent: Entreprise, y: number): number {
 export function generateDevisPdf(data: DevisData): string {
   const doc = new jsPDF()
   const ent = data.entreprise
-  let y = 14
-
-  // ── HEADER ──────────────────────────────────────────────────────
-  // Logo à gauche (proportionnel), DEVIS centré — compact comme le PDF web
-  const logoW = 30
-  const logoH = 30
+  let y = 12
+  const M = 14 // marge gauche
   const pageW = 210
+
+  // ── HEADER : logo à gauche + DEVIS aligné à droite sur la même ligne ──
+  const logoSize = 22
+  let headerBottom = y + 16
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, logoW, logoH)
+      doc.addImage(ent.logo_url, logoFormat, M, y - 2, logoSize, logoSize)
+      headerBottom = Math.max(headerBottom, y - 2 + logoSize)
     } catch { /* logo invalide, on continue sans */ }
   }
 
-  // DEVIS centré sur la page (à droite du logo, même ligne)
-  doc.setFontSize(26)
+  // DEVIS + numéro — centré dans l'espace à droite du logo
+  const titleCenterX = ent.logo_url ? M + logoSize + (196 - M - logoSize) / 2 : pageW / 2
+  doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', pageW / 2 + 10, y + 6, { align: 'center' })
-  doc.setFontSize(10)
+  doc.text('DEVIS', titleCenterX, y + 5, { align: 'center' })
+  doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, pageW / 2 + 10, y + 13, { align: 'center' })
+  doc.text(`N° ${data.numero}`, titleCenterX, y + 11, { align: 'center' })
 
-  y += Math.max(logoH + 2, 22)
+  y = headerBottom + 2
 
-  // ── GRADIENT LINE ──────────────────────────────────────────────
-  const gradW = 182
+  // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
-  doc.rect(14, y, gradW / 2, 1, 'F')
+  doc.rect(M, y, 91, 0.8, 'F')
   doc.setFillColor(147, 197, 253)
-  doc.rect(14 + gradW / 2, y, gradW / 2, 1, 'F')
-  y += 4
+  doc.rect(M + 91, y, 91, 0.8, 'F')
+  y += 3
 
-  // ── DATES en ligne (comme le PDF web) ──────────────────────────
-  doc.setFontSize(7.5)
+  // ── DATES (1 ligne) ──
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
   const dateParts: string[] = []
@@ -238,89 +239,73 @@ export function generateDevisPdf(data: DevisData): string {
   if (data.date_validite) dateParts.push(`Valide jusqu'au : ${fmtDate(data.date_validite)}`)
   if (data.date_debut_travaux) dateParts.push(`Début travaux : ${fmtDate(data.date_debut_travaux)}`)
   if (data.duree_travaux) dateParts.push(`Durée : ${data.duree_travaux}`)
-  doc.text(dateParts.join('    '), pageW / 2, y + 2, { align: 'center' })
-  y += 7
+  doc.text(dateParts.join('    '), pageW / 2, y + 1, { align: 'center' })
+  y += 5
 
-  // ── 2 CADRES: ARTISAN + CLIENT (bordures colorées complètes) ──
-  const boxH = 36
-  const boxW = 86
-  const lx = 14
-  const rx = 14 + boxW + 10
+  // ── 2 CADRES : ARTISAN + CLIENT (hauteur dynamique) ──
+  const boxW = 88
+  const lx = M
+  const rx = M + boxW + 6
+  const boxStartY = y
 
-  // Artisan box — bordure bleue complète
-  doc.setDrawColor(37, 99, 235)
-  doc.setLineWidth(0.6)
-  doc.rect(lx, y, boxW, boxH)
-
-  doc.setFontSize(7)
+  // -- Contenu artisan --
+  let ay = y + 4
+  doc.setFontSize(6.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(37, 99, 235)
-  doc.text('ARTISAN', lx + 4, y + 5)
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
+  doc.text('ARTISAN', lx + 3, ay); ay += 4
+  doc.setFontSize(9)
   doc.setTextColor(26, 26, 46)
-  doc.text(ent.nom || '', lx + 4, y + 10)
-
-  doc.setFontSize(7.5)
+  doc.text(ent.nom || '', lx + 3, ay); ay += 3.5
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  let ay = y + 14
-  if (ent.adresse) { doc.text(ent.adresse, lx + 4, ay); ay += 3.2 }
-  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ay); ay += 3.2 }
-  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ay); ay += 3.2 }
-  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ay); ay += 3.2 }
-  if (ent.tva_intracommunautaire) { doc.text(`TVA : ${ent.tva_intracommunautaire}`, lx + 4, ay); ay += 3.2 }
-  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
-  if (ent.email) { doc.text(ent.email, lx + 4, ay) }
+  if (ent.adresse) { doc.text(ent.adresse, lx + 3, ay); ay += 3 }
+  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 3, ay); ay += 3 }
+  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 3, ay); ay += 3 }
+  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 3, ay); ay += 3 }
 
-  // Client box — bordure verte complète
-  doc.setDrawColor(16, 185, 129)
-  doc.setLineWidth(0.6)
-  doc.rect(rx, y, boxW, boxH)
-
-  doc.setFontSize(7)
+  // -- Contenu client --
+  let cy = y + 4
+  doc.setFontSize(6.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(16, 185, 129)
-  doc.text('CLIENT', rx + 4, y + 5)
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
+  doc.text('CLIENT', rx + 3, cy); cy += 4
+  doc.setFontSize(9)
   doc.setTextColor(26, 26, 46)
-  doc.text(data.clientNom, rx + 4, y + 10)
-
-  doc.setFontSize(7.5)
+  doc.text(data.clientNom, rx + 3, cy); cy += 3.5
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  let cy = y + 14
-  // Afficher chaque info client sur une ligne séparée (séparées par |)
   if (data.clientAdresse) {
-    const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
-    for (const part of clientParts) {
-      doc.text(part, rx + 4, cy, { maxWidth: boxW - 8 })
-      cy += 3.5
-    }
+    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    for (const p of parts) { doc.text(p, rx + 3, cy, { maxWidth: boxW - 6 }); cy += 3 }
   }
 
-  y += boxH + 4
+  // Dessiner les cadres à la bonne hauteur
+  const boxH = Math.max(ay - boxStartY + 2, cy - boxStartY + 2)
+  doc.setDrawColor(37, 99, 235); doc.setLineWidth(0.5); doc.rect(lx, boxStartY, boxW, boxH)
+  doc.setDrawColor(16, 185, 129); doc.rect(rx, boxStartY, boxW, boxH)
 
-  // ── OBJET ──────────────────────────────────────────────────────
+  y = boxStartY + boxH + 3
+
+  // ── OBJET ──
   if (data.objet) {
     doc.setFillColor(239, 246, 255)
-    doc.rect(14, y, 182, 10, 'F')
+    doc.rect(M, y, 182, 7, 'F')
     doc.setFillColor(37, 99, 235)
-    doc.rect(14, y, 1.2, 10, 'F') // left accent
-    doc.setFontSize(8.5)
+    doc.rect(M, y, 1, 7, 'F')
+    doc.setFontSize(7.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(37, 99, 235)
-    doc.text('Objet :', 19, y + 4)
+    doc.text('Objet :', M + 3, y + 4.5)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(40)
-    doc.text(data.objet, 34, y + 4, { maxWidth: 158 })
-    y += 14
+    doc.text(data.objet, M + 17, y + 4.5, { maxWidth: 162 })
+    y += 10
   }
 
-  // ── TABLE ──────────────────────────────────────────────────────
+  // ── TABLE (compacte) ──
   autoTable(doc, {
     startY: y,
     head: [['N°', 'Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
@@ -333,17 +318,17 @@ export function generateDevisPdf(data: DevisData): string {
       fmt(l.quantite * l.prix_unitaire_ht),
     ]),
     theme: 'grid',
-    headStyles: { fillColor: BLUE, fontSize: 7.5, font: 'helvetica', halign: 'center', textColor: [255, 255, 255] },
-    bodyStyles: { fontSize: 7.5 },
+    headStyles: { fillColor: BLUE, fontSize: 7, font: 'helvetica', halign: 'center', textColor: [255, 255, 255], cellPadding: 1.5 },
+    bodyStyles: { fontSize: 7, cellPadding: 1.5 },
     alternateRowStyles: { fillColor: [248, 250, 255] },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 14 },
-      3: { halign: 'center', cellWidth: 16 },
-      4: { halign: 'right', cellWidth: 26 },
-      5: { halign: 'right', cellWidth: 26 },
+      0: { halign: 'center', cellWidth: 9 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 14 },
+      4: { halign: 'right', cellWidth: 24 },
+      5: { halign: 'right', cellWidth: 24 },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: M, right: M },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -357,105 +342,107 @@ export function generateDevisPdf(data: DevisData): string {
 
   // --- COLONNE GAUCHE ---
 
-  // Déchets (loi AGEC — 4 mentions obligatoires)
-  if (data.dechets && (data.dechets.nature || data.dechets.quantite || data.dechets.collecte_nom)) {
-    leftY = ensureSpace(doc, leftY, 35)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...BLUE)
-    doc.text('Gestion des déchets (loi AGEC)', leftX, leftY)
-    leftY += 4
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80)
-    if (data.dechets.nature) { doc.text(`Nature : ${data.dechets.nature}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.quantite) { doc.text(`Quantité estimée : ${data.dechets.quantite}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.responsable) { doc.text(`Enlèvement : ${data.dechets.responsable}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.tri) { doc.text(`Tri : ${data.dechets.tri}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.collecte_nom) {
-      const collecteInfo = [data.dechets.collecte_nom, data.dechets.collecte_adresse, data.dechets.collecte_type].filter(Boolean).join(' — ')
-      doc.text(`Point de collecte : ${collecteInfo}`, leftX, leftY, { maxWidth: 82 }); leftY += data.dechets.collecte_adresse ? 6.4 : 3.2
-    }
-    if (data.dechets.cout !== undefined && data.dechets.cout > 0) { doc.text(`Coût estimé : ${fmt(data.dechets.cout)} TTC${data.dechets.inclure_cout ? ' (inclus dans le total)' : ' (à titre informatif)'}`, leftX, leftY); leftY += 3.2 }
-    leftY += 3
-  }
+  // ═══════════════════════════════════════════════════════════════════
+  // BAS DE PAGE — Même layout que le dashboard :
+  // Gauche : Conditions → Mentions légales → Déchets (petit, grisé)
+  // Droite : Totaux → NET À PAYER → Signatures (2 cadres côte à côte)
+  // ═══════════════════════════════════════════════════════════════════
 
-  // Conditions de paiement
+  const FS_SMALL = 6.5   // police petite pour mentions/déchets
+  const FS_BODY = 7       // police body
+  const LH = 2.8          // line height compact
+  const leftMaxW = 88     // largeur colonne gauche
+
+  // --- COLONNE GAUCHE ---
+
+  // Conditions de paiement (en premier — comme le dashboard)
   if (data.conditions_paiement) {
-    leftY = ensureSpace(doc, leftY, 15)
-    doc.setFontSize(8)
+    doc.setFontSize(FS_BODY)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...BLUE)
+    doc.setTextColor(26, 26, 46)
     doc.text('Conditions de paiement', leftX, leftY)
-    leftY += 4
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80)
-    const splitCond = doc.splitTextToSize(data.conditions_paiement, 88)
-    doc.text(splitCond, leftX, leftY)
-    leftY += splitCond.length * 3.2
-    leftY += 2
-  }
-
-  // Acompte (left column)
-  if (data.acompte_pourcent && data.acompte_pourcent > 0) {
-    const acompteTTC = data.montant_ttc * (data.acompte_pourcent / 100)
-    const resteTTC = data.montant_ttc - acompteTTC
-    doc.setFontSize(7.5)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(37, 99, 235)
-    doc.text(`Acompte (${data.acompte_pourcent}%) : ${fmt(acompteTTC)}`, leftX, leftY)
     leftY += 3.5
-    doc.text(`Reste à facturer : ${fmt(resteTTC)}`, leftX, leftY)
-    leftY += 5
-  }
-
-  // Pénalités (pro only)
-  if (data.clientType === 'professionnel') {
-    leftY = ensureSpace(doc, leftY, 12)
-    doc.setFontSize(6.5)
-    doc.setTextColor(120)
+    doc.setFontSize(FS_BODY)
     doc.setFont('helvetica', 'normal')
-    doc.text('Pénalités de retard : 3x le taux d\'intérêt légal (7,86% en 2026)', leftX, leftY)
-    leftY += 3
-    doc.text('Indemnité forfaitaire pour frais de recouvrement : 40 €', leftX, leftY)
-    leftY += 4
+    doc.setTextColor(100)
+    const splitCond = doc.splitTextToSize(data.conditions_paiement, leftMaxW)
+    doc.text(splitCond, leftX, leftY)
+    leftY += splitCond.length * LH + 2
   }
 
-  // TVA mentions
+  // Mentions légales (petit, grisé — comme le dashboard)
+  doc.setDrawColor(230)
+  doc.line(leftX, leftY, leftX + leftMaxW, leftY)
+  leftY += 2.5
+  doc.setFontSize(5.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(160)
+  doc.text('MENTIONS LÉGALES', leftX, leftY)
+  leftY += 2.5
+  doc.setFontSize(FS_SMALL)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(150)
+  if (ent.assurance_nom || ent.decennale_numero) {
+    const assLine = `Assurance décennale : ${ent.assurance_nom || ''}${ent.decennale_numero ? ` — n° ${ent.decennale_numero}` : ''}${ent.assurance_zone ? ` — Zone : ${ent.assurance_zone}` : ''}`
+    const assWrapped = doc.splitTextToSize(assLine, leftMaxW)
+    doc.text(assWrapped, leftX, leftY); leftY += assWrapped.length * LH
+  }
+  doc.text('Rétractation 14 jours pour travaux hors établissement (art. L221-18 C. conso.).', leftX, leftY, { maxWidth: leftMaxW })
+  leftY += 5
+
+  // Déchets AGEC (discret, grisé, en bas — comme le dashboard)
+  if (data.dechets && (data.dechets.nature || data.dechets.collecte_nom)) {
+    doc.setDrawColor(230)
+    doc.line(leftX, leftY, leftX + leftMaxW, leftY)
+    leftY += 2.5
+    doc.setFontSize(5.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(160)
+    doc.text('GESTION DES DÉCHETS (AGEC)', leftX, leftY)
+    leftY += 2.5
+    doc.setFontSize(FS_SMALL)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(150)
+    // Tout sur une ligne continue avec des · comme le dashboard
+    const dechParts: string[] = []
+    if (data.dechets.nature) dechParts.push(`Nature : ${data.dechets.nature}`)
+    if (data.dechets.responsable) dechParts.push(data.dechets.responsable)
+    if (data.dechets.tri) dechParts.push(`Tri : ${data.dechets.tri}`)
+    if (data.dechets.collecte_nom) dechParts.push(`Collecte : ${data.dechets.collecte_nom}${data.dechets.collecte_type ? ` (${data.dechets.collecte_type})` : ''}`)
+    const dechLine = dechParts.join(' · ')
+    const dechWrapped = doc.splitTextToSize(dechLine, leftMaxW)
+    doc.text(dechWrapped, leftX, leftY)
+    leftY += dechWrapped.length * LH + 1
+  }
+
+  // TVA mentions (attestation — petit, italique)
   const tvaMentions = getTvaMentions(data.lignes)
   if (tvaMentions.length > 0) {
-    leftY = ensureSpace(doc, leftY, 15)
-    doc.setDrawColor(200)
-    doc.line(leftX, leftY, leftX + 88, leftY)
-    leftY += 3
-    doc.setFontSize(6)
+    leftY += 1
+    doc.setFontSize(5.5)
     doc.setFont('helvetica', 'italic')
-    doc.setTextColor(107, 114, 128)
+    doc.setTextColor(140)
     for (const mention of tvaMentions) {
-      const lines = doc.splitTextToSize(mention, 88)
-      leftY = ensureSpace(doc, leftY, lines.length * 2.5 + 2)
+      const lines = doc.splitTextToSize(mention, leftMaxW)
+      leftY = ensureSpace(doc, leftY, lines.length * 2.2 + 1)
       doc.text(lines, leftX, leftY)
-      leftY += lines.length * 2.5 + 2
+      leftY += lines.length * 2.2 + 1
     }
   }
 
-  // --- COLONNE DROITE: TOTAUX ---
+  // --- COLONNE DROITE : TOTAUX ---
   rightY = ensureSpace(doc, rightY, 50)
-
-  // TVA detail per rate
   const tvaGroups = computeTvaGroups(data.lignes)
-  doc.setFontSize(8)
 
+  doc.setFontSize(FS_BODY)
   doc.setTextColor(100)
   doc.setFont('helvetica', 'normal')
   doc.text('Total HT', rightX, rightY)
   doc.setTextColor(26, 26, 46)
   doc.setFont('helvetica', 'bold')
   doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' })
-  rightY += 5
+  rightY += 4
 
-  // Each TVA rate
   const sortedRates = Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)
   for (const rate of sortedRates) {
     doc.setTextColor(100)
@@ -463,7 +450,7 @@ export function generateDevisPdf(data: DevisData): string {
     doc.text(`TVA ${rate}%`, rightX, rightY)
     doc.setTextColor(26, 26, 46)
     doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' })
-    rightY += 4.5
+    rightY += 3.5
   }
 
   doc.setTextColor(100)
@@ -472,75 +459,71 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setTextColor(26, 26, 46)
   doc.setFont('helvetica', 'bold')
   doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' })
-  rightY += 7
+  rightY += 5
 
-  // NET À PAYER banner
+  // NET À PAYER — bandeau bleu (comme le dashboard)
   doc.setFillColor(...BLUE)
-  doc.roundedRect(rightX, rightY - 4, 86, 11, 2, 2, 'F')
-  doc.setFontSize(9)
+  doc.roundedRect(rightX, rightY - 3, 86, 9, 1.5, 1.5, 'F')
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(255, 255, 255)
-  doc.text('NET À PAYER', rightX + 4, rightY + 3)
-  doc.text(fmt(data.montant_ttc), 192, rightY + 3, { align: 'right' })
-  rightY += 14
+  doc.text('NET À PAYER', rightX + 3, rightY + 3)
+  doc.text(fmt(data.montant_ttc), 193, rightY + 3, { align: 'right' })
+  rightY += 10
 
-  // Acompte lines (right)
+  // Acompte (sous NET À PAYER)
   if (data.acompte_pourcent && data.acompte_pourcent > 0) {
     const acompteTTC = data.montant_ttc * (data.acompte_pourcent / 100)
     const resteTTC = data.montant_ttc - acompteTTC
-    doc.setFontSize(8)
+    doc.setFontSize(FS_BODY)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...GREEN)
     doc.text(`Acompte (${data.acompte_pourcent}%) :`, rightX, rightY)
     doc.text(fmt(acompteTTC), 196, rightY, { align: 'right' })
-    rightY += 4.5
+    rightY += 3.5
     doc.setTextColor(80)
     doc.setFont('helvetica', 'normal')
     doc.text('Reste à facturer :', rightX, rightY)
     doc.text(fmt(resteTTC), 196, rightY, { align: 'right' })
-    rightY += 6
+    rightY += 4
   }
 
-  y = Math.max(leftY, rightY) + 6
+  // ── SIGNATURES — 2 cadres côte à côte SOUS "Net à payer" (colonne droite) ──
+  // Comme le dashboard : artisan gauche, client droite, même taille
+  const sigW = 42       // chaque cadre = moitié de 86 - gap
+  const sigH = 18
+  const sigY = rightY + 1
+  const sigLeftX = rightX
+  const sigRightX = rightX + sigW + 2
 
-  // ── SIGNATURES ─────────────────────────────────────────────────
-  y = ensureSpace(doc, y, 30)
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(60)
-  doc.text('Signature artisan', 14, y)
-  doc.text('Bon pour accord — Signature client', 110, y)
-  y += 3
-  // Signature zones
+  // Cadre artisan
   doc.setDrawColor(200)
   doc.setLineWidth(0.3)
-  doc.rect(14, y, 86, 22)
-  doc.rect(110, y, 86, 22)
-  // Signature ou tampon de l'artisan
-  const artisanVisual = data.entreprise.signature_base64 || data.entreprise.tampon_base64
+  doc.rect(sigLeftX, sigY, sigW, sigH)
+  doc.setFontSize(5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(160)
+  doc.text('ARTISAN', sigLeftX + sigW / 2, sigY + 3, { align: 'center' })
+  // Image signature/tampon
+  const artisanVisual = ent.signature_base64 || ent.tampon_base64
   if (artisanVisual) {
-    try { doc.addImage(artisanVisual, 'PNG', 16, y + 1, 0, 18) } catch (_e) { /* ignore if invalid */ }
+    try { doc.addImage(artisanVisual, 'PNG', sigLeftX + 2, sigY + 4.5, 0, sigH - 6) } catch { /* ignore */ }
   }
-  // Date line in client zone
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(150)
-  doc.text('Date : ....../....../..........', 114, y + 18)
-  y += 26
 
-  // ── MENTION LÉGALE : devis reçu avant exécution ────────────────
-  doc.setFontSize(6.5)
+  // Cadre client
+  doc.rect(sigRightX, sigY, sigW, sigH)
+  doc.setFontSize(5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(160)
+  doc.text('CLIENT', sigRightX + sigW / 2, sigY + 3, { align: 'center' })
+  doc.setFontSize(6)
   doc.setFont('helvetica', 'italic')
-  doc.setTextColor(107, 114, 128)
-  doc.text('Devis reçu avant l\'exécution des travaux. Le client reconnaît avoir pris connaissance des conditions ci-dessus.', 14, y, { maxWidth: 182 })
-  y += 5
+  doc.setTextColor(180)
+  doc.text('En attente', sigRightX + sigW / 2, sigY + sigH / 2 + 2, { align: 'center' })
 
-  // ── MENTION LÉGALE : droit de rétractation 14 jours ────────────
-  y = ensureSpace(doc, y, 12)
-  doc.text('En cas de démarchage à domicile ou hors établissement, le client dispose d\'un droit de rétractation de 14 jours', 14, y, { maxWidth: 182 })
-  y += 3
-  doc.text('à compter de la signature du présent devis (articles L221-18 et suivants du Code de la consommation).', 14, y, { maxWidth: 182 })
-  y += 6
+  rightY = sigY + sigH + 2
+
+  y = Math.max(leftY, rightY) + 3
 
   // ── FOOTER LÉGAL ───────────────────────────────────────────────
   addFooterLegal(doc, ent, y)
@@ -555,128 +538,99 @@ export function generateDevisPdf(data: DevisData): string {
 export function generateFacturePdf(data: FactureData): string {
   const doc = new jsPDF()
   const ent = data.entreprise
-  let y = 14
-
-  // ── HEADER — copie conforme du devis ──────────────────────────
-  const logoW = 30
-  const logoH = 30
+  let y = 12
+  const M = 14
   const pageW = 210
+
+  // ── HEADER compact (identique au devis) ───────────────────────
+  const logoSize = 22
+  let headerBottom = y + 16
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, logoW, logoH)
+      doc.addImage(ent.logo_url, logoFormat, M, y - 2, logoSize, logoSize)
+      headerBottom = Math.max(headerBottom, y - 2 + logoSize)
     } catch { /* logo invalide */ }
   }
 
-  doc.setFontSize(26)
+  const titleCenterX = ent.logo_url ? M + logoSize + (196 - M - logoSize) / 2 : pageW / 2
+  doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('FACTURE', pageW / 2 + 10, y + 6, { align: 'center' })
-  doc.setFontSize(10)
+  doc.text('FACTURE', titleCenterX, y + 5, { align: 'center' })
+  doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, pageW / 2 + 10, y + 13, { align: 'center' })
+  doc.text(`N° ${data.numero}`, titleCenterX, y + 11, { align: 'center' })
 
-  y += Math.max(logoH + 2, 22)
+  y = headerBottom + 2
 
-  // ── GRADIENT LINE ─────────────────────────────────────────────
-  const gradW = 182
+  // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
-  doc.rect(14, y, gradW / 2, 1, 'F')
+  doc.rect(M, y, 91, 0.8, 'F')
   doc.setFillColor(147, 197, 253)
-  doc.rect(14 + gradW / 2, y, gradW / 2, 1, 'F')
-  y += 4
+  doc.rect(M + 91, y, 91, 0.8, 'F')
+  y += 3
 
-  // ── DATES en ligne ────────────────────────────────────────────
-  doc.setFontSize(7.5)
+  // ── DATES (1 ligne) ──
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_echeance) dateParts.push(`Échéance : ${fmtDate(data.date_echeance)}`)
   if (data.date_prestation) dateParts.push(`Prestation : ${fmtDate(data.date_prestation)}`)
-  doc.text(dateParts.join('    '), pageW / 2, y + 2, { align: 'center' })
-  y += 7
+  doc.text(dateParts.join('    '), pageW / 2, y + 1, { align: 'center' })
+  y += 5
 
-  // ── 2 CADRES: ARTISAN + CLIENT (identique au devis) ──────────
-  const boxH = 36
-  const boxW = 86
-  const lx = 14
-  const rx = 14 + boxW + 10
+  // ── 2 CADRES : ARTISAN + CLIENT (hauteur dynamique) ──
+  const boxW = 88
+  const lx = M
+  const rx = M + boxW + 6
+  const boxStartY = y
 
-  // Artisan box — bordure bleue complète (même ordre de champs que devis)
-  doc.setDrawColor(37, 99, 235)
-  doc.setLineWidth(0.6)
-  doc.rect(lx, y, boxW, boxH)
+  let ay = y + 4
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(37, 99, 235)
+  doc.text('ARTISAN', lx + 3, ay); ay += 4
+  doc.setFontSize(9); doc.setTextColor(26, 26, 46)
+  doc.text(ent.nom || '', lx + 3, ay); ay += 3.5
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
+  if (ent.adresse) { doc.text(ent.adresse, lx + 3, ay); ay += 3 }
+  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 3, ay); ay += 3 }
+  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 3, ay); ay += 3 }
+  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 3, ay); ay += 3 }
 
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(37, 99, 235)
-  doc.text('ARTISAN', lx + 4, y + 5)
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(26, 26, 46)
-  doc.text(ent.nom || '', lx + 4, y + 10)
-
-  doc.setFontSize(7.5)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  let ay = y + 14
-  if (ent.adresse) { doc.text(ent.adresse, lx + 4, ay); ay += 3.2 }
-  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ay); ay += 3.2 }
-  if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ay); ay += 3.2 }
-  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ay); ay += 3.2 }
-  if (ent.tva_intracommunautaire) { doc.text(`TVA : ${ent.tva_intracommunautaire}`, lx + 4, ay); ay += 3.2 }
-  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
-  if (ent.email) { doc.text(ent.email, lx + 4, ay) }
-
-  // Client box — bordure verte complète
-  doc.setDrawColor(16, 185, 129)
-  doc.setLineWidth(0.6)
-  doc.rect(rx, y, boxW, boxH)
-
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(16, 185, 129)
-  doc.text('CLIENT', rx + 4, y + 5)
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(26, 26, 46)
-  doc.text(data.clientNom, rx + 4, y + 10)
-
-  doc.setFontSize(7.5)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  let cy = y + 14
+  let cy = y + 4
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129)
+  doc.text('CLIENT', rx + 3, cy); cy += 4
+  doc.setFontSize(9); doc.setTextColor(26, 26, 46)
+  doc.text(data.clientNom, rx + 3, cy); cy += 3.5
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
   if (data.clientAdresse) {
-    const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
-    for (const part of clientParts) {
-      doc.text(part, rx + 4, cy, { maxWidth: boxW - 8 })
-      cy += 3.5
-    }
+    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    for (const p of parts) { doc.text(p, rx + 3, cy, { maxWidth: boxW - 6 }); cy += 3 }
   }
 
-  y += boxH + 4
+  const boxH = Math.max(ay - boxStartY + 2, cy - boxStartY + 2)
+  doc.setDrawColor(37, 99, 235); doc.setLineWidth(0.5); doc.rect(lx, boxStartY, boxW, boxH)
+  doc.setDrawColor(16, 185, 129); doc.rect(rx, boxStartY, boxW, boxH)
 
-  // ── OBJET (comme devis) ───────────────────────────────────────
+  y = boxStartY + boxH + 3
+
+  // ── OBJET ──
   if (data.objet) {
     doc.setFillColor(239, 246, 255)
-    doc.rect(14, y, 182, 10, 'F')
+    doc.rect(M, y, 182, 7, 'F')
     doc.setFillColor(37, 99, 235)
-    doc.rect(14, y, 1.2, 10, 'F')
-    doc.setFontSize(8.5)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(37, 99, 235)
-    doc.text('Objet :', 19, y + 4)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(40)
-    doc.text(data.objet, 34, y + 4, { maxWidth: 158 })
-    y += 14
+    doc.rect(M, y, 1, 7, 'F')
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(37, 99, 235)
+    doc.text('Objet :', M + 3, y + 4.5)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(40)
+    doc.text(data.objet, M + 17, y + 4.5, { maxWidth: 162 })
+    y += 10
   }
 
-  // ── TABLE (avec colonne N° comme devis) ───────────────────────
+  // ── TABLE (compacte) ──
   autoTable(doc, {
     startY: y,
     head: [['N°', 'Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
@@ -689,17 +643,17 @@ export function generateFacturePdf(data: FactureData): string {
       fmt(l.quantite * l.prix_unitaire_ht),
     ]),
     theme: 'grid',
-    headStyles: { fillColor: BLUE, fontSize: 7.5, font: 'helvetica', halign: 'center', textColor: [255, 255, 255] },
-    bodyStyles: { fontSize: 7.5 },
+    headStyles: { fillColor: BLUE, fontSize: 7, font: 'helvetica', halign: 'center', textColor: [255, 255, 255], cellPadding: 1.5 },
+    bodyStyles: { fontSize: 7, cellPadding: 1.5 },
     alternateRowStyles: { fillColor: [248, 250, 255] },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 14 },
-      3: { halign: 'center', cellWidth: 16 },
-      4: { halign: 'right', cellWidth: 26 },
-      5: { halign: 'right', cellWidth: 26 },
+      0: { halign: 'center', cellWidth: 9 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 14 },
+      4: { halign: 'right', cellWidth: 24 },
+      5: { halign: 'right', cellWidth: 24 },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: M, right: M },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -711,100 +665,71 @@ export function generateFacturePdf(data: FactureData): string {
   let leftY = y
   let rightY = y
 
-  // --- COLONNE GAUCHE ---
+  // --- COLONNE GAUCHE (compact, même style que devis) ---
+  const FS_SMALL = 6.5
+  const FS_BODY = 7
+  const LH = 2.8
+  const leftMaxW = 88
 
-  // Conditions de paiement
   if (data.notes) {
-    leftY = ensureSpace(doc, leftY, 15)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...BLUE)
-    doc.text('Conditions de paiement', leftX, leftY)
-    leftY += 4
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80)
-    const splitCond = doc.splitTextToSize(data.notes, 88)
-    doc.text(splitCond, leftX, leftY)
-    leftY += splitCond.length * 3.2
-    leftY += 2
+    doc.setFontSize(FS_BODY); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 46)
+    doc.text('Conditions de paiement', leftX, leftY); leftY += 3.5
+    doc.setFontSize(FS_BODY); doc.setFont('helvetica', 'normal'); doc.setTextColor(100)
+    const splitCond = doc.splitTextToSize(data.notes, leftMaxW)
+    doc.text(splitCond, leftX, leftY); leftY += splitCond.length * LH + 2
   }
 
-  // Pénalités de retard
-  leftY = ensureSpace(doc, leftY, 12)
-  doc.setFontSize(6.5)
-  doc.setTextColor(120)
-  doc.setFont('helvetica', 'normal')
-  doc.text('En cas de retard de paiement, pénalités exigibles : 3x le taux d\'intérêt légal en vigueur.', leftX, leftY)
-  leftY += 3
+  // Pénalités de retard (petit, grisé)
+  doc.setDrawColor(230); doc.line(leftX, leftY, leftX + leftMaxW, leftY); leftY += 2.5
+  doc.setFontSize(FS_SMALL); doc.setTextColor(150); doc.setFont('helvetica', 'normal')
+  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur.', leftX, leftY); leftY += LH
   if (data.clientType === 'professionnel') {
-    doc.text('Indemnité forfaitaire pour frais de recouvrement due par le débiteur professionnel : 40 €.', leftX, leftY)
-    leftY += 3
+    doc.text('Indemnité forfaitaire recouvrement : 40 €.', leftX, leftY); leftY += LH
   }
-  doc.text('Escompte pour paiement anticipé : néant.', leftX, leftY)
-  leftY += 4
+  doc.text('Escompte pour paiement anticipé : néant.', leftX, leftY); leftY += LH + 1
 
   // TVA mentions
   const tvaMentions = getTvaMentions(data.lignes)
   if (tvaMentions.length > 0) {
-    leftY = ensureSpace(doc, leftY, 15)
-    doc.setDrawColor(200)
-    doc.line(leftX, leftY, leftX + 88, leftY)
-    leftY += 3
-    doc.setFontSize(6)
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(107, 114, 128)
+    doc.setFontSize(5.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(140)
     for (const mention of tvaMentions) {
-      const lines = doc.splitTextToSize(mention, 88)
-      leftY = ensureSpace(doc, leftY, lines.length * 2.5 + 2)
-      doc.text(lines, leftX, leftY)
-      leftY += lines.length * 2.5 + 2
+      const lines = doc.splitTextToSize(mention, leftMaxW)
+      leftY = ensureSpace(doc, leftY, lines.length * 2.2 + 1)
+      doc.text(lines, leftX, leftY); leftY += lines.length * 2.2 + 1
     }
   }
 
-  // --- COLONNE DROITE: TOTAUX ---
-  rightY = ensureSpace(doc, rightY, 50)
-
+  // --- COLONNE DROITE: TOTAUX (compact) ---
+  rightY = ensureSpace(doc, rightY, 40)
   const tvaGroups = computeTvaGroups(data.lignes)
-  doc.setFontSize(8)
 
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(FS_BODY)
+  doc.setTextColor(100); doc.setFont('helvetica', 'normal')
   doc.text('Total HT', rightX, rightY)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' })
-  rightY += 5
+  doc.setTextColor(26, 26, 46); doc.setFont('helvetica', 'bold')
+  doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' }); rightY += 4
 
   const sortedRates = Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)
   for (const rate of sortedRates) {
-    doc.setTextColor(100)
-    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100); doc.setFont('helvetica', 'normal')
     doc.text(`TVA ${rate}%`, rightX, rightY)
     doc.setTextColor(26, 26, 46)
-    doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' })
-    rightY += 4.5
+    doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' }); rightY += 3.5
   }
 
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100); doc.setFont('helvetica', 'normal')
   doc.text('Total TTC', rightX, rightY)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' })
-  rightY += 7
+  doc.setTextColor(26, 26, 46); doc.setFont('helvetica', 'bold')
+  doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' }); rightY += 5
 
   // NET À PAYER banner
   doc.setFillColor(...BLUE)
-  doc.roundedRect(rightX, rightY - 4, 86, 11, 2, 2, 'F')
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(255, 255, 255)
-  doc.text('NET À PAYER', rightX + 4, rightY + 3)
-  doc.text(fmt(data.montant_ttc), 192, rightY + 3, { align: 'right' })
-  rightY += 14
+  doc.roundedRect(rightX, rightY - 3, 86, 9, 1.5, 1.5, 'F')
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+  doc.text('NET À PAYER', rightX + 3, rightY + 3)
+  doc.text(fmt(data.montant_ttc), 193, rightY + 3, { align: 'right' }); rightY += 12
 
-  y = Math.max(leftY, rightY) + 6
+  y = Math.max(leftY, rightY) + 3
 
   // ── PAS DE SIGNATURES SUR FACTURE (différence avec devis) ─────
 
