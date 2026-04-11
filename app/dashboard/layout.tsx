@@ -53,22 +53,22 @@ interface NavItem {
 const NAV_GROUPS: NavItem[][] = [
   [{ label: 'Accueil', href: '/dashboard', icon: Home }],
   [
-    { label: 'Chantiers', href: '/dashboard/chantiers', icon: LayoutGrid },
     { label: 'Devis', href: '/dashboard/devis', icon: FilePenLine },
+    { label: 'Chantiers', href: '/dashboard/chantiers', icon: LayoutGrid },
+    { label: 'Planning', href: '/dashboard/planning', icon: CalendarDays },
     { label: 'Factures', href: '/dashboard/factures', icon: Banknote },
     { label: 'Achats', href: '/dashboard/achats', icon: ShoppingBag },
-    { label: 'Prestations', href: '/dashboard/prestations', icon: FileText },
   ],
-  [{ label: 'Planning', href: '/dashboard/planning', icon: CalendarDays }],
   [
     { label: 'Clients', href: '/dashboard/clients', icon: UserRound },
     { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Warehouse },
     { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: UsersRound },
   ],
-  [{ label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp }],
   [
-    { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
+    { label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp },
+    { label: 'Prestations', href: '/dashboard/prestations', icon: FileText },
     { label: 'Paramètres', href: '/dashboard/parametres', icon: SlidersHorizontal },
+    { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
     { label: 'Corbeille', href: '/dashboard/corbeille', icon: Trash2 },
   ],
 ]
