@@ -199,29 +199,41 @@ export function generateDevisPdf(data: DevisData): string {
   const M = 14 // marge gauche
   const pageW = 210
 
-  // ── HEADER : logo à gauche, DEVIS centré au milieu absolu de la page ──
-  // Le bloc "DEVIS + N°" fait ~16mm de haut. Le logo fait la même hauteur, aligné.
-  const titleBlockH = 16
-  const centerX = pageW / 2  // 105mm = centre absolu
+  // ── HEADER : logo à gauche aligné, DEVIS centré au milieu absolu ──
+  // "DEVIS" 22pt = ~7.8mm, "N°" 9pt = ~3.2mm, + 2mm gap = ~13mm de texte
+  // On ajoute un petit padding → le bloc titre fait 15mm
+  const titleBlockH = 15
+  const titleTopY = y        // haut du bloc
+  const centerX = pageW / 2  // 105mm = centre A4
 
-  // DEVIS + numéro — toujours au centre de la page
+  // DEVIS — gros titre centré
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', centerX, y + 5, { align: 'center' })
+  doc.text('DEVIS', centerX, titleTopY + 6, { align: 'center' })
+
+  // N° — juste en dessous
   doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, y + 11, { align: 'center' })
+  doc.text(`N° ${data.numero}`, centerX, titleTopY + 12, { align: 'center' })
 
   // Logo — à gauche, aligné verticalement avec le bloc titre
+  // Hauteur fixe = titleBlockH, largeur calculée selon le ratio réel de l'image
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, M, y - 2, titleBlockH, titleBlockH)
+      const logoH = titleBlockH
+      // Récupérer les dimensions réelles de l'image pour calculer le ratio
+      const imgProps = doc.getImageProperties(ent.logo_url)
+      const ratio = imgProps.width / imgProps.height
+      let logoW = logoH * ratio
+      // Limiter la largeur pour les logos très allongés (max 40mm)
+      if (logoW > 40) logoW = 40
+      doc.addImage(ent.logo_url, logoFormat, M, titleTopY - 1, logoW, logoH)
     } catch { /* logo invalide, on continue sans */ }
   }
 
-  y += titleBlockH + 2
+  y = titleTopY + titleBlockH + 2
 
   // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
@@ -543,25 +555,31 @@ export function generateFacturePdf(data: FactureData): string {
   const pageW = 210
 
   // ── HEADER : logo à gauche, FACTURE centré au milieu absolu ──
-  const titleBlockH = 16
+  const titleBlockH = 15
+  const titleTopY = y
   const centerX = pageW / 2
 
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('FACTURE', centerX, y + 5, { align: 'center' })
+  doc.text('FACTURE', centerX, titleTopY + 6, { align: 'center' })
   doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, y + 11, { align: 'center' })
+  doc.text(`N° ${data.numero}`, centerX, titleTopY + 12, { align: 'center' })
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, M, y - 2, titleBlockH, titleBlockH)
+      const logoH = titleBlockH
+      const imgProps = doc.getImageProperties(ent.logo_url)
+      const ratio = imgProps.width / imgProps.height
+      let logoW = logoH * ratio
+      if (logoW > 40) logoW = 40
+      doc.addImage(ent.logo_url, logoFormat, M, titleTopY - 1, logoW, logoH)
     } catch { /* logo invalide */ }
   }
 
-  y += titleBlockH + 2
+  y = titleTopY + titleBlockH + 2
 
   // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
