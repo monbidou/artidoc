@@ -133,11 +133,10 @@ export default function EquipePage() {
     metier: '',
     type_contrat: 'cdi' as Intervenant['type_contrat'],
     niveau_acces: 'compagnon' as Intervenant['niveau_acces'],
-    taux_horaire: '',
   })
 
   const resetForm = () =>
-    setForm({ prenom: '', nom: '', email: '', telephone: '', metier: '', type_contrat: 'cdi', niveau_acces: 'compagnon', taux_horaire: '' })
+    setForm({ prenom: '', nom: '', email: '', telephone: '', metier: '', type_contrat: 'cdi', niveau_acces: 'compagnon' })
 
   const handleCreate = async () => {
     setSaving(true)
@@ -150,7 +149,7 @@ export default function EquipePage() {
         metier: form.metier,
         type_contrat: form.type_contrat,
         niveau_acces: form.niveau_acces,
-        taux_horaire: form.taux_horaire ? parseFloat(form.taux_horaire) : null,
+        taux_horaire: null,
         couleur: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
         actif: true,
       })
@@ -404,7 +403,7 @@ export default function EquipePage() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Contrat</label>
                 <select
@@ -429,16 +428,6 @@ export default function EquipePage() {
                   <option value="compagnon">Compagnon</option>
                   <option value="proprietaire">Propriétaire</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Taux horaire</label>
-                <input
-                  type="number"
-                  value={form.taux_horaire}
-                  onChange={(e) => setForm({ ...form, taux_horaire: e.target.value })}
-                  placeholder="€/h"
-                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
-                />
               </div>
             </div>
 

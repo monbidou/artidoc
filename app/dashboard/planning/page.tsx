@@ -2,12 +2,12 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
-  Plus, ChevronLeft, ChevronRight, CalendarDays, X,
+  Plus, ChevronLeft, ChevronRight, CalendarDays, X, FileText,
   Search, AlertTriangle, Users, Briefcase, Clock,
   MapPin, Eye, Maximize2, Minimize2, Check
 } from 'lucide-react'
 import {
-  usePlanning, useIntervenants, useClients, useChantiers,
+  usePlanning, useIntervenants, useClients, useChantiers, useDevis,
   insertRow, updateRow, LoadingSkeleton,
 } from '@/lib/hooks'
 import { useRouter } from 'next/navigation'
@@ -95,6 +95,7 @@ export default function PlanningPage() {
   const { data: intervenants, loading: l2 } = useIntervenants()
   const { data: clients, loading: l3 } = useClients()
   const { data: chantiers } = useChantiers()
+  const { data: devisData } = useDevis()
 
   // ── State ──
   const [viewPreset, setViewPreset] = useState<ViewPreset>('complete')
@@ -114,6 +115,7 @@ export default function PlanningPage() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   // Modal state
+  const [mDevis, setMDevis] = useState('')
   const [mClient, setMClient] = useState('')
   const [mIntervenant, setMIntervenant] = useState('')
   const [mChantier, setMChantier] = useState('')
@@ -164,6 +166,25 @@ export default function PlanningPage() {
     chantiers.forEach(ch => { const r = ch as R; map.set(r.id as string, r) })
     return map
   }, [chantiers])
+
+  const devisMap = useMemo(() => {
+    const map = new Map<string, R>()
+    devisData.forEach(d => { const r = d as R; map.set(r.id as string, r) })
+    return map
+  }, [devisData])
+
+  // ── Devis acceptés (signés) ──
+  const acceptedDevis = useMemo(() => {
+    return devisData.filter(d => (d as R).statut === 'signe') as R[]
+  }, [devisData])
+
+  // ── Devis non planifiés (acceptés sans intervention liée) ──
+  const unplannedDevis = useMemo(() => {
+    const plannedDevisIds = new Set(
+      planningData.map(p => (p as R).devis_id as string).filter(Boolean)
+    )
+    return acceptedDevis.filter(d => !plannedDevisIds.has(d.id as string))
+  }, [acceptedDevis, planningData])
 
   const colorMap = useMemo(() => {
     const map = new Map<string, typeof PALETTE[0]>()
@@ -291,11 +312,37 @@ export default function PlanningPage() {
   const closePanel = () => { setShowPanel(false); setPanelIntervention(null) }
 
   // ── Modal ──
-  const openModal = (dateStr?: string, intervenantId?: string) => {
-    setMClient(''); setMIntervenant(intervenantId ?? ''); setMChantier('')
+  const openModal = (dateStr?: string, intervenantId?: string, devisId?: string) => {
+    setMDevis(''); setMClient(''); setMIntervenant(intervenantId ?? ''); setMChantier('')
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
+    // Auto-fill from devis if provided
+    if (devisId) {
+      setMDevis(devisId)
+      const devis = devisMap.get(devisId) as R | undefined
+      if (devis) {
+        if (devis.client_id) setMClient(devis.client_id as string)
+        if (devis.chantier_id) setMChantier(devis.chantier_id as string)
+        if (devis.objet) setMObjet(String(devis.objet))
+      }
+    }
     setShowModal(true)
+  }
+
+  // ── Handle devis selection in modal ──
+  const handleDevisChange = (devisId: string) => {
+    setMDevis(devisId)
+    if (devisId) {
+      const devis = devisMap.get(devisId) as R | undefined
+      if (devis) {
+        if (devis.client_id) setMClient(devis.client_id as string)
+        if (devis.chantier_id) setMChantier(devis.chantier_id as string)
+        if (devis.objet) setMObjet(String(devis.objet))
+      }
+    } else {
+      // Reset when deselecting devis
+      setMClient(''); setMChantier(''); setMObjet('')
+    }
   }
 
   const submitIntervention = async () => {
@@ -308,6 +355,7 @@ export default function PlanningPage() {
         intervenant_id: mIntervenant,
         client_id: mClient || null,
         chantier_id: mChantier || null,
+        devis_id: mDevis || null,
         titre: mObjet,
         description_travaux: mObjet,
         date_debut: `${mDate}T${startTime}:00`,
@@ -486,6 +534,7 @@ export default function PlanningPage() {
             <MiniStat icon={<CalendarDays className="w-4 h-4" />} label="Interventions" value={stats.interventions} color="text-[#5ab4e0]" />
             <MiniStat icon={<Briefcase className="w-4 h-4" />} label="Chantiers" value={stats.chantiers} color="text-[#e87a2a]" />
             {isSociete && <MiniStat icon={<Clock className="w-4 h-4" />} label="Occupation" value={`${stats.occupation}%`} color="text-[#22c55e]" />}
+            {unplannedDevis.length > 0 && <MiniStat icon={<FileText className="w-4 h-4" />} label="À planifier" value={unplannedDevis.length} color="text-[#7c3aed]" />}
             {isSociete && stats.conflicts > 0 && <MiniStat icon={<AlertTriangle className="w-4 h-4" />} label="Conflits" value={stats.conflicts} color="text-[#ef4444]" />}
           </div>
           {isSociete && (
@@ -505,6 +554,50 @@ export default function PlanningPage() {
       </header>
 
       <div className="px-6 py-4 space-y-4">
+
+        {/* ══════════════════════════════════════════════════════════════
+            BANNIÈRE "À PLANIFIER" — Devis acceptés non planifiés
+        ══════════════════════════════════════════════════════════════ */}
+        {unplannedDevis.length > 0 && (
+          <div className="bg-gradient-to-r from-[#7c3aed]/[.06] to-[#5ab4e0]/[.06] border border-[#7c3aed]/20 rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-[#7c3aed]/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#7c3aed]" />
+                <h2 className="text-[14px] font-extrabold text-[#0f1a3a]">Devis acceptés — À planifier</h2>
+                <span className="text-[11px] font-bold bg-[#7c3aed] text-white px-2 py-0.5 rounded-full">{unplannedDevis.length}</span>
+              </div>
+            </div>
+            <div className="p-4 flex gap-3 overflow-x-auto">
+              {unplannedDevis.map(devis => {
+                const cl = clientMap.get(devis.client_id as string) as R | undefined
+                const clientName = cl ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim() : 'Client inconnu'
+                const ch = chantierMap.get(devis.chantier_id as string) as R | undefined
+                return (
+                  <div key={devis.id as string}
+                    className="min-w-[260px] bg-white rounded-xl border border-[#e6ecf2] p-4 flex flex-col gap-2 shadow-sm hover:shadow-md hover:border-[#7c3aed]/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-[#7c3aed] bg-[#7c3aed]/10 px-2 py-0.5 rounded-full">
+                        {String(devis.numero ?? '')}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#22c55e]">
+                        {Number(devis.montant_ttc ?? 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    </div>
+                    <div className="text-[13px] font-bold text-[#0f1a3a]">{clientName}</div>
+                    <div className="text-[11px] text-[#64748b] leading-snug line-clamp-2">{String(devis.objet ?? '')}</div>
+                    {ch && <div className="flex items-center gap-1 text-[10px] text-[#7b8ba3]">
+                      <MapPin className="w-3 h-3" />{String(ch.adresse_chantier ?? ch.ville_chantier ?? ch.titre ?? '')}
+                    </div>}
+                    <button onClick={() => openModal(undefined, undefined, devis.id as string)}
+                      className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-lg text-[11px] font-bold transition-all shadow-sm">
+                      <CalendarDays className="w-3.5 h-3.5" />Planifier
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════
             PANNEAU ANNUEL — 12 MOIS
@@ -721,8 +814,8 @@ export default function PlanningPage() {
                                         <div className="text-[9px] font-bold uppercase tracking-wider opacity-60">
                                           {creneauLabel(rec.creneau as string)}
                                         </div>
-                                        <div className="font-bold text-[10px] mt-0.5 pr-8">{String(rec.titre ?? rec.description_travaux ?? '—')}</div>
-                                        {Boolean(rec.client_id) && <div className="text-[9px] font-semibold opacity-80 mt-0.5">{clName(rec.client_id as string)}</div>}
+                                        {Boolean(rec.client_id) && <div className="font-extrabold text-[10px] mt-0.5">{clName(rec.client_id as string)}</div>}
+                                        <div className="text-[9px] font-medium opacity-75 mt-0.5 pr-8 line-clamp-1">{String(rec.titre ?? rec.description_travaux ?? '—')}</div>
                                       </div>
                                     )
                                   })}
@@ -849,13 +942,48 @@ export default function PlanningPage() {
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              {/* Devis lié — sélection auto-remplit client, chantier, description */}
               <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Chantier</label>
-                <select value={mChantier} onChange={e => setMChantier(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
-                  <option value="">— Sélectionner (optionnel)</option>
-                  {chantiers.map(ch => { const r = ch as R; return <option key={r.id as string} value={r.id as string}>{String(r.titre ?? '')}</option> })}
+                <label className="text-xs font-bold text-[#7c3aed] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />Lier à un devis accepté
+                </label>
+                <select value={mDevis} onChange={e => handleDevisChange(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#7c3aed]/30 rounded-xl text-sm bg-[#7c3aed]/[.03] focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all">
+                  <option value="">— Intervention sans devis (saisie libre)</option>
+                  {acceptedDevis.map(d => {
+                    const cl = clientMap.get(d.client_id as string) as R | undefined
+                    const clientLabel = cl ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim() : ''
+                    return <option key={d.id as string} value={d.id as string}>{String(d.numero ?? '')} — {clientLabel} — {String(d.objet ?? '')}</option>
+                  })}
                 </select>
+                {mDevis && (() => {
+                  const devis = devisMap.get(mDevis) as R | undefined
+                  if (!devis) return null
+                  const cl = clientMap.get(devis.client_id as string) as R | undefined
+                  const ch = chantierMap.get(devis.chantier_id as string) as R | undefined
+                  return (
+                    <div className="mt-2 bg-[#7c3aed]/[.04] border border-[#7c3aed]/15 rounded-lg px-3.5 py-2.5 space-y-1">
+                      {cl && <div className="flex items-center gap-1.5 text-[12px]">
+                        <Users className="w-3 h-3 text-[#7c3aed]" />
+                        <span className="font-bold text-[#0f1a3a]">{String(cl.prenom ?? '')} {String(cl.nom ?? '')}</span>
+                        {Boolean(cl.telephone) && <span className="text-[#64748b] ml-1">— {String(cl.telephone)}</span>}
+                      </div>}
+                      {ch && <div className="flex items-center gap-1.5 text-[12px]">
+                        <MapPin className="w-3 h-3 text-[#7c3aed]" />
+                        <span className="text-[#64748b]">{String(ch.adresse_chantier ?? '')} {String(ch.ville_chantier ?? '')}</span>
+                      </div>}
+                      <div className="flex items-center gap-1.5 text-[12px]">
+                        <Briefcase className="w-3 h-3 text-[#7c3aed]" />
+                        <span className="text-[#64748b]">{String(devis.objet ?? '')}</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-[#22c55e]">
+                        {Number(devis.montant_ttc ?? 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
+
+              {/* Intervenant + Créneau */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant *</label>
@@ -871,6 +999,8 @@ export default function PlanningPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Date début *</label>
@@ -881,17 +1011,26 @@ export default function PlanningPage() {
                   <input type="date" value={mDateFin} onChange={e => setMDateFin(e.target.value)} min={mDate} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Client</label>
-                <select value={mClient} onChange={e => setMClient(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
-                  <option value="">— Sélectionner (optionnel)</option>
-                  {clients.map(cl => { const r = cl as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')}</option> })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
-                <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau électrique + câblage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
-              </div>
+
+              {/* Client — auto-rempli si devis sélectionné, sinon saisie manuelle */}
+              {!mDevis && (
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Client</label>
+                  <select value={mClient} onChange={e => setMClient(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
+                    <option value="">— Sélectionner (optionnel)</option>
+                    {clients.map(cl => { const r = cl as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')}</option> })}
+                  </select>
+                </div>
+              )}
+
+              {/* Description — auto-remplie si devis, sinon saisie */}
+              {!mDevis && (
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
+                  <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau électrique + câblage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Statut</label>
                 <select value={mStatut} onChange={e => setMStatut(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">

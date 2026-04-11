@@ -6,11 +6,13 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { useClients, insertRow, LoadingSkeleton } from '@/lib/hooks'
 
-const STATUT_OPTIONS = ['en_cours', 'planifie', 'termine', 'archive']
+const STATUT_OPTIONS = ['prospection', 'signe', 'en_cours', 'livre', 'cloture', 'archive']
 const STATUT_LABELS: Record<string, string> = {
+  prospection: 'Prospection',
+  signe: 'Signé',
   en_cours: 'En cours',
-  planifie: 'Planifié',
-  termine: 'Terminé',
+  livre: 'Livré',
+  cloture: 'Clôturé',
   archive: 'Archivé',
 }
 
@@ -23,7 +25,7 @@ export default function NouveauChantierPage() {
   const [adresse, setAdresse] = useState('')
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
-  const [statut, setStatut] = useState('en_cours')
+  const [statut, setStatut] = useState('prospection')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,11 +40,11 @@ export default function NouveauChantierPage() {
     setError(null)
     try {
       const chantier = await insertRow('chantiers', {
-        nom: nom.trim(),
+        titre: nom.trim(),
         client_id: clientId || null,
-        adresse: adresse || null,
+        adresse_chantier: adresse || null,
         date_debut: dateDebut || null,
-        date_fin: dateFin || null,
+        date_fin_prevue: dateFin || null,
         statut,
         notes: notes || null,
       })

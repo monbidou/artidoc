@@ -308,6 +308,7 @@ CREATE TABLE IF NOT EXISTS planning_interventions (
   chantier_id UUID REFERENCES chantiers(id) ON DELETE SET NULL,
   client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
   intervenant_id UUID REFERENCES intervenants(id) ON DELETE SET NULL,
+  devis_id UUID REFERENCES devis(id) ON DELETE SET NULL,
   titre TEXT,
   description_travaux TEXT,
   date_debut DATE NOT NULL,
