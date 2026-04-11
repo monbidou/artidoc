@@ -11,7 +11,11 @@ import {
   Download,
   FileText,
   Trash2,
+  CalendarDays,
+  CheckCircle2,
+  ArrowRight,
 } from 'lucide-react'
+import { createChantierFromDevis } from '@/lib/services/devis-automatisms'
 import EnvoyerDevisModal from '@/components/dashboard/EnvoyerDevisModal'
 import {
   useSupabaseRecord,
@@ -212,6 +216,7 @@ export default function DevisDetailPage() {
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [convertTriggered, setConvertTriggered] = useState(false)
   const [relanceTriggered, setRelanceTriggered] = useState(false)
+  const [chantierCreating, setChantierCreating] = useState(false)
 
   // Auto-ouvrir modal envoi si ?relance=1 (depuis widget "À faire")
   useEffect(() => {
@@ -282,6 +287,19 @@ export default function DevisDetailPage() {
       window.location.reload()
     } catch (err) {
       alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
+    }
+  }
+
+  async function handleCreateChantier() {
+    if (!devis) return
+    setChantierCreating(true)
+    try {
+      const chantier = await createChantierFromDevis(devis.id)
+      const c = chantier as Record<string, unknown>
+      router.push(`/dashboard/chantiers/${c.id}`)
+    } catch (err) {
+      alert('Erreur création chantier : ' + (err instanceof Error ? err.message : 'Échec'))
+      setChantierCreating(false)
     }
   }
 
@@ -375,6 +393,47 @@ export default function DevisDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Banderole "À planifier" — visible uniquement si devis accepté sans chantier ── */}
+      {devis.statut === 'signe' && !devis.chantier_id && (
+        <div className="no-print mb-5 flex items-start gap-4 bg-[#f0fdf4] border border-[#86efac] rounded-xl px-5 py-4">
+          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#22c55e]/20 flex items-center justify-center mt-0.5">
+            <CheckCircle2 size={18} className="text-[#16a34a]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="text-sm font-syne font-bold text-[#15803d]">Devis accepté — à planifier</span>
+              <span className="text-[11px] font-manrope font-semibold bg-[#dcfce7] text-[#16a34a] px-2 py-0.5 rounded-full">● Signé</span>
+            </div>
+            <p className="text-[13px] font-manrope text-[#166534] mb-3 leading-relaxed">
+              <strong>{clientNom}</strong>
+              {devis.objet && <> · {devis.objet}</>}
+              {' '}· <strong>{formatCurrency(totalTTC)}</strong>
+              <br />
+              <span className="text-[#4ade80] text-[12px]">Ce devis est signé. Créez le chantier associé pour suivre l&apos;avancement et planifier les interventions.</span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleCreateChantier}
+                disabled={chantierCreating}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] text-white text-[13px] font-manrope font-semibold rounded-lg transition-colors disabled:opacity-60"
+              >
+                {chantierCreating ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Création...</>
+                ) : (
+                  <><CheckCircle2 size={14} /> Créer le chantier</>
+                )}
+              </button>
+              <Link
+                href="/dashboard/planning"
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[#86efac] bg-white hover:bg-[#f0fdf4] text-[#16a34a] text-[13px] font-manrope font-semibold rounded-lg transition-colors"
+              >
+                <CalendarDays size={14} /> Voir le planning <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2-column layout */}
       <div className="flex flex-col lg:flex-row gap-6">
