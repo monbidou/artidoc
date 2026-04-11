@@ -668,7 +668,6 @@ function LogoUploadSection({
   update: (v: Record<string, unknown>) => Promise<unknown>
 }) {
   const [processing, setProcessing] = useState(false)
-  const [originalPreview, setOriginalPreview] = useState<string | null>(null)
   const [removedBgPreview, setRemovedBgPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -873,14 +872,14 @@ function LogoUploadSection({
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
-      setOriginalPreview(dataUrl)
       setRemovedBgPreview(null)
       setProcessing(true)
       try {
         const result = await removeBackground(dataUrl)
         setRemovedBgPreview(result)
       } catch {
-        // si echec, on garde l'original
+        // En cas d'échec du détourage, on garde l'original tel quel
+        setRemovedBgPreview(dataUrl)
       }
       setProcessing(false)
     }
@@ -891,7 +890,6 @@ function LogoUploadSection({
     setSaving(true)
     try {
       await update({ logo_url: dataUrl })
-      setOriginalPreview(null)
       setRemovedBgPreview(null)
     } catch { /* ignored */ }
     setSaving(false)
@@ -904,7 +902,7 @@ function LogoUploadSection({
       </label>
 
       <div className="flex items-start gap-6">
-        {/* Current logo */}
+        {/* Logo actuel */}
         <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-white shrink-0">
           {currentLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -929,74 +927,37 @@ function LogoUploadSection({
             {currentLogo ? 'Modifier le logo' : 'Ajouter un logo'}
           </button>
           <p className="text-xs text-gray-400 mt-1">PNG, JPG ou WebP. Max 2 Mo.</p>
-          <p className="text-xs text-gray-400 mt-0.5">Sur mobile, vous pouvez prendre une photo directement.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Le fond est supprimé et le logo est détouré automatiquement.</p>
         </div>
       </div>
 
-      {/* Processing / Preview */}
+      {/* Détourage en cours */}
       {processing && (
         <div className="mt-4 bg-sky-50 border border-sky-200 rounded-lg px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Détourage IA en cours...</p>
+            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Détourage en cours...</p>
           </div>
-          <p className="text-xs text-gray-400 font-manrope mt-2 ml-8">Le modèle d&apos;intelligence artificielle analyse votre logo pour un détourage professionnel. Cela peut prendre 10 à 20 secondes.</p>
         </div>
       )}
 
-      {originalPreview && !processing && !removedBgPreview && (
+      {/* Résultat du détourage — prêt à enregistrer */}
+      {removedBgPreview && !processing && (
         <div className="mt-4 space-y-4">
           <div>
-            <p className="text-xs font-manrope text-gray-500 mb-2">Aperçu</p>
-            <div className="h-32 w-32 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+            <p className="text-xs font-manrope text-gray-500 mb-2">Aperçu (fond supprimé)</p>
+            <div className="h-32 w-40 rounded-lg border border-gray-200 flex items-center justify-center p-2" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' y=\'10\' width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3Crect y=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3C/svg%3E")' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={originalPreview} alt="Aperçu" className="max-h-full max-w-full object-contain" />
+              <img src={removedBgPreview} alt="Logo détouré" className="max-h-full max-w-full object-contain" />
             </div>
           </div>
           <button
-            onClick={() => saveLogo(originalPreview)}
+            onClick={() => saveLogo(removedBgPreview)}
             disabled={saving}
             className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50"
           >
             {saving ? 'Enregistrement...' : 'Enregistrer le logo'}
           </button>
-        </div>
-      )}
-
-      {originalPreview && removedBgPreview && !processing && (
-        <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-manrope text-gray-500 mb-2">Original</p>
-              <div className="h-32 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={originalPreview} alt="Original" className="max-h-full max-w-full object-contain" />
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-manrope text-gray-500 mb-2">Sans fond</p>
-              <div className="h-32 rounded-lg border border-gray-200 flex items-center justify-center p-2" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' y=\'10\' width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3Crect y=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3C/svg%3E")' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={removedBgPreview} alt="Sans fond" className="max-h-full max-w-full object-contain" />
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => saveLogo(removedBgPreview)}
-              disabled={saving}
-              className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50"
-            >
-              {saving ? 'Enregistrement...' : 'Garder sans fond'}
-            </button>
-            <button
-              onClick={() => saveLogo(originalPreview)}
-              disabled={saving}
-              className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
-            >
-              Garder original
-            </button>
-          </div>
         </div>
       )}
     </div>
