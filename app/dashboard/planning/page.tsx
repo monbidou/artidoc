@@ -570,7 +570,9 @@ export default function PlanningPage() {
             <div className="p-4 flex gap-3 overflow-x-auto">
               {unplannedDevis.map(devis => {
                 const cl = clientMap.get(devis.client_id as string) as R | undefined
-                const clientName = cl ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim() : 'Client inconnu'
+                const clientName = cl
+                  ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim()
+                  : (devis.notes_client as string)?.split(' | ')[0]?.trim() || 'Client inconnu'
                 const ch = chantierMap.get(devis.chantier_id as string) as R | undefined
                 return (
                   <div key={devis.id as string}

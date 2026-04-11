@@ -90,7 +90,7 @@ export default function FacturesListPage() {
     const paidPercent = montantTtc > 0 ? Math.round((montantPaye / montantTtc) * 100) : 0
     const overdue = daysOverdue(f.date_echeance as string | null)
     const category = getFactureCategory(f)
-    const clientName = clientMap.get(f.client_id as string) || (f.client_nom as string) || '\u2014'
+    const clientName = clientMap.get(f.client_id as string) || (f.client_nom as string) || (f.notes_client as string)?.split(' | ')[0]?.trim() || '\u2014'
     return { ...f, paidPercent, overdue, category, clientName, montantTtc, montantPaye } as EnrichedFacture
   })
 
@@ -243,7 +243,7 @@ export default function FacturesListPage() {
                   <td className="px-4 py-3"><PaymentBar percent={facture.paidPercent} restant={restantLabel} retard={retardLabel} /></td>
                   <td className="px-4 py-3"><div className="text-sm font-manrope font-medium text-[#1a1a2e]">{facture.clientName}</div><div className="text-xs font-manrope text-gray-500">{(facture.objet as string) ?? ''}</div></td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(facture.updated_at as string | null)}</td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(facture.date_facture as string | null)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate((facture.date_emission || facture.date_facture) as string | null)}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(facture.montantTtc)}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <button onClick={(e) => openMenu(e, id)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>
