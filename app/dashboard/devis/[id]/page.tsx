@@ -168,11 +168,8 @@ const printStyles = `
   .print-zone { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   .print-net-payer { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; background: #2563eb !important; color: white !important; }
 
-  /* ── Centrage titre DEVIS en print ── */
-  .print-header-flex { display: flex !important; align-items: center !important; justify-content: center !important; }
-  .print-header-flex .print-logo-col { flex: 0 0 auto !important; }
-  .print-header-flex .print-title-col { flex: 1 !important; text-align: center !important; }
-  .print-header-flex .print-spacer-col { display: none !important; }
+  /* ── Logo print plus petit ── */
+  .print-logo-img { height: 50px !important; max-width: 140px !important; }
 
   /* ── Compactage bas de page ── */
   .print-bottom { gap: 8px !important; margin-bottom: 4px !important; }
@@ -384,20 +381,18 @@ export default function DevisDetailPage() {
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
-            <div className="print-header-flex" style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
-              {/* Logo à gauche — imposant */}
-              <div className="print-logo-col" style={{flex:'0 0 auto', marginRight: 16}}>
-                {Boolean(entreprise?.logo_url) && (
-                  <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
-                )}
-              </div>
-              {/* DEVIS + Numéro centré */}
-              <div className="print-title-col" style={{textAlign:'center', flex:1}}>
+            <div style={{position:'relative', minHeight: Boolean(entreprise?.logo_url) ? 80 : 50, marginBottom:10}}>
+              {/* Logo — positionné à gauche */}
+              {Boolean(entreprise?.logo_url) && (
+                <div style={{position:'absolute', left:0, top:0, bottom:0, display:'flex', alignItems:'center'}}>
+                  <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ height: 70, maxWidth: 200, objectFit: 'contain', mixBlendMode: 'multiply' }} className="print-logo-img" />
+                </div>
+              )}
+              {/* DEVIS + Numéro — centré absolument au milieu de la page */}
+              <div style={{position:'absolute', left:0, right:0, top:0, bottom:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
                 <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>DEVIS</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
               </div>
-              {/* Espace symétrique pour centrer le titre — masqué en print */}
-              <div className="print-spacer-col" style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
             </div>
 
             {/* Ligne dégradé */}

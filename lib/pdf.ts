@@ -199,29 +199,29 @@ export function generateDevisPdf(data: DevisData): string {
   const M = 14 // marge gauche
   const pageW = 210
 
-  // ── HEADER : logo à gauche + DEVIS aligné à droite sur la même ligne ──
-  const logoSize = 22
-  let headerBottom = y + 16
+  // ── HEADER : logo à gauche, DEVIS centré au milieu absolu de la page ──
+  // Le bloc "DEVIS + N°" fait ~16mm de haut. Le logo fait la même hauteur, aligné.
+  const titleBlockH = 16
+  const centerX = pageW / 2  // 105mm = centre absolu
 
-  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
-    try {
-      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, M, y - 2, logoSize, logoSize)
-      headerBottom = Math.max(headerBottom, y - 2 + logoSize)
-    } catch { /* logo invalide, on continue sans */ }
-  }
-
-  // DEVIS + numéro — centré dans l'espace à droite du logo
-  const titleCenterX = ent.logo_url ? M + logoSize + (196 - M - logoSize) / 2 : pageW / 2
+  // DEVIS + numéro — toujours au centre de la page
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', titleCenterX, y + 5, { align: 'center' })
+  doc.text('DEVIS', centerX, y + 5, { align: 'center' })
   doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, titleCenterX, y + 11, { align: 'center' })
+  doc.text(`N° ${data.numero}`, centerX, y + 11, { align: 'center' })
 
-  y = headerBottom + 2
+  // Logo — à gauche, aligné verticalement avec le bloc titre
+  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
+    try {
+      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(ent.logo_url, logoFormat, M, y - 2, titleBlockH, titleBlockH)
+    } catch { /* logo invalide, on continue sans */ }
+  }
+
+  y += titleBlockH + 2
 
   // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
@@ -542,28 +542,26 @@ export function generateFacturePdf(data: FactureData): string {
   const M = 14
   const pageW = 210
 
-  // ── HEADER compact (identique au devis) ───────────────────────
-  const logoSize = 22
-  let headerBottom = y + 16
+  // ── HEADER : logo à gauche, FACTURE centré au milieu absolu ──
+  const titleBlockH = 16
+  const centerX = pageW / 2
+
+  doc.setFontSize(22)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...BLUE)
+  doc.text('FACTURE', centerX, y + 5, { align: 'center' })
+  doc.setFontSize(9)
+  doc.setTextColor(60)
+  doc.text(`N° ${data.numero}`, centerX, y + 11, { align: 'center' })
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, M, y - 2, logoSize, logoSize)
-      headerBottom = Math.max(headerBottom, y - 2 + logoSize)
+      doc.addImage(ent.logo_url, logoFormat, M, y - 2, titleBlockH, titleBlockH)
     } catch { /* logo invalide */ }
   }
 
-  const titleCenterX = ent.logo_url ? M + logoSize + (196 - M - logoSize) / 2 : pageW / 2
-  doc.setFontSize(22)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...BLUE)
-  doc.text('FACTURE', titleCenterX, y + 5, { align: 'center' })
-  doc.setFontSize(9)
-  doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, titleCenterX, y + 11, { align: 'center' })
-
-  y = headerBottom + 2
+  y += titleBlockH + 2
 
   // ── TRAIT DÉGRADÉ ──
   doc.setFillColor(37, 99, 235)
