@@ -200,9 +200,8 @@ export function generateDevisPdf(data: DevisData): string {
   const pageW = 210
 
   // ── HEADER : logo à gauche aligné, DEVIS centré au milieu absolu ──
-  // "DEVIS" 22pt = ~7.8mm, "N°" 9pt = ~3.2mm, + 2mm gap = ~13mm de texte
-  // On ajoute un petit padding → le bloc titre fait 15mm
-  const titleBlockH = 15
+  // "DEVIS" 22pt = ~7.8mm, "N°" 9pt = ~3.2mm, + espacement confortable
+  const titleBlockH = 16
   const titleTopY = y        // haut du bloc
   const centerX = pageW / 2  // 105mm = centre A4
 
@@ -210,12 +209,12 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', centerX, titleTopY + 6, { align: 'center' })
+  doc.text('DEVIS', centerX, titleTopY + 5, { align: 'center' })
 
   // N° — juste en dessous
   doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, titleTopY + 12, { align: 'center' })
+  doc.text(`N° ${data.numero}`, centerX, titleTopY + 11, { align: 'center' })
 
   // Logo — à gauche, aligné verticalement avec le bloc titre
   // Hauteur fixe = titleBlockH, largeur calculée selon le ratio réel de l'image
@@ -555,17 +554,17 @@ export function generateFacturePdf(data: FactureData): string {
   const pageW = 210
 
   // ── HEADER : logo à gauche, FACTURE centré au milieu absolu ──
-  const titleBlockH = 15
+  const titleBlockH = 16
   const titleTopY = y
   const centerX = pageW / 2
 
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('FACTURE', centerX, titleTopY + 6, { align: 'center' })
+  doc.text('FACTURE', centerX, titleTopY + 5, { align: 'center' })
   doc.setFontSize(9)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, titleTopY + 12, { align: 'center' })
+  doc.text(`N° ${data.numero}`, centerX, titleTopY + 11, { align: 'center' })
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {

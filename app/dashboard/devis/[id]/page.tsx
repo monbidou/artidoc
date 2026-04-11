@@ -384,8 +384,8 @@ export default function DevisDetailPage() {
             <div className="devis-header-block" style={{position:'relative', marginBottom:10}}>
               {/* DEVIS + Numéro — centré absolument au milieu de la page, définit la hauteur du bloc */}
               <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:4, paddingBottom:4}}>
-                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>DEVIS</div>
-                <div style={{fontSize:14, color:'#374151', marginTop:4, lineHeight:1}}>N° <strong>{devis.numero}</strong></div>
+                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>DEVIS</div>
+                <div style={{fontSize:14, color:'#374151', marginTop:6}}>N° <strong>{devis.numero}</strong></div>
               </div>
               {/* Logo — positionné à gauche, hauteur = bloc titre, largeur proportionnelle */}
               {Boolean(entreprise?.logo_url) && (
