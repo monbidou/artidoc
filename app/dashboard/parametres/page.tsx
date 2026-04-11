@@ -675,29 +675,8 @@ function LogoUploadSection({
 
   const currentLogo = entreprise.logo_url as string | undefined
 
-  const removeBackground = async (dataUrl: string): Promise<string> => {
-    // Utilise @imgly/background-removal — un modèle IA qui tourne dans le navigateur
-    // Détourage professionnel sans envoyer l'image sur un serveur externe
-    const { removeBackground: removeBg } = await import('@imgly/background-removal')
-
-    // Convertir le data URL en Blob pour la librairie
-    const response = await fetch(dataUrl)
-    const blob = await response.blob()
-
-    // Lancer le détourage IA (peut prendre 5-15 secondes selon la taille)
-    const resultBlob = await removeBg(blob, {
-      output: { format: 'image/png', quality: 1 },
-    })
-
-    // Convertir le résultat en data URL
-    const resultDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.readAsDataURL(resultBlob)
-    })
-
-    // Recadrer le logo (supprimer les marges transparentes restantes)
-    return new Promise<string>((resolve) => {
+  const removeBackground = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
       const img = new window.Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
@@ -705,10 +684,149 @@ function LogoUploadSection({
         canvas.height = img.height
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+        const w = canvas.width
+        const h = canvas.height
+
+        // ══════════════════════════════════════════════════════════
+        // ÉTAPE 1 : Détecter la couleur de fond (échantillonnage des bords)
+        // ══════════════════════════════════════════════════════════
+        const borderPixels: number[][] = []
+        const sampleStep = Math.max(1, Math.floor(Math.min(w, h) / 40))
+        for (let x = 0; x < w; x += sampleStep) {
+          borderPixels.push([data[x * 4], data[x * 4 + 1], data[x * 4 + 2], data[x * 4 + 3]])
+          const bi = ((h - 1) * w + x) * 4
+          borderPixels.push([data[bi], data[bi + 1], data[bi + 2], data[bi + 3]])
+        }
+        for (let yy = 0; yy < h; yy += sampleStep) {
+          const li = yy * w * 4
+          borderPixels.push([data[li], data[li + 1], data[li + 2], data[li + 3]])
+          const ri = (yy * w + w - 1) * 4
+          borderPixels.push([data[ri], data[ri + 1], data[ri + 2], data[ri + 3]])
+        }
+        // Filtrer les pixels déjà transparents (pour les PNG avec fond transparent)
+        const opaquePixels = borderPixels.filter(p => p[3] > 128)
+        if (opaquePixels.length === 0) {
+          // Le fond est déjà transparent, juste recadrer
+          const trimmed = trimTransparent(canvas)
+          resolve(trimmed.toDataURL('image/png'))
+          return
+        }
+        const bgR = Math.round(opaquePixels.reduce((s, c) => s + c[0], 0) / opaquePixels.length)
+        const bgG = Math.round(opaquePixels.reduce((s, c) => s + c[1], 0) / opaquePixels.length)
+        const bgB = Math.round(opaquePixels.reduce((s, c) => s + c[2], 0) / opaquePixels.length)
+
+        // ══════════════════════════════════════════════════════════
+        // ÉTAPE 2 : Flood fill depuis les bords
+        // Seuls les pixels CONNECTÉS au bord et proches de la couleur de fond
+        // seront supprimés. Les détails intérieurs du logo sont préservés.
+        // ══════════════════════════════════════════════════════════
+        const threshold = 55  // tolérance de couleur pour "c'est du fond"
+        const visited = new Uint8Array(w * h) // 0 = pas visité, 1 = visité
+        const toRemove = new Uint8Array(w * h) // 1 = pixel à rendre transparent
+
+        const isBackground = (idx: number): boolean => {
+          if (data[idx + 3] < 10) return true // déjà transparent
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2]
+          const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2)
+          return dist < threshold
+        }
+
+        // File d'attente pour le flood fill (BFS)
+        const queue: number[] = []
+
+        // Ajouter tous les pixels des 4 bords comme points de départ
+        for (let x = 0; x < w; x++) {
+          // Bord haut
+          const topIdx = x
+          if (!visited[topIdx] && isBackground(topIdx * 4)) {
+            visited[topIdx] = 1; toRemove[topIdx] = 1; queue.push(topIdx)
+          }
+          // Bord bas
+          const botIdx = (h - 1) * w + x
+          if (!visited[botIdx] && isBackground(botIdx * 4)) {
+            visited[botIdx] = 1; toRemove[botIdx] = 1; queue.push(botIdx)
+          }
+        }
+        for (let yy = 0; yy < h; yy++) {
+          // Bord gauche
+          const leftIdx = yy * w
+          if (!visited[leftIdx] && isBackground(leftIdx * 4)) {
+            visited[leftIdx] = 1; toRemove[leftIdx] = 1; queue.push(leftIdx)
+          }
+          // Bord droit
+          const rightIdx = yy * w + w - 1
+          if (!visited[rightIdx] && isBackground(rightIdx * 4)) {
+            visited[rightIdx] = 1; toRemove[rightIdx] = 1; queue.push(rightIdx)
+          }
+        }
+
+        // BFS : propager depuis les bords
+        while (queue.length > 0) {
+          const pos = queue.shift()!
+          const px = pos % w
+          const py = Math.floor(pos / w)
+          // 4 voisins (haut, bas, gauche, droite)
+          const neighbors = [
+            py > 0 ? pos - w : -1,       // haut
+            py < h - 1 ? pos + w : -1,   // bas
+            px > 0 ? pos - 1 : -1,       // gauche
+            px < w - 1 ? pos + 1 : -1,   // droite
+          ]
+          for (const n of neighbors) {
+            if (n >= 0 && !visited[n] && isBackground(n * 4)) {
+              visited[n] = 1
+              toRemove[n] = 1
+              queue.push(n)
+            }
+          }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // ÉTAPE 3 : Appliquer la suppression avec lissage des bords
+        // Les pixels marqués → transparents
+        // Les pixels voisins des marqués → semi-transparents (antialiasing)
+        // ══════════════════════════════════════════════════════════
+        // D'abord, calculer la distance au fond pour le lissage
+        const softThreshold = 75 // seuil étendu pour le lissage progressif
+        for (let i = 0; i < w * h; i++) {
+          if (toRemove[i]) {
+            data[i * 4 + 3] = 0 // complètement transparent
+          } else if (!visited[i]) {
+            // Vérifier si ce pixel est voisin d'un pixel supprimé (zone de transition)
+            const px = i % w
+            const py = Math.floor(i / w)
+            let nearRemoved = false
+            for (let dy = -2; dy <= 2; dy++) {
+              for (let dx = -2; dx <= 2; dx++) {
+                const nx = px + dx, ny = py + dy
+                if (nx >= 0 && nx < w && ny >= 0 && ny < h && toRemove[ny * w + nx]) {
+                  nearRemoved = true; break
+                }
+              }
+              if (nearRemoved) break
+            }
+            if (nearRemoved) {
+              // Pixel en bordure du logo → lissage progressif
+              const idx = i * 4
+              const r = data[idx], g = data[idx + 1], b = data[idx + 2]
+              const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2)
+              if (dist < softThreshold) {
+                const alpha = Math.round((dist / softThreshold) * data[idx + 3])
+                data[idx + 3] = Math.max(alpha, 0)
+              }
+            }
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0)
+
+        // Recadrer le logo (supprimer les marges transparentes)
         const trimmed = trimTransparent(canvas)
         resolve(trimmed.toDataURL('image/png'))
       }
-      img.src = resultDataUrl
+      img.src = dataUrl
     })
   }
 
