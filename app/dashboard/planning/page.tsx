@@ -464,14 +464,14 @@ export default function PlanningPage() {
   return (
     <div className="min-h-screen bg-[#f6f8fb]">
       {/* ── HEADER ── */}
-      <header className="bg-white border-b border-[#e6ecf2] px-6 py-3.5 sticky top-0 z-30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-extrabold text-[#0f1a3a] tracking-tight font-jakarta">
-              {isSociete ? 'Planning' : 'Mon planning'}
+      <header className="bg-white border-b border-[#e6ecf2] px-3 sm:px-6 py-3 sm:py-3.5 sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <h1 className="text-lg sm:text-xl font-extrabold text-[#0f1a3a] tracking-tight font-jakarta shrink-0">
+              {isSociete ? 'Planning' : 'Planning'}
             </h1>
             {/* Profile toggle */}
-            <div className="flex items-center gap-2 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
+            <div className="hidden sm:flex items-center gap-2 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
               <span className={!isSociete ? 'text-[#0f1a3a]' : ''}>Solo</span>
               <button onClick={() => setIsSociete(!isSociete)}
                 className={`w-9 h-5 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
@@ -479,11 +479,16 @@ export default function PlanningPage() {
               </button>
               <span className={isSociete ? 'text-[#0f1a3a]' : ''}>Société</span>
             </div>
+            {/* Mobile solo/société compact toggle */}
+            <button onClick={() => setIsSociete(!isSociete)}
+              className={`sm:hidden w-8 h-4 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
+              <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isSociete ? 'left-[18px]' : 'left-0.5'}`} />
+            </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* View preset */}
-            <div className="flex bg-[#f6f8fb] rounded-xl p-1 gap-0.5">
+          <div className="flex items-center gap-2">
+            {/* View preset — hidden on mobile */}
+            <div className="hidden sm:flex bg-[#f6f8fb] rounded-xl p-1 gap-0.5">
               {([
                 { key: 'complete' as ViewPreset, label: 'Complète' },
                 { key: 'planning' as ViewPreset, label: '5 semaines' },
@@ -496,8 +501,8 @@ export default function PlanningPage() {
               ))}
             </div>
 
-            {/* Search */}
-            <div ref={searchRef} className="relative w-64">
+            {/* Search — hidden on mobile */}
+            <div ref={searchRef} className="relative hidden sm:block w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ba3] pointer-events-none" />
               <input type="text" placeholder="Rechercher..."
                 value={searchQuery}
@@ -522,15 +527,15 @@ export default function PlanningPage() {
 
             {/* New intervention */}
             <button onClick={() => openModal()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-semibold shadow-[0_4px_15px_rgba(232,122,42,.3)] hover:shadow-[0_6px_20px_rgba(232,122,42,.4)] hover:-translate-y-0.5 transition-all">
-              <Plus className="w-4 h-4" />Nouvelle intervention
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-[0_4px_15px_rgba(232,122,42,.3)] hover:shadow-[0_6px_20px_rgba(232,122,42,.4)] hover:-translate-y-0.5 transition-all">
+              <Plus className="w-4 h-4" /><span className="hidden sm:inline">Nouvelle intervention</span><span className="sm:hidden">Ajouter</span>
             </button>
           </div>
         </div>
 
         {/* Stats + Filters row */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between mt-2 sm:mt-3 overflow-x-auto">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <MiniStat icon={<CalendarDays className="w-4 h-4" />} label="Interventions" value={stats.interventions} color="text-[#5ab4e0]" />
             <MiniStat icon={<Briefcase className="w-4 h-4" />} label="Chantiers" value={stats.chantiers} color="text-[#e87a2a]" />
             {isSociete && <MiniStat icon={<Clock className="w-4 h-4" />} label="Occupation" value={`${stats.occupation}%`} color="text-[#22c55e]" />}
@@ -553,7 +558,7 @@ export default function PlanningPage() {
         </div>
       </header>
 
-      <div className="px-6 py-4 space-y-4">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-4">
 
         {/* ══════════════════════════════════════════════════════════════
             BANNIÈRE "À PLANIFIER" — Devis acceptés non planifiés

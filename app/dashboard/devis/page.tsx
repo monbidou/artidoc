@@ -260,7 +260,55 @@ export default function DevisListPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      {/* Mobile cards (visible < md) */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+            <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun devis trouvé</p>
+          </div>
+        ) : (
+          filtered.map((devis) => {
+            const statut = (devis.statut as DevisStatus) || "brouillon"
+            return (
+              <div
+                key={String(devis.id)}
+                onClick={() => router.push(`/dashboard/devis/${devis.id}`)}
+                className="bg-white rounded-xl border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e] truncate">
+                      {(devis.notes_client as string)?.split(" | ")[0] || getClientName(devis.client_id as string | null) || String(devis.numero || '')}
+                    </p>
+                    <p className="text-xs font-manrope text-gray-500 truncate">
+                      {(devis.objet as string) || String(devis.numero || '')}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-manrope font-medium ${STATUS_STYLES[statut] || "bg-gray-100 text-gray-600"}`}>
+                      {STATUS_LABELS[statut] || statut}
+                    </span>
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs font-manrope text-gray-400">{formatDate(devis.date_emission as string)}</p>
+                  <button
+                    onClick={(e) => openMenu(e, devis.id as string)}
+                    className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                  >
+                    <MoreHorizontal size={16} className="text-gray-500" />
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table (visible ≥ md) */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">

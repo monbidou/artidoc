@@ -264,10 +264,53 @@ export default function ClientsPage() {
       {loading && <LoadingSkeleton rows={5} />}
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
-      {/* Table */}
+      {/* Mobile cards (visible < md) */}
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+        <div className="md:hidden space-y-2">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+              <Users size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-sm font-manrope text-gray-500">Aucun client trouvé</p>
+            </div>
+          ) : (
+            filtered.map((client) => (
+              <div
+                key={client.id}
+                onClick={() => router.push(`/dashboard/clients/${client.id}`)}
+                className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                {/* Avatar initiales */}
+                <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-syne font-bold"
+                  style={{background: client.type === 'professionnel' ? '#5ab4e0' : '#e87a2a'}}>
+                  {displayName(client).charAt(0).toUpperCase()}
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-manrope font-semibold text-[#1a1a2e] truncate">{displayName(client)}</p>
+                  <p className="text-xs font-manrope text-gray-500 truncate">{client.email || client.telephone || client.ville || '—'}</p>
+                </div>
+                {/* Badge type + actions */}
+                <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-manrope font-medium ${
+                    client.type === 'professionnel' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {client.type === 'professionnel' ? 'Pro' : 'Part.'}
+                  </span>
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => openEditModal(client)} className="text-[#5ab4e0] text-xs font-medium">Modifier</button>
+                    <button onClick={() => handleDelete(client.id, displayName(client))} className="text-red-500 text-xs font-medium">Sup.</button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Desktop table (visible ≥ md) */}
+      {!loading && !error && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="bg-gray-50">
                 {['Nom', 'Type', 'Email', 'Téléphone', 'Ville', 'Création', 'Actions'].map((col) => (

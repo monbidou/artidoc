@@ -220,7 +220,57 @@ export default function FacturesListPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      {/* Mobile cards (visible < md) */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+            <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucune facture trouvée</p>
+          </div>
+        ) : (
+          filtered.map((facture) => {
+            const id = facture.id as string
+            const restant = facture.montantTtc - facture.montantPaye
+            const retardLabel = facture.category === 'En retard' && facture.overdue > 0 ? `En retard ${facture.overdue}j` : undefined
+            const paidColor = facture.paidPercent === 100 ? '#22c55e' : facture.category === 'En retard' ? '#ef4444' : '#5ab4e0'
+            return (
+              <div
+                key={id}
+                onClick={() => router.push(`/dashboard/factures/${id}`)}
+                className="bg-white rounded-xl border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e] truncate">{facture.clientName || (facture.numero as string)}</p>
+                    <p className="text-xs font-manrope text-gray-500">{(facture.objet as string) || (facture.numero as string)}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(facture.montantTtc)}</p>
+                    {retardLabel && <p className="text-xs font-manrope text-red-500 font-medium">{retardLabel}</p>}
+                    {!retardLabel && facture.paidPercent < 100 && facture.paidPercent > 0 && (
+                      <p className="text-xs font-manrope text-[#5ab4e0]">{formatCurrency(restant)} restants</p>
+                    )}
+                  </div>
+                </div>
+                {/* Barre de paiement */}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{width: `${facture.paidPercent}%`, background: paidColor}} />
+                  </div>
+                  <span className="text-xs font-manrope text-gray-500">{facture.paidPercent}%</span>
+                  <button onClick={(e) => { e.stopPropagation(); openMenu(e, id) }} className="p-1 rounded-md hover:bg-gray-100 ml-1">
+                    <MoreHorizontal size={15} className="text-gray-500" />
+                  </button>
+                </div>
+                <p className="text-xs font-manrope text-gray-400">{formatDate((facture.date_emission || facture.date_facture || facture.created_at) as string | null)}</p>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table (visible ≥ md) */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">

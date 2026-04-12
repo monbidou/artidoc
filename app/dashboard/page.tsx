@@ -305,14 +305,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="max-w-[1360px] mx-auto px-9 py-8">
+      <div className="max-w-[1360px] mx-auto px-4 py-5 sm:px-9 sm:py-8">
         <div className="mb-8 space-y-3">
           <div className="h-4 w-48 bg-[#e2e8f0] rounded-lg animate-pulse" />
           <div className="h-10 w-72 bg-[#e2e8f0] rounded-lg animate-pulse" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[18px] mb-7">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-[18px] mb-5 sm:mb-7">
           {[0,1,2,3].map(i => (
-            <div key={i} className="h-40 bg-[#e2e8f0] rounded-[20px] animate-pulse" style={{animationDelay: `${i * 100}ms`}} />
+            <div key={i} className="h-28 sm:h-40 bg-[#e2e8f0] rounded-[20px] animate-pulse" style={{animationDelay: `${i * 100}ms`}} />
           ))}
         </div>
         <LoadingSkeleton rows={6} />
@@ -370,7 +370,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{background: '#f6f8fb'}}>
-      <div className="max-w-[1360px] mx-auto" style={{padding: '36px'}}>
+      <div className="max-w-[1360px] mx-auto px-4 py-5 sm:px-6 sm:py-8 lg:px-9 lg:py-9">
 
         {/* ══════════════ PROFIL INCOMPLET ALERT ══════════════ */}
         {profilIncomplet && (
@@ -402,12 +402,12 @@ export default function DashboardPage() {
         )}
 
         {/* ═══════════════════ GREETING ═══════════════════ */}
-        <div style={stagger(0)} className="mb-9 flex items-end justify-between flex-wrap gap-5">
+        <div style={stagger(0)} className="mb-5 sm:mb-9 flex items-end justify-between flex-wrap gap-3 sm:gap-5">
           <div>
             <p className="font-jakarta text-[13px] font-semibold tracking-[0.05em] uppercase mb-2" style={{color: '#7b8ba3'}}>
               {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
-            <h1 className="font-syne font-extrabold leading-[1.2]" style={{fontSize: '34px', letterSpacing: '-0.025em'}}>
+            <h1 className="font-syne font-extrabold leading-[1.2] text-2xl sm:text-[34px]" style={{letterSpacing: '-0.025em'}}>
               <span className="inline-block" style={{
                 background: 'linear-gradient(135deg, #5ab4e0, #2d8bc9)',
                 WebkitBackgroundClip: 'text',
@@ -437,7 +437,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══════════════════ KPI BENTO ═══════════════════ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[18px] mb-7" role="region" aria-label="Indicateurs clés">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-[18px] mb-5 sm:mb-7" role="region" aria-label="Indicateurs clés">
           {kpis.map((kpi, i) => (
             <div
               key={kpi.label}
@@ -458,26 +458,25 @@ export default function DashboardPage() {
                 style={{background: kpi.color}}
               />
 
-              <div className="relative p-7">
+              <div className="relative p-3 sm:p-5 lg:p-7">
                 {/* Label with dot */}
-                <div className="flex items-center gap-2.5 mb-5">
+                <div className="flex items-center gap-1.5 sm:gap-2.5 mb-2 sm:mb-5">
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background: kpi.color}} />
-                  <span className="font-jakarta text-[13px] font-bold tracking-[0.01em]" style={{color: '#445068'}}>{kpi.label}</span>
+                  <span className="font-jakarta text-[11px] sm:text-[13px] font-bold tracking-[0.01em]" style={{color: '#445068'}}>{kpi.label}</span>
                 </div>
 
                 {/* Big value */}
-                <p className="font-jakarta font-extrabold leading-none mb-1.5" style={{
-                  fontSize: '40px',
+                <p className="font-jakarta font-extrabold leading-none mb-1 sm:mb-1.5 text-[22px] sm:text-[32px] lg:text-[40px]" style={{
                   letterSpacing: '-0.04em',
                   fontVariantNumeric: 'tabular-nums',
                   color: kpi.valueColor || '#0f1a3a',
                 }}>
                   <AnimatedNumber value={kpi.value} />
-                  <span className="font-bold ml-0.5" style={{fontSize: '22px', color: '#7b8ba3'}}>{kpi.unit}</span>
+                  <span className="font-bold ml-0.5 text-sm sm:text-[18px] lg:text-[22px]" style={{color: '#7b8ba3'}}>{kpi.unit}</span>
                 </p>
 
                 {/* Sub text */}
-                <p className="font-jakarta text-[13px] font-medium mb-[18px]" style={{color: '#7b8ba3'}}>{kpi.sub}</p>
+                <p className="font-jakarta text-[10px] sm:text-[13px] font-medium mb-2 sm:mb-[18px] truncate" style={{color: '#7b8ba3'}}>{kpi.sub}</p>
 
                 {/* Progress bar with shimmer */}
                 <div className="h-1 rounded-full overflow-hidden" style={{background: '#eef1f6'}}>
@@ -517,9 +516,9 @@ export default function DashboardPage() {
             }}
             className="rounded-[20px] border shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
           >
-            <div style={{padding: '28px 30px'}}>
+            <div className="p-4 sm:p-7">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
                   <h2 className="font-syne font-bold text-[17px]">À faire</h2>
                   <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
@@ -597,8 +596,8 @@ export default function DashboardPage() {
             style={stagger(6)}
             className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
           >
-            <div style={{padding: '28px 30px'}}>
-              <div className="flex items-center justify-between mb-6">
+            <div className="p-4 sm:p-7">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
                   <h2 className="font-syne font-bold text-[17px]">Chiffre d&apos;affaires</h2>
                   <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
@@ -685,8 +684,8 @@ export default function DashboardPage() {
             style={stagger(7)}
             className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
           >
-            <div style={{padding: '28px 30px'}}>
-              <div className="flex items-center justify-between mb-6">
+            <div className="p-4 sm:p-7">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
                   <h2 className="font-syne font-bold text-[17px]">Planning de la semaine</h2>
                   <p className="font-jakarta text-[13px] font-medium mt-0.5" style={{color: '#7b8ba3'}}>
@@ -797,8 +796,8 @@ export default function DashboardPage() {
             style={stagger(8)}
             className="rounded-[20px] border border-[#e6ecf2] bg-white shadow-[0_1px_2px_rgba(15,26,58,0.02),0_4px_16px_rgba(15,26,58,0.045)] hover:shadow-[0_2px_6px_rgba(15,26,58,0.06),0_12px_32px_rgba(15,26,58,0.08)] transition-shadow duration-300"
           >
-            <div style={{padding: '28px 30px'}}>
-              <div className="flex items-center justify-between mb-6">
+            <div className="p-4 sm:p-7">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <h2 className="font-syne font-bold text-[17px]">Activité récente</h2>
                 <Link href="/dashboard/devis"
                   className="inline-flex items-center gap-1 font-jakarta text-[13px] font-bold px-3.5 py-2.5 rounded-[10px] transition-all duration-200 hover:bg-[rgba(90,180,224,0.06)]"
