@@ -185,8 +185,82 @@ export default function FournisseursPage() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+            <Truck size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun fournisseur trouvé</p>
+          </div>
+        ) : (
+          filtered.map((fournisseur) => (
+            <div
+              key={fournisseur.id}
+              className="bg-white rounded-xl border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-manrope font-bold text-[#1a1a2e] truncate">{fournisseur.nom}</p>
+                  <p className="text-xs font-manrope text-gray-500 truncate">{fournisseur.contact}</p>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openEdit(fournisseur)
+                    }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#5ab4e0] hover:bg-blue-50 transition-colors"
+                    title="Modifier"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  {deleteConfirm === fournisseur.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(fournisseur.id)
+                        }}
+                        className="px-2 py-1 rounded bg-red-500 text-white text-xs font-syne font-bold hover:bg-red-600 transition-colors"
+                      >
+                        Confirmer
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteConfirm(null)
+                        }}
+                        className="px-2 py-1 rounded bg-gray-200 text-gray-600 text-xs font-syne font-bold hover:bg-gray-300 transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteConfirm(fournisseur.id)
+                      }}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs font-manrope text-gray-500 space-y-0.5">
+                {fournisseur.email && <p>{fournisseur.email}</p>}
+                {fournisseur.telephone && <p>{fournisseur.telephone}</p>}
+                {fournisseur.ville && <p>{fournisseur.ville}</p>}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[800px]">
           <thead>
             <tr className="bg-gray-50">

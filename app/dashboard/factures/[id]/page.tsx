@@ -246,14 +246,14 @@ export default function FactureDetailPage() {
       <style dangerouslySetInnerHTML={{ __html: printStyles }} />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/factures" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/factures" className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0">
             <ArrowLeft size={20} className="text-gray-600" />
           </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">Facture {facture.numero}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-syne font-bold text-[#0f1a3a]">Facture {facture.numero}</h1>
               <span className={`inline-block px-3 py-1 rounded-full text-xs font-manrope font-medium border ${statutStyle}`}>{statutLabel}</span>
             </div>
             <p className="text-sm font-manrope text-gray-500 mt-1">{resolvedClientName}</p>
@@ -296,7 +296,7 @@ export default function FactureDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main: Invoice preview */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl border border-gray-200 p-8 print-zone">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-8 print-zone">
 
             {/* HEADER — Logo absolu à gauche, FACTURE centré au milieu (identique au devis) */}
             <div style={{position:'relative', marginBottom:10}}>

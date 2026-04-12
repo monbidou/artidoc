@@ -155,8 +155,54 @@ export default function ChantiersListPage() {
         </Link>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+            <HardHat size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun chantier trouvé</p>
+          </div>
+        ) : (
+          filtered.map((chantier: Record<string, unknown>) => {
+            const client = clientMap.get(chantier.client_id as string)
+            const clientName = client ? `${client.prenom ?? ''} ${client.nom ?? ''}`.trim() : '—'
+            const avancement = computeAvancement(chantier)
+            const statut = statutToFilter(chantier.statut as string)
+            const montantDevis = formatMoney(chantier.montant_devis_total as number)
+
+            return (
+              <div
+                key={String(chantier.id)}
+                onClick={() => router.push(`/dashboard/chantiers/${chantier.id}`)}
+                className="bg-white rounded-xl border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e] truncate">{clientName}</p>
+                    <p className="text-xs font-manrope text-gray-500 truncate">{String(chantier.titre || '')}</p>
+                  </div>
+                  <span className={`flex-shrink-0 inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium whitespace-nowrap ${
+                    statut === 'En cours' ? 'bg-blue-50 text-blue-700' :
+                    statut === 'Terminés' ? 'bg-green-50 text-green-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {statut}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden mr-2">
+                    <div className={`h-full rounded-full ${getProgressColor(avancement)}`} style={{ width: `${avancement}%` }} />
+                  </div>
+                  <p className="text-xs font-manrope font-semibold text-[#1a1a2e] whitespace-nowrap">{montantDevis}</p>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-gray-50">

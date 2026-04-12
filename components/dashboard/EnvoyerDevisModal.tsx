@@ -73,10 +73,10 @@ export default function EnvoyerDevisModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl w-full max-w-lg mx-4 p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-syne font-bold text-xl text-[#1a1a2e]">Envoyer le devis par email</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3">
+      <div className="bg-white rounded-2xl w-full max-w-lg p-4 sm:p-8 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h3 className="font-syne font-bold text-base sm:text-xl text-[#1a1a2e]">Envoyer le devis par email</h3>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
         </div>
 
@@ -123,7 +123,7 @@ export default function EnvoyerDevisModal({
               </div>
             )}
 
-            <div className="flex gap-3 justify-end mt-6">
+            <div className="flex gap-3 justify-end mt-4 sm:mt-6">
               <button
                 onClick={onClose}
                 className="h-10 px-6 rounded-lg border border-gray-200 text-sm font-manrope hover:bg-gray-50"

@@ -458,7 +458,7 @@ function DashboardHeader({
       <button onClick={onMenuClick} className="p-1.5 rounded-md hover:bg-gray-100 md:hidden transition-colors mr-3">
         <Menu size={22} className="text-[#1a1a2e]" />
       </button>
-      <h1 className="font-syne font-bold text-xl text-[#1a1a2e]">{title}</h1>
+      <h1 className="font-syne font-bold text-base sm:text-xl text-[#1a1a2e] truncate">{title}</h1>
     </header>
   )
 }

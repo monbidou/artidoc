@@ -363,21 +363,21 @@ export default function DevisDetailPage() {
             {STATUT_LABELS[devis.statut] ?? devis.statut}
           </span>
         </div>
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative flex-wrap">
           <button onClick={() => {
             const nomClient = client?.nom || devis.notes_client?.split(' | ')[0] || 'client'
             const originalTitle = document.title
             document.title = `Devis - ${nomClient}`
             window.print()
             setTimeout(() => { document.title = originalTitle }, 1500)
-          }} className="flex items-center gap-2 px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
-            <Download size={14} /> Télécharger PDF
+          }} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
+            <Download size={14} /> <span className="hidden xs:inline">Télécharger</span> PDF
           </button>
-          <button onClick={() => setActionsOpen(!actionsOpen)} className="flex items-center gap-2 px-4 py-2 text-sm font-syne font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
+          <button onClick={() => setActionsOpen(!actionsOpen)} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-syne font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
             Actions <ChevronDown size={14} />
           </button>
           {actionsOpen && (
-            <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20">
+            <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20 max-w-[calc(100vw-1rem)]">
               {[
                 { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
                 { label: 'Convertir en facture', icon: FileText, action: () => handleConvertToFacture(false), danger: false },
@@ -439,7 +439,7 @@ export default function DevisDetailPage() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
+          <div className="bg-white shadow-xl rounded-xl p-3 sm:p-8 lg:p-12 print-zone">
             <div className="devis-header-block" style={{position:'relative', marginBottom:10}}>
               {/* DEVIS + Numéro — centré absolument au milieu de la page, définit la hauteur du bloc */}
               <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>

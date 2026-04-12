@@ -300,8 +300,95 @@ export default function AchatsPage() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-xl border border-gray-200">
+            <ShoppingCart size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun achat trouvé</p>
+          </div>
+        ) : (
+          filtered.map((a) => {
+            const achat = a as Record<string, unknown>
+            const id = achat.id as string
+            const montantHT = Number(achat.montant_ht ?? 0)
+            const tauxTva = Number(achat.taux_tva ?? 20)
+            const montantTTC = Number(achat.montant_ttc ?? montantHT * (1 + tauxTva / 100))
+            const dateStr = achat.date_achat as string | undefined
+            const dateFormatted = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR') : ''
+            const fournisseurNom = fournisseurMap[achat.fournisseur_id as string] ?? '—'
+
+            return (
+              <div
+                key={id}
+                className="bg-white rounded-xl border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-manrope font-bold text-[#1a1a2e] truncate">{fournisseurNom}</p>
+                    <p className="text-xs font-manrope text-gray-500 truncate">{dateFormatted}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-manrope font-bold text-[#0f1a3a]">{montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;&euro;</p>
+                    <p className="text-xs font-manrope text-gray-500">{montantHT.toLocaleString('fr-FR')}&nbsp;&euro; HT</p>
+                  </div>
+                </div>
+                {String(achat.description ?? '') && (
+                  <p className="text-xs font-manrope text-gray-600 mb-2 truncate">{String(achat.description ?? '')}</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-manrope text-gray-500">
+                    {achat.justificatif_url && (
+                      <span className="inline-flex items-center gap-1 text-[#5ab4e0]">
+                        <Paperclip size={12} />
+                        Justificatif
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenActionId(openActionId === id ? null : id)
+                      }}
+                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {openActionId === id && (
+                      <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1 w-36">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEdit(achat)
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
+                        >
+                          <Pencil size={14} />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(id)
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-gray-50">
