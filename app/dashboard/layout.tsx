@@ -87,9 +87,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/equipe': 'Mon équipe',
   '/dashboard/bibliotheque': 'Bibliothèque',
   '/dashboard/statistiques': 'Statistiques',
+  '/dashboard/prestations': 'Prestations',
   '/dashboard/import': 'Importer des données',
   '/dashboard/parametres': 'Paramètres',
   '/dashboard/corbeille': 'Corbeille',
+  '/dashboard/admin': 'Administration',
 }
 
 const CREATE_OPTIONS = [
