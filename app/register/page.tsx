@@ -33,6 +33,20 @@ export default function RegisterPage() {
   const strength = getPasswordStrength(password)
 
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
+
+  const resendConfirmation = async () => {
+    setResending(true)
+    setResendSuccess(false)
+    const res = await fetch('/api/auth/resend-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    setResending(false)
+    if (res.ok) setResendSuccess(true)
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,6 +123,15 @@ export default function RegisterPage() {
             <p className="font-manrope text-gray-500 text-sm leading-relaxed mb-8">
               Cliquez sur le bouton dans l&apos;email pour activer votre compte et accéder à votre espace Nexartis.
             </p>
+            {/* Bouton renvoyer */}
+            <button
+              onClick={resendConfirmation}
+              disabled={resending || resendSuccess}
+              className="w-full py-3 rounded-xl border-2 border-gray-200 text-sm font-manrope font-semibold text-[#1a1a2e] hover:bg-gray-50 transition disabled:opacity-60 mb-4"
+            >
+              {resending ? 'Envoi en cours...' : resendSuccess ? 'Email renvoyé ✓' : 'Renvoyer l\'email de confirmation'}
+            </button>
+
             <div className="bg-amber-50 rounded-xl p-4 text-left">
               <p className="font-manrope text-amber-700 text-xs leading-relaxed">
                 <strong>Vous ne trouvez pas l&apos;email ?</strong> Vérifiez vos spams ou courriers indésirables. L&apos;email est envoyé depuis <strong>no-reply@nexartis.fr</strong>.
