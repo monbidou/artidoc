@@ -85,6 +85,18 @@ export async function POST(req: NextRequest) {
       } : undefined,
     })
 
+    // Générer un token de signature s'il n'en a pas encore
+    let signatureToken = devis.signature_token
+    if (!signatureToken) {
+      // Créer un token UUID côté serveur
+      const tokenResult = await supabase.rpc('gen_random_uuid')
+      signatureToken = tokenResult.data || crypto.randomUUID()
+      await supabase.from('devis').update({ signature_token: signatureToken }).eq('id', devisId)
+    }
+
+    // Lien public de signature (le client n'a PAS besoin de compte)
+    const signerUrl = `https://nexartis.fr/signer/${signatureToken}`
+
     // Build short email body (avoids Gmail truncation)
     const preheader = `${messagePersonnalise || `Devis n° ${devis.numero} - ${fmt(totalTTC)}`}`
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
@@ -95,9 +107,10 @@ export async function POST(req: NextRequest) {
 <p style="font-size:16px;color:#1a1a2e;margin:0 0 14px;font-weight:600;">Bonjour ${clientNom},</p>
 <p style="font-size:15px;color:#374151;margin:0 0 16px;line-height:1.6;">${messagePersonnalise || `Veuillez trouver ci-joint votre devis n\u00b0 ${devis.numero} d'un montant de ${fmt(totalTTC)}.`}</p>
 ${dateValidite ? `<p style="font-size:13px;color:#e87a2a;margin:0 0 16px;">Ce devis est valable jusqu'au ${dateValidite}.</p>` : ''}
-<div style="text-align:center;margin:20px 0;">
-<a href="https://nexartis.fr/dashboard/devis/${devis.id}" style="background:#2563eb;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">Voir le devis</a>
+<div style="text-align:center;margin:20px 0 10px;">
+<a href="${signerUrl}" style="background:#10b981;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Consulter et signer le devis</a>
 </div>
+<p style="font-size:12px;color:#9ca3af;margin:0 0 16px;text-align:center;">Vous pourrez consulter le détail du devis et le signer en ligne</p>
 <p style="font-size:14px;color:#374151;margin:0;">Cordialement,<br/><strong>${(ent as Record<string,unknown>).nom || 'Nexartis'}</strong></p>
 </div>
 <div style="padding:12px 28px;border-top:1px solid #e5e7eb;text-align:center;">

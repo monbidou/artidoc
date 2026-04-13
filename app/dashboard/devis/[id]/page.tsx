@@ -14,6 +14,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ArrowRight,
+  Link2,
 } from 'lucide-react'
 import { createChantierFromDevis } from '@/lib/services/devis-automatisms'
 import EnvoyerDevisModal from '@/components/dashboard/EnvoyerDevisModal'
@@ -57,6 +58,8 @@ interface DevisRecord {
   dechets_inclure_cout?: boolean
   date_signature?: string
   signed_by?: string
+  client_signature_base64?: string
+  signature_token?: string
   created_at: string
   updated_at?: string
 }
@@ -382,6 +385,13 @@ export default function DevisDetailPage() {
                 { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
                 { label: 'Convertir en facture', icon: FileText, action: () => handleConvertToFacture(false), danger: false },
                 { label: 'Envoyer par email', icon: SendHorizonal, action: () => setSendModalOpen(true), danger: false },
+                ...(devis.signature_token && devis.statut === 'envoye' ? [{
+                  label: 'Copier lien de signature', icon: Link2, action: () => {
+                    navigator.clipboard.writeText(`https://nexartis.fr/signer/${devis.signature_token}`)
+                    setToastMsg('Lien de signature copié !')
+                    setTimeout(() => setToastMsg(null), 3000)
+                  }, danger: false
+                }] : []),
                 { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
               ].map((action) => (
                 <button key={action.label} onClick={() => { action.action(); setActionsOpen(false) }} className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors ${action.danger ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
@@ -664,13 +674,28 @@ export default function DevisDetailPage() {
                   <div className="border border-gray-300 rounded p-2 flex flex-col items-center justify-center" style={{ height: 70 }}>
                     <div className="text-[8px] font-manrope font-bold text-[#9ca3af] uppercase tracking-widest mb-1">Client</div>
                     {devis.date_signature ? (
-                      <div className="text-center">
-                        <div className="text-[9px] font-manrope font-semibold text-green-600">Signé</div>
-                        <div className="text-[8px] font-manrope text-[#6b7280]">
-                          {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
-                          {devis.signed_by && ` — ${devis.signed_by}`}
+                      devis.client_signature_base64 ? (
+                        <div className="text-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={devis.client_signature_base64}
+                            alt="Signature client"
+                            className="max-w-full"
+                            style={{ height: 38, objectFit: 'contain' }}
+                          />
+                          <div className="text-[7px] font-manrope text-[#6b7280] mt-0.5">
+                            {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="text-[9px] font-manrope font-semibold text-green-600">Signé</div>
+                          <div className="text-[8px] font-manrope text-[#6b7280]">
+                            {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
+                            {devis.signed_by && ` — ${devis.signed_by}`}
+                          </div>
+                        </div>
+                      )
                     ) : (
                       <div className="text-[8px] font-manrope text-[#c0c0c0] italic">En attente</div>
                     )}
