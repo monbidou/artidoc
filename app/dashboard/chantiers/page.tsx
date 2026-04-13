@@ -16,7 +16,7 @@ import {
   CheckCircle,
   Archive,
 } from 'lucide-react'
-import { useChantiers, useClients, deleteRow, updateRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { useChantiers, useClients, useFactures, useDevis, deleteRow, updateRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types & Helpers
@@ -59,6 +59,8 @@ export default function ChantiersListPage() {
   const router = useRouter()
   const { data: chantiers, loading, error, refetch } = useChantiers()
   const { data: clients } = useClients()
+  const { data: factures } = useFactures()
+  const { data: devisData } = useDevis()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Tous')
   const [openActions, setOpenActions] = useState<string | null>(null)
@@ -94,6 +96,28 @@ export default function ChantiersListPage() {
 
   const clientMap = new Map(clients.map((c) => [c.id as string, c]))
 
+  // Calcul dynamique : facturé TTC et encaissé par chantier (depuis les factures)
+  const factureParChantier = new Map<string, { facture: number; encaisse: number }>()
+  for (const f of factures) {
+    const rec = f as Record<string, unknown>
+    const cId = rec.chantier_id as string
+    if (!cId) continue
+    const montant = Number(rec.montant_ttc || 0)
+    const entry = factureParChantier.get(cId) || { facture: 0, encaisse: 0 }
+    entry.facture += montant
+    if (rec.statut === 'payee') entry.encaisse += montant
+    factureParChantier.set(cId, entry)
+  }
+
+  // Devis montant TTC par chantier (fallback si montant_devis_total est 0)
+  const devisParChantier = new Map<string, number>()
+  for (const d of devisData) {
+    const rec = d as Record<string, unknown>
+    const cId = rec.chantier_id as string
+    if (!cId) continue
+    devisParChantier.set(cId, (devisParChantier.get(cId) || 0) + Number(rec.montant_ttc || 0))
+  }
+
   const filtered = chantiers.filter((c: Record<string, unknown>) => {
     const displayFilter = statutToFilter(c.statut as string)
     if (filter !== 'Tous' && displayFilter !== filter) return false
@@ -116,10 +140,24 @@ export default function ChantiersListPage() {
   }
 
   function computeAvancement(c: Record<string, unknown>): number {
-    const devis = (c.montant_devis_total as number) || 0
-    const facture = (c.montant_facture as number) || 0
+    const chId = c.id as string
+    const devis = (c.montant_devis_total as number) || devisParChantier.get(chId) || 0
+    const factureData = factureParChantier.get(chId)
+    const facture = factureData?.facture || 0
     if (devis === 0) return 0
     return Math.min(100, Math.round((facture / devis) * 100))
+  }
+
+  function getChantierDevisTTC(c: Record<string, unknown>): number {
+    return (c.montant_devis_total as number) || devisParChantier.get(c.id as string) || 0
+  }
+
+  function getChantierFactureTTC(c: Record<string, unknown>): number {
+    return factureParChantier.get(c.id as string)?.facture || 0
+  }
+
+  function getChantierEncaisse(c: Record<string, unknown>): number {
+    return factureParChantier.get(c.id as string)?.encaisse || 0
   }
 
   async function handleDelete(id: string) {
@@ -199,7 +237,7 @@ export default function ChantiersListPage() {
             const clientName = client ? `${client.prenom ?? ''} ${client.nom ?? ''}`.trim() : '—'
             const avancement = computeAvancement(chantier)
             const statut = statutToFilter(chantier.statut as string)
-            const montantDevis = formatMoney(chantier.montant_devis_total as number)
+            const montantDevis = formatMoney(getChantierDevisTTC(chantier))
 
             return (
               <div
@@ -286,9 +324,9 @@ export default function ChantiersListPage() {
                       {statutToFilter(chantier.statut as string)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(chantier.montant_devis_total as number)}</td>
-                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(chantier.montant_facture as number)}</td>
-                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(chantier.montant_encaisse as number)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierDevisTTC(chantier))}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierFactureTTC(chantier))}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierEncaisse(chantier))}</td>
                   <td className="px-4 py-3">
                     <div className="flex -space-x-2">
                       <div

@@ -464,6 +464,7 @@ function NouveauDevisPage() {
                   user_id: user.id,
                   client_id: clientId || null,
                   montant_devis_total: totalTTC || 0,
+                  date_debut: dateTravaux || new Date().toISOString().split('T')[0],
                 }).select('id').single()
                 if (insertErr) console.error('Erreur sauvegarde chantier:', insertErr.message)
                 else if (newChantier) chantierID = newChantier.id

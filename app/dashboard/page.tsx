@@ -310,6 +310,42 @@ export default function DashboardPage() {
     })
   }
 
+  // Conflits planning (même intervenant, même jour, créneaux incompatibles)
+  const conflictDays = new Map<string, Record<string, unknown>[]>()
+  for (const p of planning) {
+    const rec = p as Record<string, unknown>
+    const statut = rec.statut as string
+    if (statut === 'termine' || statut === 'annule') continue
+    const key = `${rec.intervenant_id}__${(rec.date_debut as string)?.split('T')[0]}`
+    if (!conflictDays.has(key)) conflictDays.set(key, [])
+    conflictDays.get(key)!.push(rec)
+  }
+  const conflictEntries: { date: string; count: number }[] = []
+  conflictDays.forEach((items, key) => {
+    if (items.length > 1) {
+      const hasJournee = items.some(i => (i.creneau as string) === 'journee')
+      const hasMatin = items.filter(i => (i.creneau as string) === 'matin').length > 1
+      const hasAm = items.filter(i => (i.creneau as string) === 'apres_midi').length > 1
+      if ((hasJournee && items.length > 1) || hasMatin || hasAm) {
+        const date = key.split('__')[1]
+        conflictEntries.push({ date, count: items.length })
+      }
+    }
+  })
+  for (const c of conflictEntries.slice(0, 3)) {
+    const dateObj = new Date(c.date)
+    const dateLabel = dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+    todoItems.push({
+      title: `⚠ Conflit planning — ${dateLabel}`,
+      desc: `${c.count} interventions en conflit`,
+      amount: '',
+      dotColor: '#ef4444', amountColor: '#ef4444',
+      tag: 'Résoudre', tagBg: '#fef2f2', tagColor: '#ef4444',
+      href: `/dashboard/planning`,
+      actionHref: `/dashboard/planning`,
+    })
+  }
+
   // Notes/rappels urgents des chantiers (non cochés)
   const notesUrgentes = chantierNotes.filter((n: Record<string, unknown>) => {
     if (n.fait === true) return false

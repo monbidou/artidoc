@@ -4,11 +4,11 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, CalendarDays, X, FileText,
   Search, AlertTriangle, Users, Briefcase, Clock,
-  MapPin, Eye, Maximize2, Minimize2, Check
+  MapPin, Eye, Maximize2, Minimize2, Check, Trash2
 } from 'lucide-react'
 import {
   usePlanning, useIntervenants, useClients, useChantiers, useDevis,
-  insertRow, updateRow, LoadingSkeleton,
+  insertRow, updateRow, deleteRow, LoadingSkeleton,
 } from '@/lib/hooks'
 import { useRouter } from 'next/navigation'
 
@@ -540,7 +540,11 @@ export default function PlanningPage() {
             <MiniStat icon={<Briefcase className="w-4 h-4" />} label="Chantiers" value={stats.chantiers} color="text-[#e87a2a]" />
             {isSociete && <MiniStat icon={<Clock className="w-4 h-4" />} label="Occupation" value={`${stats.occupation}%`} color="text-[#22c55e]" />}
             {unplannedDevis.length > 0 && <MiniStat icon={<FileText className="w-4 h-4" />} label="À planifier" value={unplannedDevis.length} color="text-[#7c3aed]" />}
-            {isSociete && stats.conflicts > 0 && <MiniStat icon={<AlertTriangle className="w-4 h-4" />} label="Conflits" value={stats.conflicts} color="text-[#ef4444]" />}
+            {isSociete && stats.conflicts > 0 && (
+              <button onClick={() => setActiveFilter(activeFilter === 'conflict' ? 'all' : 'conflict')} className="cursor-pointer">
+                <MiniStat icon={<AlertTriangle className="w-4 h-4" />} label="Conflits" value={stats.conflicts} color="text-[#ef4444]" />
+              </button>
+            )}
           </div>
           {isSociete && (
             <div className="flex items-center gap-1.5">
@@ -604,103 +608,6 @@ export default function PlanningPage() {
               })}
             </div>
           </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════
-            PANNEAU ANNUEL — 12 MOIS
-        ══════════════════════════════════════════════════════════════ */}
-        {!annualCollapsed && (
-          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3.5 border-b border-[#e6ecf2] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-[#5ab4e0]" />
-                <h2 className="text-[15px] font-extrabold text-[#0f1a3a]">Vue annuelle — 12 prochains mois</h2>
-              </div>
-              <button onClick={() => setAnnualCollapsed(true)} className="flex items-center gap-1 text-xs text-[#64748b] hover:text-[#5ab4e0] transition-all font-semibold">
-                <Minimize2 className="w-3.5 h-3.5" />Réduire
-              </button>
-            </div>
-
-            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {annualMonths.map(m => {
-                const days = getDaysInMonth(m.year, m.month)
-                const offset = getFirstDayOffset(m.year, m.month)
-                const isCurrentMonth = m.year === today.getFullYear() && m.month === today.getMonth()
-
-                return (
-                  <div key={`${m.year}-${m.month}`} className={`rounded-xl border p-3 transition-all ${isCurrentMonth ? 'border-[#5ab4e0] bg-[#5ab4e0]/[.03]' : 'border-[#e6ecf2] hover:border-[#5ab4e0]/40'}`}>
-                    <div className="text-[12px] font-bold text-[#0f1a3a] mb-2">{m.label}</div>
-                    {/* Day labels */}
-                    <div className="grid grid-cols-7 gap-px mb-1">
-                      {DAYS_SHORT.map((d, i) => (
-                        <div key={i} className="text-[9px] font-bold text-[#7b8ba3] text-center">{d}</div>
-                      ))}
-                    </div>
-                    {/* Day cells */}
-                    <div className="grid grid-cols-7 gap-px">
-                      {Array.from({ length: offset }).map((_, i) => <div key={`empty-${i}`} className="h-[18px]" />)}
-                      {days.map(day => {
-                        const dateStr = fmtISO(day)
-                        const dayInterventions = planningByDate.get(dateStr) ?? []
-                        const count = dayInterventions.length
-                        const isToday = dateStr === todayStr
-                        const isWeekend = day.getDay() === 0 || day.getDay() === 6
-
-                        // Heat color
-                        let bgCls = ''
-                        if (count === 0) bgCls = isWeekend ? 'bg-[#f1f5f9]' : 'bg-white'
-                        else if (count === 1) bgCls = 'bg-[#dcf0fa]'
-                        else if (count === 2) bgCls = 'bg-[#93d1f0]'
-                        else if (count <= 4) bgCls = 'bg-[#e87a2a]/30'
-                        else bgCls = 'bg-[#ef4444]/30'
-
-                        return (
-                          <button key={dateStr}
-                            onClick={() => { goToWeek(day); if (viewPreset === 'annual') setViewPreset('complete') }}
-                            className={`h-[18px] rounded-[3px] flex items-center justify-center text-[8px] font-bold transition-all hover:ring-1 hover:ring-[#5ab4e0] ${bgCls} ${isToday ? 'ring-2 ring-[#5ab4e0] text-[#5ab4e0]' : 'text-[#64748b]'}`}
-                            title={count > 0 ? `${count} intervention${count > 1 ? 's' : ''}` : undefined}>
-                            {day.getDate()}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {/* Monthly summary */}
-                    <div className="mt-2 flex items-center justify-between text-[10px]">
-                      <span className="text-[#7b8ba3] font-medium">
-                        {(() => {
-                          const monthDays = days.map(d => fmtISO(d))
-                          const total = monthDays.reduce((sum, ds) => sum + (planningByDate.get(ds)?.length ?? 0), 0)
-                          return `${total} intervention${total !== 1 ? 's' : ''}`
-                        })()}
-                      </span>
-                      <button onClick={() => openModal(fmtISO(new Date(m.year, m.month, 15)))}
-                        className="flex items-center gap-0.5 text-[#5ab4e0] hover:text-[#2d8bc9] font-semibold transition-all">
-                        <Plus className="w-3 h-3" />Ajouter
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="px-5 pb-3 flex items-center gap-4 text-[10px] text-[#7b8ba3] font-medium">
-              <span>Charge :</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-white border border-[#e6ecf2]" />Libre</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#dcf0fa]" />1</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#93d1f0]" />2</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#e87a2a]/30" />3-4</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#ef4444]/30" />5+</span>
-            </div>
-          </div>
-        )}
-
-        {/* Collapsed annual bar */}
-        {annualCollapsed && viewPreset === 'complete' && (
-          <button onClick={() => setAnnualCollapsed(false)}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-[#e6ecf2] rounded-xl text-xs font-semibold text-[#64748b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
-            <Maximize2 className="w-3.5 h-3.5" />Afficher la vue annuelle
-          </button>
         )}
 
         {/* ══════════════════════════════════════════════════════════════
@@ -853,6 +760,104 @@ export default function PlanningPage() {
             <Maximize2 className="w-3.5 h-3.5" />Afficher le planning détaillé
           </button>
         )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            PANNEAU ANNUEL — 12 MOIS
+        ══════════════════════════════════════════════════════════════ */}
+        {!annualCollapsed && (
+          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-5 py-3.5 border-b border-[#e6ecf2] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-[#5ab4e0]" />
+                <h2 className="text-[15px] font-extrabold text-[#0f1a3a]">Vue annuelle — 12 prochains mois</h2>
+              </div>
+              <button onClick={() => setAnnualCollapsed(true)} className="flex items-center gap-1 text-xs text-[#64748b] hover:text-[#5ab4e0] transition-all font-semibold">
+                <Minimize2 className="w-3.5 h-3.5" />Réduire
+              </button>
+            </div>
+
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {annualMonths.map(m => {
+                const days = getDaysInMonth(m.year, m.month)
+                const offset = getFirstDayOffset(m.year, m.month)
+                const isCurrentMonth = m.year === today.getFullYear() && m.month === today.getMonth()
+
+                return (
+                  <div key={`${m.year}-${m.month}`} className={`rounded-xl border p-3 transition-all ${isCurrentMonth ? 'border-[#5ab4e0] bg-[#5ab4e0]/[.03]' : 'border-[#e6ecf2] hover:border-[#5ab4e0]/40'}`}>
+                    <div className="text-[12px] font-bold text-[#0f1a3a] mb-2">{m.label}</div>
+                    {/* Day labels */}
+                    <div className="grid grid-cols-7 gap-px mb-1">
+                      {DAYS_SHORT.map((d, i) => (
+                        <div key={i} className="text-[9px] font-bold text-[#7b8ba3] text-center">{d}</div>
+                      ))}
+                    </div>
+                    {/* Day cells */}
+                    <div className="grid grid-cols-7 gap-px">
+                      {Array.from({ length: offset }).map((_, i) => <div key={`empty-${i}`} className="h-[18px]" />)}
+                      {days.map(day => {
+                        const dateStr = fmtISO(day)
+                        const dayInterventions = planningByDate.get(dateStr) ?? []
+                        const count = dayInterventions.length
+                        const isToday = dateStr === todayStr
+                        const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                        const hasConflict = dayInterventions.some(iv => conflicts.has((iv as R).id as string))
+
+                        // Heat color
+                        let bgCls = ''
+                        if (count === 0) bgCls = isWeekend ? 'bg-[#f1f5f9]' : 'bg-white'
+                        else if (count === 1) bgCls = 'bg-[#dcf0fa]'
+                        else if (count === 2) bgCls = 'bg-[#93d1f0]'
+                        else if (count <= 4) bgCls = 'bg-[#e87a2a]/30'
+                        else bgCls = 'bg-[#ef4444]/30'
+
+                        return (
+                          <button key={dateStr}
+                            onClick={() => { goToWeek(day); if (viewPreset === 'annual') setViewPreset('complete') }}
+                            className={`h-[18px] rounded-[3px] flex items-center justify-center text-[8px] font-bold transition-all hover:ring-1 hover:ring-[#5ab4e0] ${bgCls} ${isToday ? 'ring-2 ring-[#5ab4e0] text-[#5ab4e0]' : 'text-[#64748b]'} ${hasConflict ? 'ring-2 ring-[#ef4444]' : ''}`}
+                            title={hasConflict ? `⚠ Conflit — ${count} interventions` : count > 0 ? `${count} intervention${count > 1 ? 's' : ''}` : undefined}>
+                            {hasConflict ? '⚠' : day.getDate()}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {/* Monthly summary */}
+                    <div className="mt-2 flex items-center justify-between text-[10px]">
+                      <span className="text-[#7b8ba3] font-medium">
+                        {(() => {
+                          const monthDays = days.map(d => fmtISO(d))
+                          const total = monthDays.reduce((sum, ds) => sum + (planningByDate.get(ds)?.length ?? 0), 0)
+                          return `${total} intervention${total !== 1 ? 's' : ''}`
+                        })()}
+                      </span>
+                      <button onClick={() => openModal(fmtISO(new Date(m.year, m.month, 15)))}
+                        className="flex items-center gap-0.5 text-[#5ab4e0] hover:text-[#2d8bc9] font-semibold transition-all">
+                        <Plus className="w-3 h-3" />Ajouter
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="px-5 pb-3 flex items-center gap-4 text-[10px] text-[#7b8ba3] font-medium">
+              <span>Charge :</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-white border border-[#e6ecf2]" />Libre</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#dcf0fa]" />1</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#93d1f0]" />2</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#e87a2a]/30" />3-4</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#ef4444]/30" />5+</span>
+            </div>
+          </div>
+        )}
+
+        {/* Collapsed annual bar */}
+        {annualCollapsed && viewPreset === 'complete' && (
+          <button onClick={() => setAnnualCollapsed(false)}
+            className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-[#e6ecf2] rounded-xl text-xs font-semibold text-[#64748b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+            <Maximize2 className="w-3.5 h-3.5" />Afficher la vue annuelle
+          </button>
+        )}
       </div>
 
       {/* ── SIDE PANEL ── */}
@@ -933,6 +938,56 @@ export default function PlanningPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Actions en bas du panel */}
+            <div className="px-5 py-4 border-t border-[#e6ecf2] flex-shrink-0 space-y-2">
+              {/* Statut */}
+              <div className="flex gap-2">
+                {panelIntervention.statut !== 'termine' && (
+                  <button
+                    onClick={async () => {
+                      await updateRow('planning_interventions', panelIntervention.id as string, { statut: 'termine' })
+                      showToast('Intervention terminée ✓')
+                      closePanel()
+                      refetch()
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl text-sm font-semibold hover:bg-green-100 transition-all"
+                  >
+                    <Check className="w-4 h-4" />Terminée
+                  </button>
+                )}
+                {panelIntervention.statut === 'termine' && (
+                  <button
+                    onClick={async () => {
+                      await updateRow('planning_interventions', panelIntervention.id as string, { statut: 'planifie' })
+                      showToast('Intervention replanifiée ✓')
+                      closePanel()
+                      refetch()
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-all"
+                  >
+                    <Clock className="w-4 h-4" />Replanifier
+                  </button>
+                )}
+              </div>
+              {/* Supprimer */}
+              <button
+                onClick={async () => {
+                  if (!confirm('Supprimer cette intervention ?')) return
+                  try {
+                    await deleteRow('planning_interventions', panelIntervention.id as string)
+                    showToast('Intervention supprimée ✓')
+                    closePanel()
+                    refetch()
+                  } catch (err) {
+                    showToast('Erreur lors de la suppression')
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 transition-all"
+              >
+                <Trash2 className="w-4 h-4" />Supprimer l&apos;intervention
+              </button>
             </div>
           </aside>
         </>
