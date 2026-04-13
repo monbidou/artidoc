@@ -179,9 +179,8 @@ export default function DevisListPage() {
     } catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
   }
 
-  async function handleSend(devis: Record<string, unknown>) {
-    try { await updateRow("devis", devis.id as string, { statut: "envoye", date_envoi: new Date().toISOString() }); refetchDevis() }
-    catch (err: unknown) { alert("Erreur : " + (err instanceof Error ? err.message : "Échec")) }
+  function handleSend(devis: Record<string, unknown>) {
+    router.push(`/dashboard/devis/${devis.id}?send=1`)
   }
 
   function toggleSelect(id: string) {
