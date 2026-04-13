@@ -64,16 +64,18 @@ function trialDaysLeft(trialStarted: string): number {
 }
 
 function getUserDisplayName(u: UserRecord): string {
-  // Priorité : prenom+nom entreprise, puis auth metadata, puis nom entreprise, puis email
-  const p = u.prenom || u.auth_prenom || ''
-  const n = u.nom || u.auth_nom || u.auth_entreprise || ''
+  // Nom/prénom de la PERSONNE = auth metadata (prenom + nom)
+  // ATTENTION : entreprises.nom = nom de l'ENTREPRISE, pas de la personne !
+  const p = u.auth_prenom || u.prenom || ''
+  const n = u.auth_nom || ''
   if (p && n) return `${p} ${n}`
-  if (n) return n
   if (p) return p
+  if (n) return n
   return u.auth_email?.split('@')[0] || '—'
 }
 
 function getEntrepriseName(u: UserRecord): string {
+  // Nom de l'ENTREPRISE = entreprises.nom ou auth_metadata.entreprise
   return u.nom || u.auth_entreprise || '—'
 }
 
@@ -215,11 +217,11 @@ function UserDetailModal({
             <div className="grid grid-cols-2 gap-3 text-xs font-manrope">
               <div>
                 <span className="text-gray-400">Prénom</span>
-                <div className="text-[#1a1a2e] font-medium mt-0.5">{user.prenom || user.auth_prenom || '—'}</div>
+                <div className="text-[#1a1a2e] font-medium mt-0.5">{user.auth_prenom || user.prenom || '—'}</div>
               </div>
               <div>
                 <span className="text-gray-400">Nom</span>
-                <div className="text-[#1a1a2e] font-medium mt-0.5">{user.auth_nom || user.nom || '—'}</div>
+                <div className="text-[#1a1a2e] font-medium mt-0.5">{user.auth_nom || '—'}</div>
               </div>
               <div>
                 <span className="text-gray-400">Email</span>

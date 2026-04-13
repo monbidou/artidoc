@@ -61,44 +61,29 @@ function LoginForm() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.')
+    if (password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères.')
       setLoading(false)
       return
     }
 
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
-
-    // Auto-confirmer + créer entreprise
-    if (data.user) {
-      await fetch('/api/auth/auto-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: data.user.id, email }),
-      }).catch(() => {})
-
-      // Re-login automatique
-      await supabase.auth.signInWithPassword({ email, password })
-    }
-
-    // Welcome email
-    fetch('/api/send-welcome', {
+    // Appeler notre API serveur qui crée le compte + envoie le mail de confirmation
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name: email.split('@')[0] }),
-    }).catch(() => {})
+      body: JSON.stringify({ email, password }),
+    })
 
-    router.push('/dashboard')
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error || 'Erreur lors de la création du compte')
+      setLoading(false)
+      return
+    }
+
+    setSuccessMessage('Un email de confirmation vous a été envoyé. Cliquez sur le lien dans l\'email pour activer votre compte.')
+    setLoading(false)
   }
 
   const handleGoogleLogin = async () => {

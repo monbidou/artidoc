@@ -32,52 +32,31 @@ export default function RegisterPage() {
 
   const strength = getPasswordStrength(password)
 
+  const [showConfirmation, setShowConfirmation] = useState(false)
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { prenom, nom, entreprise },
-      },
+    // Appeler notre API serveur qui crée le compte + envoie le mail de confirmation
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, prenom, nom, entreprise }),
     })
 
-    if (error) {
-      setError(error.message)
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error || 'Erreur lors de la création du compte')
       setLoading(false)
       return
     }
 
-    // Auto-confirmer l'utilisateur pour qu'il puisse se connecter immédiatement
-    if (data.user) {
-      await fetch('/api/auth/auto-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: data.user.id,
-          email,
-          prenom,
-          nom,
-          entreprise,
-        }),
-      }).catch(() => {})
-
-      // Re-login automatique maintenant que le compte est confirmé
-      await supabase.auth.signInWithPassword({ email, password })
-    }
-
-    // Send welcome email (fire-and-forget)
-    fetch('/api/send-welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name: `${prenom} ${nom}` }),
-    }).catch(() => {})
-
-    router.push('/dashboard')
+    // Afficher le message "vérifiez votre email"
+    setShowConfirmation(true)
+    setLoading(false)
   }
 
   const handleGoogleRegister = async () => {
@@ -109,7 +88,40 @@ export default function RegisterPage() {
           </span>
         </div>
 
-        {/* Card */}
+        {/* Écran confirmation email */}
+        {showConfirmation && (
+          <div className="bg-white shadow-lg rounded-2xl p-10 border border-gray-100 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            </div>
+            <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-3">
+              Vérifiez votre boîte mail
+            </h1>
+            <p className="font-manrope text-gray-500 text-sm leading-relaxed mb-2">
+              Un email de confirmation a été envoyé à :
+            </p>
+            <p className="font-manrope font-semibold text-[#1a1a2e] text-base mb-6">
+              {email}
+            </p>
+            <p className="font-manrope text-gray-500 text-sm leading-relaxed mb-8">
+              Cliquez sur le bouton dans l&apos;email pour activer votre compte et accéder à votre espace Nexartis.
+            </p>
+            <div className="bg-amber-50 rounded-xl p-4 text-left">
+              <p className="font-manrope text-amber-700 text-xs leading-relaxed">
+                <strong>Vous ne trouvez pas l&apos;email ?</strong> Vérifiez vos spams ou courriers indésirables. L&apos;email est envoyé depuis <strong>no-reply@nexartis.fr</strong>.
+              </p>
+            </div>
+            <Link href="/login" className="inline-block mt-6 text-sm text-sky font-manrope font-medium hover:underline">
+              Retour à la connexion
+            </Link>
+          </div>
+        )}
+
+        {/* Card formulaire */}
+        {!showConfirmation && (
         <div className="bg-white shadow-lg rounded-2xl p-10 border border-gray-100">
           <h1 className="font-syne font-bold text-2xl text-[#1a1a2e] mb-8">
             Créer votre compte professionnel
@@ -293,6 +305,7 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
+        )}
       </div>
     </div>
   )
