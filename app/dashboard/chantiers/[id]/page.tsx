@@ -461,6 +461,7 @@ export default function ChantierDetailPage() {
         </div>
 
         {/* ── GANTT CHART ── */}
+        {(activeTab === 'resume' || activeTab === 'planning') && (
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
             <h3 className="text-[15px] font-extrabold text-[#0f1a3a] tracking-tight">Planning des phases</h3>
@@ -561,8 +562,10 @@ export default function ChantierDetailPage() {
             })}
           </div>
         </div>
+        )}
 
         {/* ── EQUIPE DU CHANTIER ── */}
+        {(activeTab === 'resume' || activeTab === 'planning') && (
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -656,8 +659,10 @@ export default function ChantierDetailPage() {
             })}
           </div>
         </div>
+        )}
 
         {/* ── NOTES + SOUS-TRAITANTS ── */}
+        {activeTab === 'resume' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
           {/* Notes */}
           <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden">
@@ -768,9 +773,10 @@ export default function ChantierDetailPage() {
             </table>
           </div>
         </div>
+        )}
 
         {/* ── DEVIS LIES + FACTURATION ── */}
-        {chantierDevis.length > 0 && (
+        {(activeTab === 'resume' || activeTab === 'devis' || activeTab === 'factures') && chantierDevis.length > 0 && (
           <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
             <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -832,7 +838,44 @@ export default function ChantierDetailPage() {
           </div>
         )}
 
+        {/* ── FACTURES DÉTAILLÉES (onglet factures) ── */}
+        {activeTab === 'factures' && chantierFactures.length > 0 && (
+          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-[#22c55e]" />
+                <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Factures du chantier</h3>
+              </div>
+              <span className="text-[11px] text-[#7b8ba3] font-semibold">{chantierFactures.length} facture{chantierFactures.length > 1 ? 's' : ''}</span>
+            </div>
+            <div className="divide-y divide-[#e6ecf2]">
+              {chantierFactures.map(f => {
+                const isPaid = (f as R).statut === 'payee'
+                return (
+                  <Link key={f.id as string} href={`/dashboard/factures/${f.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-[#dcfce7] flex items-center justify-center flex-shrink-0">
+                      <Receipt className="w-5 h-5 text-[#22c55e]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[#1e293b]">Facture {String((f as R).numero ?? '')}</div>
+                      <div className="text-[11px] text-[#7b8ba3]">{formatDate((f as R).date_emission as string)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[13px] font-bold text-[#0f1a3a]">{formatEur(Number((f as R).montant_ttc ?? 0))}</div>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${isPaid ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fef9e7] text-[#b45309]'}`}>
+                        {isPaid ? 'Payée' : 'En attente'}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── MARGE NETTE ── */}
+        {(activeTab === 'resume' || activeTab === 'factures') && (
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e6ecf2]">
             <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Rentabilité du chantier</h3>
@@ -872,6 +915,7 @@ export default function ChantierDetailPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ── MODAL MODIFIER ── */}

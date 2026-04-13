@@ -42,30 +42,37 @@ export async function GET() {
   // Récupérer toutes les entreprises (tous les utilisateurs)
   const { data: entreprises, error } = await supabaseAdmin
     .from('entreprises')
-    .select('id, user_id, nom, email, telephone, metier, ville, abonnement_type, trial_started_at, abonnement_expire_at, notes_admin, created_at')
+    .select('id, user_id, nom, prenom, email, telephone, metier, ville, siret, adresse, code_postal, forme_juridique, abonnement_type, trial_started_at, abonnement_expire_at, notes_admin, created_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Récupérer les emails auth pour chaque user
-  const userIds = (entreprises ?? []).map(e => e.user_id)
   const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
 
-  const authMap: Record<string, { email: string; last_sign_in_at: string | null; email_confirmed_at: string | null }> = {}
+  const authMap: Record<string, { email: string; last_sign_in_at: string | null; email_confirmed_at: string | null; user_metadata: Record<string, unknown> }> = {}
   for (const u of authUsers?.users ?? []) {
     authMap[u.id] = {
       email: u.email ?? '',
       last_sign_in_at: u.last_sign_in_at ?? null,
       email_confirmed_at: u.email_confirmed_at ?? null,
+      user_metadata: (u.user_metadata as Record<string, unknown>) ?? {},
     }
   }
 
-  const users = (entreprises ?? []).map(e => ({
-    ...e,
-    auth_email: authMap[e.user_id]?.email ?? e.email ?? '',
-    last_sign_in_at: authMap[e.user_id]?.last_sign_in_at ?? null,
-    email_confirmed_at: authMap[e.user_id]?.email_confirmed_at ?? null,
-  }))
+  const users = (entreprises ?? []).map(e => {
+    const auth = authMap[e.user_id]
+    return {
+      ...e,
+      auth_email: auth?.email ?? e.email ?? '',
+      last_sign_in_at: auth?.last_sign_in_at ?? null,
+      email_confirmed_at: auth?.email_confirmed_at ?? null,
+      // Récupérer nom/prénom depuis auth metadata si pas dans entreprise
+      auth_prenom: (auth?.user_metadata?.prenom as string) || '',
+      auth_nom: (auth?.user_metadata?.nom as string) || '',
+      auth_entreprise: (auth?.user_metadata?.entreprise as string) || '',
+    }
+  })
 
   // Filtrer pour exclure le compte admin lui-même
   const filtered = users.filter(u => u.auth_email !== ADMIN_EMAIL)
@@ -104,6 +111,56 @@ export async function PATCH(request: Request) {
     .eq('id', entreprise_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}
+
+// -------------------------------------------------------------------
+// DELETE /api/admin/users — supprimer un compte utilisateur complet
+// -------------------------------------------------------------------
+export async function DELETE(request: Request) {
+  const admin = await getAdminUser()
+  if (!admin) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+
+  const { searchParams } = new URL(request.url)
+  const userId = searchParams.get('user_id')
+  const entrepriseId = searchParams.get('entreprise_id')
+
+  if (!userId || !entrepriseId) {
+    return NextResponse.json({ error: 'user_id et entreprise_id requis' }, { status: 400 })
+  }
+
+  const supabaseAdmin = adminSupabase()
+
+  // 1. Supprimer toutes les données liées dans les tables
+  const tablesToClean = [
+    'chantier_notes',
+    'planning_interventions',
+    'facture_lignes',
+    'devis_lignes',
+    'factures',
+    'devis',
+    'chantiers',
+    'clients',
+    'fournisseurs',
+    'intervenants',
+    'entreprises',
+  ]
+
+  for (const table of tablesToClean) {
+    const { error } = await supabaseAdmin.from(table).delete().eq('user_id', userId)
+    if (error) {
+      console.error(`Error deleting from ${table}:`, error.message)
+      // Continue — on essaie de tout nettoyer
+    }
+  }
+
+  // 2. Supprimer le compte auth Supabase
+  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+  if (authError) {
+    console.error('Auth delete error:', authError)
+    return NextResponse.json({ error: `Données supprimées mais erreur auth: ${authError.message}` }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

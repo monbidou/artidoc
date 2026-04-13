@@ -68,12 +68,9 @@ function LoginForm() {
     }
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
     })
 
     if (error) {
@@ -82,8 +79,26 @@ function LoginForm() {
       return
     }
 
-    setSuccessMessage('Vérifiez votre email pour confirmer votre compte.')
-    setLoading(false)
+    // Auto-confirmer + créer entreprise
+    if (data.user) {
+      await fetch('/api/auth/auto-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: data.user.id, email }),
+      }).catch(() => {})
+
+      // Re-login automatique
+      await supabase.auth.signInWithPassword({ email, password })
+    }
+
+    // Welcome email
+    fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name: email.split('@')[0] }),
+    }).catch(() => {})
+
+    router.push('/dashboard')
   }
 
   const handleGoogleLogin = async () => {

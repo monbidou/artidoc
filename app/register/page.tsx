@@ -38,7 +38,7 @@ export default function RegisterPage() {
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -52,6 +52,24 @@ export default function RegisterPage() {
       return
     }
 
+    // Auto-confirmer l'utilisateur pour qu'il puisse se connecter immédiatement
+    if (data.user) {
+      await fetch('/api/auth/auto-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: data.user.id,
+          email,
+          prenom,
+          nom,
+          entreprise,
+        }),
+      }).catch(() => {})
+
+      // Re-login automatique maintenant que le compte est confirmé
+      await supabase.auth.signInWithPassword({ email, password })
+    }
+
     // Send welcome email (fire-and-forget)
     fetch('/api/send-welcome', {
       method: 'POST',
@@ -59,7 +77,7 @@ export default function RegisterPage() {
       body: JSON.stringify({ email, name: `${prenom} ${nom}` }),
     }).catch(() => {})
 
-    router.push('/onboarding')
+    router.push('/dashboard')
   }
 
   const handleGoogleRegister = async () => {

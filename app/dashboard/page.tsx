@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useDevis, useFactures, usePlanning, useChantiers, useClients, useIntervenants, useEntreprise, useChantierNotes, LoadingSkeleton } from "@/lib/hooks";
-import EmptyDashboard from "@/components/dashboard/EmptyDashboard";
+// EmptyDashboard supprimé — on affiche toujours le vrai dashboard
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -346,24 +346,27 @@ export default function DashboardPage() {
     })
   }
 
-  // Notes/rappels urgents des chantiers (non cochés)
-  const notesUrgentes = chantierNotes.filter((n: Record<string, unknown>) => {
+  // Notes/rappels/tâches des chantiers (non cochés, toutes catégories sauf info)
+  const notesActives = chantierNotes.filter((n: Record<string, unknown>) => {
     if (n.fait === true) return false
-    return n.categorie === 'urgent' || n.categorie === 'rappel'
+    return n.categorie !== 'info' // tout sauf les notes simples
   })
-  for (const n of notesUrgentes.slice(0, 5)) {
+  const noteCatConfig: Record<string, { tag: string; dot: string; tagBg: string; tagColor: string }> = {
+    urgent: { tag: 'Urgent', dot: '#ef4444', tagBg: '#fef2f2', tagColor: '#ef4444' },
+    rappel: { tag: 'À faire', dot: '#e87a2a', tagBg: '#fff7ed', tagColor: '#ea580c' },
+    materiel: { tag: 'Matériel', dot: '#8b5cf6', tagBg: '#f5f3ff', tagColor: '#7c3aed' },
+    appel: { tag: 'Appel', dot: '#3b82f6', tagBg: '#eff6ff', tagColor: '#2563eb' },
+  }
+  for (const n of notesActives.slice(0, 5)) {
     const chantier = chantiers.find((c: Record<string, unknown>) => c.id === n.chantier_id) as Record<string, unknown> | undefined
     const chantierTitre = chantier ? String(chantier.titre || 'Chantier') : 'Chantier'
-    const isUrgent = n.categorie === 'urgent'
+    const cat = noteCatConfig[n.categorie as string] || noteCatConfig.rappel
     todoItems.push({
-      title: `${isUrgent ? '⚠️ ' : ''}${String(n.texte || n.contenu || '').slice(0, 60)}`,
+      title: `${n.categorie === 'urgent' ? '⚠️ ' : ''}${String(n.texte || n.contenu || '').slice(0, 60)}`,
       desc: chantierTitre,
       amount: '',
-      dotColor: isUrgent ? '#f97316' : '#3b82f6',
-      amountColor: isUrgent ? '#f97316' : '#3b82f6',
-      tag: isUrgent ? 'Urgent' : 'Rappel',
-      tagBg: isUrgent ? '#fff7ed' : '#eff6ff',
-      tagColor: isUrgent ? '#ea580c' : '#2563eb',
+      dotColor: cat.dot, amountColor: cat.dot,
+      tag: cat.tag, tagBg: cat.tagBg, tagColor: cat.tagColor,
       href: `/dashboard/chantiers/${n.chantier_id}`,
       actionHref: `/dashboard/chantiers/${n.chantier_id}`,
     })
@@ -405,7 +408,7 @@ export default function DashboardPage() {
   });
 
   /* ── Empty / Loading ── */
-  const hasData = factures.length > 0 || devis.length > 0;
+  // hasData supprimé — plus besoin de conditionner l'affichage
 
   if (loading) {
     return (
@@ -424,9 +427,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!hasData) {
-    return <EmptyDashboard userName="" profilIncomplet={!!profilIncomplet} />;
-  }
+  // Plus de page "Bienvenue" — on affiche le dashboard même vide (KPIs à 0 + bannière profil incomplet)
 
   /* ── Stagger animation ── */
   const stagger = (i: number) => ({
