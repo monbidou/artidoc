@@ -539,6 +539,16 @@ function NouveauDevisPage() {
     if (data.notes) setNotes(data.notes as string)
     if (data.tva_taux != null) setGlobalTvaRate(data.tva_taux as number)
     if (data.dechets_nature) setDechetsNature(data.dechets_nature as string)
+    if (data.date_travaux) setDateTravaux(data.date_travaux as string)
+    if (data.duree) setDuree(data.duree as string)
+    if (data.acompte_pourcentage) {
+      setAcomptePercent(String(data.acompte_pourcentage))
+      setSelectedPayments(prev => {
+        const next = new Set(prev)
+        next.add('acompte')
+        return next
+      })
+    }
     const voiceLines = data.lignes as Array<{ designation: string; quantite: number; unite: string; prix_unitaire: number }> | null
     if (voiceLines && voiceLines.length > 0) {
       setLines(voiceLines.map((vl, i) => ({

@@ -19,6 +19,9 @@ export interface VoiceDevisResult {
   conditions_paiement: string | null
   notes: string | null
   dechets_nature: string | null
+  date_travaux: string | null
+  duree: string | null
+  acompte_pourcentage: number | null
 }
 
 export interface VoiceLigne {
@@ -384,13 +387,13 @@ function extractLignes(text: string): VoiceLigne[] {
   // 1. Chercher les locations d'engins
   for (const [keyword, info] of Object.entries(LOCATION_ENGINS)) {
     if (normalizedText.includes(keyword) && !usedDesignations.has(info.designation)) {
-      // Chercher une quantité avant ou après
       const qty = extractQuantityNear(normalizedText, keyword)
+      const price = extractPriceNear(normalizedText, keyword)
       lignes.push({
         designation: info.designation,
         quantite: qty || 1,
         unite: info.unite,
-        prix_unitaire: 0,
+        prix_unitaire: price || 0,
       })
       usedDesignations.add(info.designation)
     }
@@ -399,14 +402,14 @@ function extractLignes(text: string): VoiceLigne[] {
   // 2. Chercher les matériaux (si contexte "acheter")
   for (const [keyword, info] of Object.entries(MATERIAUX)) {
     if (normalizedText.includes(keyword) && !usedDesignations.has(info.designation)) {
-      // Éviter le double-match avec travaux (ex: "béton" = travaux OU matériau)
       if (acheterContext || normalizedText.includes(`du ${keyword}`) || normalizedText.includes(`de ${keyword}`) || normalizedText.includes(`le ${keyword}`)) {
         const qty = extractQuantityNear(normalizedText, keyword)
+        const price = extractPriceNear(normalizedText, keyword)
         lignes.push({
           designation: info.designation,
           quantite: qty || 1,
           unite: info.unite,
-          prix_unitaire: 0,
+          prix_unitaire: price || 0,
         })
         usedDesignations.add(info.designation)
       }
@@ -493,25 +496,26 @@ function extractQuantityNear(text: string, keyword: string): number | null {
   const idx = text.indexOf(keyword)
   if (idx === -1) return null
 
-  // Chercher un nombre dans les 40 caractères avant et après
-  const before = text.substring(Math.max(0, idx - 40), idx)
-  const after = text.substring(idx, Math.min(text.length, idx + keyword.length + 40))
+  // Chercher dans une zone large autour du mot-clé
+  const before = text.substring(Math.max(0, idx - 60), idx)
+  const after = text.substring(idx, Math.min(text.length, idx + keyword.length + 80))
 
-  // Pattern : "15 mètres carrés", "20 m²", "3 jours"
+  const combined = convertWordsToNumbers(before + ' ' + after)
+
+  // Pattern : "15 mètres carrés", "20 m²", "3 jours" — on priorise les unités spécifiques
   const patterns = [
     /(\d+(?:[.,]\d+)?)\s*(?:mètres?\s*carrés?|m²|m2)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:mètres?\s*cubes?|m³|m3)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:mètres?\s*(?:linéaires?)?|ml|m\b)/i,
-    /(\d+(?:[.,]\d+)?)\s*(?:jours?|j\b)/i,
+    /(\d+(?:[.,]\d+)?)\s*(?:jours?|journées?|j\b)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:heures?|h\b)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:litres?|l\b)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:kilos?|kg)/i,
+    /(\d+(?:[.,]\d+)?)\s*(?:tonnes?|t\b)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:sacs?)/i,
     /(\d+(?:[.,]\d+)?)\s*(?:unités?|pièces?)/i,
-    /(\d+(?:[.,]\d+)?)/,
   ]
 
-  const combined = before + ' ' + after
   for (const pattern of patterns) {
     const match = combined.match(pattern)
     if (match) {
@@ -519,6 +523,16 @@ function extractQuantityNear(text: string, keyword: string): number | null {
       if (num > 0 && num < 100000) return num
     }
   }
+
+  // Fallback : prendre le premier nombre qui n'est pas un prix (< 1000 et pas suivi de €/euros)
+  const numberPattern = /(\d+(?:[.,]\d+)?)\b(?!\s*(?:€|euros?))/g
+  let numberMatch
+  while ((numberMatch = numberPattern.exec(combined)) !== null) {
+    const num = parseFloat(numberMatch[1].replace(',', '.'))
+    // Quantité raisonnable (pas un prix, pas un code postal, pas un numéro de tel)
+    if (num > 0 && num < 1000 && num !== 0) return num
+  }
+
   return null
 }
 
@@ -530,23 +544,80 @@ function extractPriceNear(text: string, keyword: string): number | null {
   const idx = text.indexOf(keyword)
   if (idx === -1) return null
 
-  const after = text.substring(idx, Math.min(text.length, idx + keyword.length + 60))
+  // Chercher dans une zone large : 30 car avant + 120 car après le mot-clé
+  const before = text.substring(Math.max(0, idx - 30), idx)
+  const after = text.substring(idx, Math.min(text.length, idx + keyword.length + 120))
+  const zone = before + ' ' + after
+
+  // Convertir les mots en chiffres d'abord
+  const zoneWithNumbers = convertWordsToNumbers(zone)
 
   // "35 euros le mètre carré", "50€/m²", "à 40 euros"
   const patterns = [
     /(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:le|par|\/)\s*(?:mètre|m)/i,
-    /(?:à|pour|coûte|prix)\s+(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i,
-    /(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i,
+    /(?:à|pour|coûte|coûtera|prix\s*(?:de)?|tarif\s*(?:de)?)\s+(\d+(?:[\s.]\d{3})*(?:[.,]\d+)?)\s*(?:€|euros?)/i,
+    /(\d+(?:[\s.]\d{3})*(?:[.,]\d+)?)\s*(?:€|euros?)/i,
+    /(?:à|pour|coûte)\s+(\d+(?:[\s.]\d{3})*(?:[.,]\d+)?)\b/i,
   ]
 
   for (const pattern of patterns) {
-    const match = after.match(pattern)
+    const match = zoneWithNumbers.match(pattern)
     if (match) {
-      const num = parseFloat(match[1].replace(',', '.'))
+      // Nettoyer le nombre : supprimer espaces séparateurs de milliers
+      const cleaned = match[1].replace(/\s/g, '').replace(',', '.')
+      const num = parseFloat(cleaned)
       if (num > 0 && num < 1000000) return num
     }
   }
   return null
+}
+
+// -------------------------------------------------------------------
+// Conversion mots → nombres (mille, cent, etc.)
+// -------------------------------------------------------------------
+
+function convertWordsToNumbers(text: string): string {
+  let result = text.toLowerCase()
+
+  // Nombres composés courants dans le BTP
+  const wordNumbers: [RegExp, string][] = [
+    [/\bdix\s*mille\b/g, '10000'],
+    [/\bneuf\s*mille\b/g, '9000'],
+    [/\bhuit\s*mille\b/g, '8000'],
+    [/\bsept\s*mille\b/g, '7000'],
+    [/\bsix\s*mille\b/g, '6000'],
+    [/\bcinq\s*mille\b/g, '5000'],
+    [/\bquatre\s*mille\b/g, '4000'],
+    [/\btrois\s*mille\b/g, '3000'],
+    [/\bdeux\s*mille\b/g, '2000'],
+    [/\bmille\s*cinq\s*cents?\b/g, '1500'],
+    [/\bmille\s*deux\s*cents?\b/g, '1200'],
+    [/\bmille\b/g, '1000'],
+    [/\bneuf\s*cents?\b/g, '900'],
+    [/\bhuit\s*cents?\b/g, '800'],
+    [/\bsept\s*cents?\b/g, '700'],
+    [/\bsix\s*cents?\b/g, '600'],
+    [/\bcinq\s*cents?\b/g, '500'],
+    [/\bquatre\s*cents?\b/g, '400'],
+    [/\btrois\s*cents?\b/g, '300'],
+    [/\bdeux\s*cents?\b/g, '200'],
+    [/\bcent\s*cinquante\b/g, '150'],
+    [/\bcent\b/g, '100'],
+    [/\bcinquante\b/g, '50'],
+    [/\bquarante\b/g, '40'],
+    [/\btrente\b/g, '30'],
+    [/\bvingt\b/g, '20'],
+    [/\bquinze\b/g, '15'],
+    [/\bdouze\b/g, '12'],
+    [/\bonze\b/g, '11'],
+    [/\bdix\b/g, '10'],
+  ]
+
+  for (const [pattern, replacement] of wordNumbers) {
+    result = result.replace(pattern, replacement)
+  }
+
+  return result
 }
 
 // -------------------------------------------------------------------
@@ -558,6 +629,121 @@ function capitalize(str: string): string {
   return str.split(/[\s-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(
     str.includes('-') ? '-' : ' '
   )
+}
+
+// -------------------------------------------------------------------
+// Extraction date de travaux
+// -------------------------------------------------------------------
+
+function extractDateTravaux(text: string): string | null {
+  // "lundi prochain", "le 15 mai", "début des travaux le 20 avril"
+  const mois: Record<string, string> = {
+    'janvier': '01', 'février': '02', 'mars': '03', 'avril': '04',
+    'mai': '05', 'juin': '06', 'juillet': '07', 'août': '08',
+    'septembre': '09', 'octobre': '10', 'novembre': '11', 'décembre': '12',
+  }
+
+  // Pattern "le 15 mai 2026" ou "le 15 mai"
+  const datePattern = /(?:le|du|à partir du|début(?:\s+des\s+travaux)?(?:\s+(?:le|prévu))?)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)(?:\s+(\d{4}))?/i
+  const match = text.match(datePattern)
+  if (match) {
+    const day = match[1].padStart(2, '0')
+    const month = mois[match[2].toLowerCase()] || '01'
+    const year = match[3] || new Date().getFullYear().toString()
+    return `${year}-${month}-${day}`
+  }
+
+  // Pattern "lundi", "mardi prochain", "semaine prochaine"
+  const joursRelatifs: Record<string, number> = {
+    'lundi': 1, 'mardi': 2, 'mercredi': 3, 'jeudi': 4,
+    'vendredi': 5, 'samedi': 6, 'dimanche': 0,
+  }
+
+  for (const [jour, dayOfWeek] of Object.entries(joursRelatifs)) {
+    if (text.includes(jour)) {
+      const today = new Date()
+      const todayDow = today.getDay()
+      let daysAhead = dayOfWeek - todayDow
+      if (daysAhead <= 0) daysAhead += 7
+      if (text.includes('prochain') && daysAhead <= 0) daysAhead += 7
+      const target = new Date(today)
+      target.setDate(today.getDate() + daysAhead)
+      return target.toISOString().split('T')[0]
+    }
+  }
+
+  // "dans 2 semaines", "dans une semaine"
+  const dansMatch = text.match(/dans\s+(\d+|une|deux|trois|quatre)\s+(jours?|semaines?|mois)/i)
+  if (dansMatch) {
+    const numMap: Record<string, number> = { 'une': 1, 'un': 1, 'deux': 2, 'trois': 3, 'quatre': 4 }
+    const num = numMap[dansMatch[1].toLowerCase()] || parseInt(dansMatch[1])
+    const unit = dansMatch[2].toLowerCase()
+    const target = new Date()
+    if (unit.startsWith('jour')) target.setDate(target.getDate() + num)
+    else if (unit.startsWith('semaine')) target.setDate(target.getDate() + num * 7)
+    else if (unit.startsWith('mois')) target.setMonth(target.getMonth() + num)
+    return target.toISOString().split('T')[0]
+  }
+
+  // "demain"
+  if (text.includes('demain')) {
+    const target = new Date()
+    target.setDate(target.getDate() + 1)
+    return target.toISOString().split('T')[0]
+  }
+
+  return null
+}
+
+// -------------------------------------------------------------------
+// Extraction durée
+// -------------------------------------------------------------------
+
+function extractDuree(text: string): string | null {
+  const normalizedText = convertWordsToNumbers(text)
+
+  // "ça va durer 3 jours", "durée 2 semaines", "sur 5 jours", "pendant 1 semaine"
+  const patterns = [
+    /(?:dur(?:ée?|er(?:a|ait)?)|pendant|sur|pour)\s+(\d+)\s*(jours?|semaines?|mois|heures?)/i,
+    /(\d+)\s*(jours?|semaines?|mois)\s+(?:de\s+)?(?:travaux?|chantier)/i,
+    /(?:travaux?|chantier)\s+(?:de|sur|pendant|pour)\s+(\d+)\s*(jours?|semaines?|mois)/i,
+    /(?:estimé?e?\s+(?:à|de)\s+)(\d+)\s*(jours?|semaines?|mois)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = normalizedText.match(pattern)
+    if (match) {
+      const num = parseInt(match[1])
+      const unit = match[2].toLowerCase()
+      if (unit.startsWith('jour')) return `${num} jour${num > 1 ? 's' : ''}`
+      if (unit.startsWith('semaine')) return `${num} semaine${num > 1 ? 's' : ''}`
+      if (unit.startsWith('mois')) return `${num} mois`
+      if (unit.startsWith('heure')) return `${num} heure${num > 1 ? 's' : ''}`
+    }
+  }
+  return null
+}
+
+// -------------------------------------------------------------------
+// Extraction acompte
+// -------------------------------------------------------------------
+
+function extractAcompte(text: string): number | null {
+  // "acompte de 20%", "acompte 30 pour cent", "20% d'acompte", "acompte de 20 pourcent"
+  const patterns = [
+    /acompte\s+(?:de\s+)?(\d+)\s*(?:%|pour\s*(?:cent|100)|pourcent)/i,
+    /(\d+)\s*(?:%|pour\s*(?:cent|100)|pourcent)\s+(?:d'?\s*)?acompte/i,
+    /acompte\s+(?:de\s+)?(\d+)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const num = parseInt(match[1])
+      if (num > 0 && num <= 100) return num
+    }
+  }
+  return null
 }
 
 // -------------------------------------------------------------------
@@ -574,6 +760,9 @@ export function parseVoiceDevis(transcript: string): VoiceDevisResult {
   const chantier = extractChantier(text)
   const lignes = extractLignes(text)
   const dechets = extractDechets(text)
+  const dateTravaux = extractDateTravaux(text)
+  const duree = extractDuree(text)
+  const acompte = extractAcompte(text)
 
   return {
     client_civilite: client.civilite,
@@ -586,9 +775,12 @@ export function parseVoiceDevis(transcript: string): VoiceDevisResult {
     client_email: email,
     chantier,
     lignes,
-    tva_taux: null, // On laisse la TVA par défaut
+    tva_taux: null,
     conditions_paiement: null,
     notes: null,
     dechets_nature: dechets,
+    date_travaux: dateTravaux,
+    duree,
+    acompte_pourcentage: acompte,
   }
 }

@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
       conditions_paiement: result.conditions_paiement,
       notes: result.notes,
       dechets_nature: result.dechets_nature,
+      date_travaux: result.date_travaux,
+      duree: result.duree,
+      acompte_pourcentage: result.acompte_pourcentage,
     })
   } catch (error) {
     console.error('Voice devis error:', error)
