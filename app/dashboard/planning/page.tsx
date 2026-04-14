@@ -193,15 +193,29 @@ export default function PlanningPage() {
   }, [intervenants])
 
   // ── Planning indexed by date string ──
+  // BUG MULTI-JOURS FIX : si une intervention couvre plusieurs jours,
+  // on l'ajoute à chaque jour entre date_debut et date_fin (heatmap annuelle correcte)
   const planningByDate = useMemo(() => {
     const map = new Map<string, R[]>()
     for (const item of planningData) {
       const rec = item as R
       const dateDebut = rec.date_debut as string
       if (!dateDebut) continue
-      const dateStr = dateDebut.split('T')[0]
-      if (!map.has(dateStr)) map.set(dateStr, [])
-      map.get(dateStr)!.push(rec)
+      const startDay = dateDebut.split('T')[0]
+      const endDateRaw = (rec.date_fin as string) || dateDebut
+      const endDay = endDateRaw.split('T')[0]
+      const startD = new Date(startDay + 'T00:00:00')
+      const endD = new Date(endDay + 'T00:00:00')
+      const last = endD < startD ? startD : endD
+      let safety = 0
+      const cur = new Date(startD)
+      while (cur <= last && safety < 60) {
+        const dayKey = cur.toISOString().split('T')[0]
+        if (!map.has(dayKey)) map.set(dayKey, [])
+        map.get(dayKey)!.push(rec)
+        cur.setDate(cur.getDate() + 1)
+        safety++
+      }
     }
     return map
   }, [planningData])
@@ -209,6 +223,8 @@ export default function PlanningPage() {
   // ── Planning map: key = intervenantId__dateStr ──
   // BUG D FIX : en mode Solo, on rapatrie aussi les interventions sans intervenant_id
   // (sinon elles seraient invisibles) sous le seul intervenant affiché.
+  // BUG MULTI-JOURS FIX : si une intervention dure plusieurs jours (date_debut < date_fin),
+  // on la duplique sur CHAQUE jour entre les deux pour qu'elle apparaisse partout sur le calendrier.
   const planningMap = useMemo(() => {
     const map = new Map<string, R[]>()
     const fallbackIvId = !isSociete && intervenants.length > 0 ? (intervenants[0] as R).id as string : null
@@ -220,10 +236,27 @@ export default function PlanningPage() {
       // En Solo, fallback vers l'unique intervenant affiché si pas d'intervenant_id
       if (!ivId && fallbackIvId) ivId = fallbackIvId
       if (!ivId) continue
-      const dateStr = dateDebut.split('T')[0]
-      const key = `${ivId}__${dateStr}`
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(rec)
+
+      // Déterminer la plage de jours couverte par l'intervention
+      const startDay = dateDebut.split('T')[0]
+      const endDateRaw = (rec.date_fin as string) || dateDebut
+      const endDay = endDateRaw.split('T')[0]
+      // Itérer du jour de début jusqu'au jour de fin (inclus)
+      const startD = new Date(startDay + 'T00:00:00')
+      const endD = new Date(endDay + 'T00:00:00')
+      // Sécurité : si pour une raison X end < start, on prend juste le jour de début
+      const last = endD < startD ? startD : endD
+      // Limite à 60 jours pour éviter une boucle énorme en cas de mauvaise data
+      let safety = 0
+      const cur = new Date(startD)
+      while (cur <= last && safety < 60) {
+        const dayKey = cur.toISOString().split('T')[0]
+        const key = `${ivId}__${dayKey}`
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(rec)
+        cur.setDate(cur.getDate() + 1)
+        safety++
+      }
     }
     return map
   }, [planningData, isSociete, intervenants])
