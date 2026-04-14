@@ -123,32 +123,6 @@ export default function ChantierDetailPage() {
 
   useEffect(() => { fetchEquipe() }, [fetchEquipe])
 
-  // SYNC ÉQUIPE ↔ PLANNING : tout intervenant planifié sur ce chantier
-  // doit apparaître dans l'équipe (sinon doublon de saisie).
-  // On enrichit `equipe` avec les intervenant_id présents dans le planning
-  // mais absents de chantier_intervenants. État unifié pour l'affichage.
-  const equipeAffichage = useMemo(() => {
-    const result = [...(equipe as R[])]
-    const knownIds = new Set(result.map(e => e.intervenant_id as string))
-    const planningIds = new Set<string>()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(chantierInterventions as any[]).forEach((p) => {
-      const ivId = p?.intervenant_id as string | undefined
-      if (ivId && !knownIds.has(ivId)) planningIds.add(ivId)
-    })
-    planningIds.forEach(ivId => {
-      result.push({
-        id: `auto-${ivId}`,
-        chantier_id: id,
-        intervenant_id: ivId,
-        date_assignation: new Date().toISOString(),
-        _autoFromPlanning: true, // flag pour différencier visuellement si besoin
-      })
-    })
-    return result
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [equipe, chantierInterventions, id])
-
   // ── Derived data ──
   const client = useMemo(() => {
     if (!chantier?.client_id) return null
@@ -166,6 +140,30 @@ export default function ChantierDetailPage() {
   const chantierInterventions = useMemo(() =>
     allPlanning.filter(p => (p as R).chantier_id === id) as R[],
   [allPlanning, id])
+
+  // SYNC ÉQUIPE ↔ PLANNING : tout intervenant planifié sur ce chantier
+  // doit apparaître dans l'équipe (sinon doublon de saisie).
+  // ATTENTION : doit être déclaré APRÈS chantierInterventions (block-scoped const).
+  const equipeAffichage = useMemo(() => {
+    const result = [...(equipe as R[])]
+    const knownIds = new Set(result.map(e => e.intervenant_id as string))
+    const planningIds = new Set<string>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(chantierInterventions as any[]).forEach((p) => {
+      const ivId = p?.intervenant_id as string | undefined
+      if (ivId && !knownIds.has(ivId)) planningIds.add(ivId)
+    })
+    planningIds.forEach(ivId => {
+      result.push({
+        id: `auto-${ivId}`,
+        chantier_id: id,
+        intervenant_id: ivId,
+        date_assignation: new Date().toISOString(),
+        _autoFromPlanning: true,
+      })
+    })
+    return result
+  }, [equipe, chantierInterventions, id])
 
   const chantierAchats = useMemo(() =>
     allAchats.filter(a => (a as R).chantier_id === id) as R[],
