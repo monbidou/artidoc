@@ -352,8 +352,6 @@ function NouveauDevisPage() {
     conditionsLibres,
   ].filter(Boolean).join('\n')
 
-  // --- Autosave ---
-  const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const handleSave = useCallback(async (action: 'brouillon' | 'enregistrer' | 'envoyer') => {
     setSaving(true)
     setError(null)
@@ -518,11 +516,6 @@ function NouveauDevisPage() {
       setSaving(false)
     }
   }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router, acomptePct, dechetsNature, dechetsQuantite, dechetsResponsable, dechetsTri, dechetsCollecteNom, dechetsCollecteAdresse, dechetsCollecteType, dechetsCout, dechetsInclureCout])
-
-  useEffect(() => {
-    autosaveTimer.current = setInterval(() => { handleSave('brouillon') }, 60000)
-    return () => { if (autosaveTimer.current) clearInterval(autosaveTimer.current) }
-  }, [handleSave])
 
   // --- Voice result handler ---
   const handleVoiceResult = (data: Record<string, unknown>) => {
