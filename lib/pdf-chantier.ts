@@ -203,10 +203,13 @@ function buildPhases(
     groups.get(key)!.push(i)
   })
 
-  // Construire les phases
+  // Construire les phases (Array.from + forEach pour compat downlevelIteration)
   const phases: Phase[] = []
   let colorIdx = 0
-  for (const [key, ivs] of groups.entries()) {
+  const entries = Array.from(groups.entries())
+  entries.forEach((entry) => {
+    const key = entry[0]
+    const ivs = entry[1]
     const devisRow = key === '__orphan__' ? null : devisMap.get(key)
     const titre = devisRow?.objet
       || devisRow?.description
@@ -243,7 +246,7 @@ function buildPhases(
       color: PHASE_COLORS[colorIdx % PHASE_COLORS.length],
     })
     colorIdx++
-  }
+  })
 
   // Trier les phases par firstDay croissant
   phases.sort((a, b) => {
@@ -598,9 +601,12 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
 
   // ============ ÉQUIPE ASSIGNÉE ============
   // Union de tous les intervenants présents sur les phases
-  const uniqueIvIds = Array.from(new Set(
-    phases.flatMap(p => Array.from(p.intervenantIds))
-  ))
+  // Union de tous les intervenant_id sans flatMap (compat) ni iterator de Set
+  const allIvIds: string[] = []
+  phases.forEach(p => {
+    Array.from(p.intervenantIds).forEach(id => allIvIds.push(id))
+  })
+  const uniqueIvIds = Array.from(new Set(allIvIds))
   if (uniqueIvIds.length > 0) {
     y = ensureSpace(doc, y, 30)
     doc.setFontSize(8)
