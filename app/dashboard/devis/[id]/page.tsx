@@ -465,12 +465,12 @@ export default function DevisDetailPage() {
             {/* Ligne dégradé */}
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
-            {/* Dates — sous le trait bleu */}
+            {/* Dates — sous le trait bleu (pas de date de début travaux côté client :
+                non pertinent, peut devenir obsolète si le client met du temps à répondre) */}
             <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'16px', marginBottom:14, padding:'6px 0'}}>
               <span style={{fontSize:11, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
               {devis.date_validite && <span style={{fontSize:11, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
-              {devis.date_debut_travaux && <span style={{fontSize:11, color:'#374151'}}>Début travaux : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_debut_travaux)}</strong></span>}
-              {devis.duree_estimee && <span style={{fontSize:11, color:'#374151'}}>Durée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
+              {devis.duree_estimee && <span style={{fontSize:11, color:'#374151'}}>Durée estimée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
             </div>
 
             {/* 2 CADRES : artisan gauche, client droite */}

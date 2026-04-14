@@ -260,8 +260,9 @@ export function generateDevisPdf(data: DevisData): string {
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_validite) dateParts.push(`Valide jusqu'au : ${fmtDate(data.date_validite)}`)
-  if (data.date_debut_travaux) dateParts.push(`Début travaux : ${fmtDate(data.date_debut_travaux)}`)
-  if (data.duree_travaux) dateParts.push(`Durée : ${data.duree_travaux}`)
+  // Pas de date de début des travaux : non pertinent côté client (peut devenir
+  // obsolète si réponse tardive). Reste utile en interne pour le planning artisan.
+  if (data.duree_travaux) dateParts.push(`Durée estimée : ${data.duree_travaux}`)
   doc.text(dateParts.join('    '), pageW / 2, y + 1, { align: 'center' })
   y += 5
 

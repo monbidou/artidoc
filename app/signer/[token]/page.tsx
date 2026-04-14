@@ -378,12 +378,13 @@ export default function SignerDevisPage() {
               <div />
             </div>
 
-            {/* BANDEAU DATES */}
+            {/* BANDEAU DATES — pas de date de début des travaux : non pertinent
+                pour le client (il peut mettre du temps à répondre, la date deviendrait fausse).
+                Ce champ reste utilisable côté artisan pour le planning interne. */}
             <div className="flex flex-wrap justify-center gap-x-8 gap-y-1 text-xs font-manrope text-gray-600 -mt-2">
               {devis.date_emission && <p><span className="font-semibold">Date :</span> {formatDate(devis.date_emission)}</p>}
               {devis.date_validite && <p><span className="font-semibold">Valide jusqu&apos;au :</span> {formatDate(devis.date_validite)}</p>}
-              {devis.date_debut_travaux && <p><span className="font-semibold">Début travaux :</span> {formatDate(devis.date_debut_travaux)}</p>}
-              {devis.duree_estimee && <p><span className="font-semibold">Durée :</span> {devis.duree_estimee}</p>}
+              {devis.duree_estimee && <p><span className="font-semibold">Durée estimée :</span> {devis.duree_estimee}</p>}
             </div>
 
             {/* CADRES ARTISAN / CLIENT — comme dans le PDF */}
