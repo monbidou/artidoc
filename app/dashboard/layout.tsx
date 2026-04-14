@@ -221,12 +221,11 @@ function Sidebar({
               Le nom de l'entreprise est ensuite affiché en dessous. */}
           {entrepriseLogo && (
             <div
-              className="flex items-center justify-center mb-3 bg-white overflow-hidden"
+              className="mb-3 bg-white inline-flex items-center justify-center"
               style={{
-                width: collapsed ? 44 : '90%',
-                height: collapsed ? 44 : 80,
-                borderRadius: collapsed ? 10 : 14,
-                padding: collapsed ? 4 : 6,
+                borderRadius: collapsed ? 8 : 10,
+                padding: collapsed ? 3 : 5,
+                maxWidth: collapsed ? 48 : '92%',
                 flexShrink: 0,
               }}
             >
@@ -234,11 +233,12 @@ function Sidebar({
               <img
                 src={entrepriseLogo}
                 alt={entrepriseNom || 'Logo'}
-                width={collapsed ? 36 : 140}
-                height={collapsed ? 36 : 68}
                 style={{
+                  display: 'block',
                   maxWidth: '100%',
-                  maxHeight: collapsed ? 36 : 68,
+                  maxHeight: collapsed ? 40 : 110,
+                  width: 'auto',
+                  height: 'auto',
                   objectFit: 'contain',
                 }}
               />
