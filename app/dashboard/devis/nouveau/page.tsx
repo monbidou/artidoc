@@ -812,7 +812,6 @@ function NouveauDevisPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date</label><input type="date" value={dateDevis} onChange={e => setDateDevis(e.target.value)} className={inputCls} /></div>
             <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Valable jusqu&apos;au</label><input type="date" value={dateValidite} onChange={e => setDateValidite(e.target.value)} className={inputCls} /></div>
-            <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Début des travaux</label><input type="date" value={dateTravaux} onChange={e => setDateTravaux(e.target.value)} className={inputCls} /></div>
             <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Durée estimée</label><input type="text" value={duree} onChange={e => setDuree(e.target.value)} placeholder="Ex. : 3 jours" className={inputCls} /></div>
           </div>
 

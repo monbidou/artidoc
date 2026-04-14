@@ -190,10 +190,9 @@ export default function ModifierDevisPage() {
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3"><p className="text-sm text-red-600 font-manrope">{error}</p></div>}
 
         {/* Dates */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date</label><input type="date" value={dateDevis} onChange={e => setDateDevis(e.target.value)} className={inputCls} /></div>
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Validité</label><input type="date" value={dateValidite} onChange={e => setDateValidite(e.target.value)} className={inputCls} /></div>
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Début travaux</label><input type="date" value={dateTravaux} onChange={e => setDateTravaux(e.target.value)} className={inputCls} /></div>
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Durée</label><input type="text" value={duree} onChange={e => setDuree(e.target.value)} placeholder="Ex. : 3 jours" className={inputCls} /></div>
         </div>
 
