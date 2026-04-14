@@ -348,96 +348,84 @@ export default function SignerDevisPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header bar */}
+      {/* Header bar minimal — juste le rappel du numéro devis pour la navigation */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {entreprise.logo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={entreprise.logo_url} alt="" className="h-8 object-contain" />
-            )}
-            <span className="font-syne font-bold text-[#1a1a2e] text-sm">{entreprise.nom || 'Nexartis'}</span>
-          </div>
+          <span className="font-syne font-bold text-[#1a1a2e] text-sm truncate">{entreprise.nom}</span>
           <span className="text-xs font-manrope text-gray-400">Devis n° {devis.numero}</span>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* ═══ DEVIS PREVIEW ═══ */}
+        {/* ═══ DEVIS PREVIEW — design harmonisé avec le PDF ═══ */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header devis */}
-          <div className="bg-gradient-to-r from-[#1a1a2e] to-[#2d2d5e] p-6 text-white">
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <div>
-                <h1 className="font-syne font-bold text-2xl mb-1">DEVIS</h1>
-                <p className="font-manrope text-white/70 text-sm">N° {devis.numero}</p>
+          <div className="p-6 sm:p-8 space-y-6">
+
+            {/* HEADER : logo gauche + DEVIS centré bleu + numéro */}
+            <div className="grid grid-cols-3 items-center pb-4 border-b border-gray-100">
+              <div className="flex items-center">
+                {entreprise.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise.logo_url} alt="Logo" className="h-14 max-w-[120px] object-contain" />
+                ) : (
+                  <div className="h-14" />
+                )}
               </div>
-              <div className="text-right font-manrope text-sm">
-                {devis.date_emission && <p className="text-white/70">Émis le {formatDate(devis.date_emission)}</p>}
-                {devis.date_validite && <p className="text-white/70">Valable jusqu&apos;au {formatDate(devis.date_validite)}</p>}
+              <div className="text-center">
+                <h1 className="font-syne font-extrabold text-3xl sm:text-4xl text-[#2563eb] tracking-tight">DEVIS</h1>
+                <p className="font-manrope font-bold text-sm text-[#1a1a2e] mt-1">N° {devis.numero}</p>
               </div>
+              <div />
             </div>
-          </div>
 
-          <div className="p-6 space-y-6">
-            {/* Objet */}
-            {devis.objet && (
-              <div>
-                <p className="text-xs font-manrope font-semibold text-gray-400 uppercase tracking-wider mb-1">Objet</p>
-                <p className="font-manrope text-[#1a1a2e] font-medium">{devis.objet}</p>
-              </div>
-            )}
+            {/* BANDEAU DATES */}
+            <div className="flex flex-wrap justify-center gap-x-8 gap-y-1 text-xs font-manrope text-gray-600 -mt-2">
+              {devis.date_emission && <p><span className="font-semibold">Date :</span> {formatDate(devis.date_emission)}</p>}
+              {devis.date_validite && <p><span className="font-semibold">Valide jusqu&apos;au :</span> {formatDate(devis.date_validite)}</p>}
+              {devis.date_debut_travaux && <p><span className="font-semibold">Début travaux :</span> {formatDate(devis.date_debut_travaux)}</p>}
+              {devis.duree_estimee && <p><span className="font-semibold">Durée :</span> {devis.duree_estimee}</p>}
+            </div>
 
-            {/* Artisan / Client cards */}
+            {/* CADRES ARTISAN / CLIENT — comme dans le PDF */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                <p className="text-xs font-manrope font-semibold text-blue-500 uppercase tracking-wider mb-2">Artisan</p>
-                <p className="font-manrope font-semibold text-[#1a1a2e] text-sm">{entreprise.nom}</p>
-                {entreprise.adresse && <p className="font-manrope text-gray-600 text-xs mt-1">{entreprise.adresse}</p>}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <p className="text-[10px] font-manrope font-bold text-[#2563eb] uppercase tracking-wider mb-2">Artisan</p>
+                <p className="font-manrope font-bold text-[#1a1a2e] text-sm mb-1">{entreprise.nom}</p>
+                {entreprise.adresse && <p className="font-manrope text-gray-700 text-xs">{entreprise.adresse}</p>}
                 {(entreprise.code_postal || entreprise.ville) && (
-                  <p className="font-manrope text-gray-600 text-xs">{entreprise.code_postal} {entreprise.ville}</p>
+                  <p className="font-manrope text-gray-700 text-xs">{entreprise.code_postal} {entreprise.ville}</p>
                 )}
-                {entreprise.telephone && <p className="font-manrope text-gray-600 text-xs mt-1">{entreprise.telephone}</p>}
-                {entreprise.siret && <p className="font-manrope text-gray-400 text-xs mt-1">SIRET : {entreprise.siret}</p>}
+                {entreprise.siret && <p className="font-manrope text-gray-700 text-xs mt-1">SIRET : {entreprise.siret}</p>}
+                {entreprise.telephone && <p className="font-manrope text-gray-700 text-xs">Tél : {entreprise.telephone}</p>}
               </div>
-              <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                <p className="text-xs font-manrope font-semibold text-green-600 uppercase tracking-wider mb-2">Client</p>
-                <p className="font-manrope font-semibold text-[#1a1a2e] text-sm">{client.nom}</p>
-                {client.adresse && <p className="font-manrope text-gray-600 text-xs mt-1">{client.adresse}</p>}
-                {client.telephone && <p className="font-manrope text-gray-600 text-xs mt-1">{client.telephone}</p>}
-                {client.email && <p className="font-manrope text-gray-600 text-xs mt-1">{client.email}</p>}
+              <div className="border border-green-200 rounded-lg p-4 bg-green-50/30">
+                <p className="text-[10px] font-manrope font-bold text-green-700 uppercase tracking-wider mb-2">Client</p>
+                <p className="font-manrope font-bold text-[#1a1a2e] text-sm mb-1">{client.nom}</p>
+                {client.adresse && <p className="font-manrope text-gray-700 text-xs">{client.adresse}</p>}
+                {client.telephone && <p className="font-manrope text-gray-700 text-xs mt-1">{client.telephone}</p>}
+                {client.email && <p className="font-manrope text-gray-700 text-xs">{client.email}</p>}
               </div>
             </div>
 
-            {/* Dates supplémentaires */}
-            {(devis.date_debut_travaux || devis.duree_estimee) && (
-              <div className="flex flex-wrap gap-4 text-sm font-manrope">
-                {devis.date_debut_travaux && (
-                  <div>
-                    <span className="text-gray-400 text-xs">Début des travaux :</span>
-                    <span className="ml-2 text-[#1a1a2e] font-medium">{formatDate(devis.date_debut_travaux)}</span>
-                  </div>
-                )}
-                {devis.duree_estimee && (
-                  <div>
-                    <span className="text-gray-400 text-xs">Durée estimée :</span>
-                    <span className="ml-2 text-[#1a1a2e] font-medium">{devis.duree_estimee}</span>
-                  </div>
-                )}
+            {/* OBJET — barre verticale bleue + texte */}
+            {devis.objet && (
+              <div className="border-l-4 border-[#2563eb] pl-4 py-1">
+                <p className="text-[10px] font-manrope font-bold text-[#2563eb] uppercase tracking-wider">Objet</p>
+                <p className="font-manrope text-[#1a1a2e] text-sm font-medium mt-0.5">{devis.objet}</p>
               </div>
             )}
 
-            {/* Table des lignes */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            {/* TABLEAU DES LIGNES — header bleu */}
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 text-left">
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider">Désignation</th>
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Qté</th>
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider text-right hidden sm:table-cell">Unité</th>
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider text-right hidden sm:table-cell">P.U. HT</th>
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">TVA</th>
-                    <th className="py-3 px-3 font-manrope font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Total HT</th>
+                  <tr className="bg-[#2563eb] text-white">
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-left w-[40px]">N°</th>
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-left">Désignation</th>
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-right">Qté</th>
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-right hidden sm:table-cell">Unité</th>
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-right hidden sm:table-cell">Prix U. HT</th>
+                    <th className="py-2.5 px-2 sm:px-3 font-manrope font-bold text-[10px] uppercase tracking-wider text-right">Total HT</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -462,17 +450,18 @@ export default function SignerDevisPage() {
                     }
                     if (l.type === 'saut_page') return null
                     const montantHT = l.quantite * l.prix_unitaire_ht
+                    const lineNum = lignes.slice(0, i + 1).filter(x => x.type !== 'section' && x.type !== 'commentaire' && x.type !== 'saut_page').length
                     return (
                       <tr key={i} className={`border-b border-gray-100 ${l.optionnel ? 'opacity-60' : ''}`}>
-                        <td className="py-2.5 px-3 font-manrope text-[#1a1a2e]">
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-gray-500 text-center">{lineNum}</td>
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-[#1a1a2e]">
                           {l.designation}
                           {l.optionnel && <span className="ml-2 text-xs text-orange-500 font-medium">(option)</span>}
                         </td>
-                        <td className="py-2.5 px-3 font-manrope text-gray-600 text-right">{l.quantite}</td>
-                        <td className="py-2.5 px-3 font-manrope text-gray-600 text-right hidden sm:table-cell">{l.unite}</td>
-                        <td className="py-2.5 px-3 font-manrope text-gray-600 text-right hidden sm:table-cell">{formatCurrency(l.prix_unitaire_ht)}</td>
-                        <td className="py-2.5 px-3 font-manrope text-gray-600 text-right">{l.taux_tva}%</td>
-                        <td className="py-2.5 px-3 font-manrope text-[#1a1a2e] font-medium text-right">{formatCurrency(montantHT)}</td>
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-gray-700 text-right">{l.quantite}</td>
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-gray-700 text-right hidden sm:table-cell">{l.unite}</td>
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-gray-700 text-right hidden sm:table-cell">{formatCurrency(l.prix_unitaire_ht)}</td>
+                        <td className="py-2.5 px-2 sm:px-3 font-manrope text-[#1a1a2e] font-medium text-right">{formatCurrency(montantHT)}</td>
                       </tr>
                     )
                   })}
@@ -480,63 +469,102 @@ export default function SignerDevisPage() {
               </table>
             </div>
 
-            {/* Totaux */}
-            <div className="flex justify-end">
-              <div className="w-full sm:w-72 space-y-1">
-                <div className="flex justify-between py-1 font-manrope text-sm">
-                  <span className="text-gray-500">Total HT</span>
-                  <span className="text-[#1a1a2e] font-medium">{formatCurrency(totalHT)}</span>
+            {/* SECTION BAS : conditions/mentions à gauche, totaux à droite */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+
+              {/* COLONNE GAUCHE — Conditions, mentions, déchets */}
+              <div className="space-y-4 text-xs font-manrope">
+                {devis.conditions_paiement && (
+                  <div>
+                    <p className="font-bold text-[#1a1a2e] mb-1">Conditions de paiement</p>
+                    <p className="text-gray-700 whitespace-pre-line">{devis.conditions_paiement}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-[#1a1a2e] mb-1 uppercase text-[10px] tracking-wider">Mentions légales</p>
+                  <p className="text-gray-600 leading-relaxed">
+                    Rétractation 14 jours pour travaux hors établissement (art. L221-18 C. conso.).
+                  </p>
+                </div>
+                {devis.dechets_nature && (
+                  <div>
+                    <p className="font-bold text-[#1a1a2e] mb-1 uppercase text-[10px] tracking-wider">Gestion des déchets (AGEC)</p>
+                    <p className="text-gray-600 leading-relaxed">
+                      {[
+                        devis.dechets_nature && `Nature : ${devis.dechets_nature}`,
+                        devis.dechets_responsable && devis.dechets_responsable,
+                        devis.dechets_tri && `Tri : ${devis.dechets_tri}`,
+                        devis.dechets_collecte_nom && `Collecte : ${devis.dechets_collecte_nom}${devis.dechets_collecte_type ? ` (${devis.dechets_collecte_type})` : ''}`,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* COLONNE DROITE — Totaux + NET À PAYER */}
+              <div className="space-y-1 text-sm font-manrope">
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-700">Total HT</span>
+                  <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalHT)}</span>
                 </div>
                 {Object.entries(tvaGroups).map(([rate, vals]) => (
-                  <div key={rate} className="flex justify-between py-1 font-manrope text-sm">
-                    <span className="text-gray-500">TVA {rate}%</span>
+                  <div key={rate} className="flex justify-between py-1.5 border-b border-gray-100">
+                    <span className="text-gray-700">TVA {rate}%</span>
                     <span className="text-[#1a1a2e]">{formatCurrency(vals.tva)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between py-1 font-manrope text-sm border-t border-gray-200 pt-2">
-                  <span className="text-gray-500">Total TVA</span>
-                  <span className="text-[#1a1a2e] font-medium">{formatCurrency(totalTVA)}</span>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-700">Total TTC</span>
+                  <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalTTC)}</span>
                 </div>
-                <div className="bg-[#2563eb] text-white rounded-lg p-3 flex justify-between items-center mt-2">
-                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
+                <div className="bg-[#2563eb] text-white rounded-md px-3 py-2.5 flex justify-between items-center mt-2">
+                  <span className="font-syne font-bold text-sm uppercase tracking-wider">Net à payer</span>
                   <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
                 </div>
-                {/* Acompte */}
                 {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (
-                  <div className="bg-blue-50 rounded-lg p-3 mt-2 space-y-1">
-                    <div className="flex justify-between font-manrope text-sm">
-                      <span className="text-blue-600 font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
-                      <span className="text-blue-600 font-semibold">{formatCurrency(totalTTC * devis.acompte_pourcent / 100)}</span>
+                  <div className="mt-2 px-3 py-2 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#2563eb] font-semibold">Acompte ({devis.acompte_pourcent}%) :</span>
+                      <span className="text-[#2563eb] font-bold">{formatCurrency(totalTTC * devis.acompte_pourcent / 100)}</span>
                     </div>
-                    <div className="flex justify-between font-manrope text-xs">
-                      <span className="text-gray-500">Reste à facturer</span>
-                      <span className="text-gray-700">{formatCurrency(totalTTC - totalTTC * devis.acompte_pourcent / 100)}</span>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Reste à facturer :</span>
+                      <span className="text-gray-700 font-medium">{formatCurrency(totalTTC - totalTTC * devis.acompte_pourcent / 100)}</span>
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Conditions de paiement */}
-            {devis.conditions_paiement && (
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <p className="text-xs font-manrope font-semibold text-gray-400 uppercase tracking-wider mb-1">Conditions de paiement</p>
-                <p className="font-manrope text-gray-700 text-sm">{devis.conditions_paiement}</p>
+            {/* CADRES SIGNATURES (artisan / client) — comme PDF */}
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <div className="border border-gray-200 rounded-lg p-3 min-h-[80px]">
+                <p className="text-[10px] font-manrope font-bold text-gray-500 uppercase tracking-wider text-center">Artisan</p>
+                {entreprise.signature_base64 && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise.signature_base64} alt="Signature artisan" className="h-12 mx-auto mt-1 object-contain" />
+                )}
               </div>
-            )}
+              <div className="border border-gray-200 rounded-lg p-3 min-h-[80px] flex flex-col items-center justify-center">
+                <p className="text-[10px] font-manrope font-bold text-gray-500 uppercase tracking-wider">Client</p>
+                <p className="text-xs italic text-gray-400 mt-1">En attente</p>
+              </div>
+            </div>
 
-            {/* Déchets */}
-            {devis.dechets_nature && (
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
-                <p className="text-xs font-manrope font-semibold text-amber-600 uppercase tracking-wider mb-2">Gestion des déchets</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-manrope">
-                  {devis.dechets_nature && <p><span className="text-gray-500">Nature :</span> <span className="text-gray-700">{devis.dechets_nature}</span></p>}
-                  {devis.dechets_quantite && <p><span className="text-gray-500">Quantité :</span> <span className="text-gray-700">{devis.dechets_quantite}</span></p>}
-                  {devis.dechets_responsable && <p><span className="text-gray-500">Responsable :</span> <span className="text-gray-700">{devis.dechets_responsable}</span></p>}
-                  {devis.dechets_tri && <p><span className="text-gray-500">Tri :</span> <span className="text-gray-700">{devis.dechets_tri}</span></p>}
-                  {devis.dechets_collecte_nom && <p><span className="text-gray-500">Collecteur :</span> <span className="text-gray-700">{devis.dechets_collecte_nom}</span></p>}
-                </div>
-              </div>
+          </div>
+
+          {/* FOOTER — mentions légales artisan (comme dans le PDF) */}
+          <div className="border-t border-gray-100 px-6 sm:px-8 py-4 text-center text-[10px] font-manrope text-gray-500 leading-relaxed">
+            {entreprise.nom}
+            {entreprise.adresse && ` — ${entreprise.adresse}`}
+            {(entreprise.code_postal || entreprise.ville) && `, ${entreprise.code_postal || ''} ${entreprise.ville || ''}`}
+            {entreprise.siret && ` — SIRET : ${entreprise.siret}`}
+            {(entreprise.telephone || entreprise.email) && (
+              <p className="mt-0.5">
+                {entreprise.telephone && `Tél : ${entreprise.telephone}`}
+                {entreprise.telephone && entreprise.email && ' — '}
+                {entreprise.email && `Email : ${entreprise.email}`}
+              </p>
             )}
           </div>
         </div>
