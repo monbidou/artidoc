@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
@@ -32,6 +32,14 @@ export default function ModifierDevisPage() {
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
   const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
+
+  // Auto-cocher TVA 0 si l'entreprise est en franchise (propage le paramètre entreprise)
+  useEffect(() => {
+    if (entreprise?.franchise_tva === true) {
+      setAutoEntrepreneur(true)
+    }
+  }, [entreprise?.franchise_tva])
+
   const [dateDevis, setDateDevis] = useState('')
   const [dateValidite, setDateValidite] = useState('')
   const [dateTravaux, setDateTravaux] = useState('')

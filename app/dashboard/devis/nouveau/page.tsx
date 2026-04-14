@@ -272,6 +272,14 @@ function NouveauDevisPage() {
   const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, tva: 10, type: 'line' }])
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
+
+  // Auto-cocher la TVA 0 si l'entreprise est en franchise (micro-entrepreneur / EI non assujetti)
+  // Lu depuis le profil entreprise → plus besoin de cocher manuellement à chaque nouveau devis.
+  useEffect(() => {
+    if (entreprise?.franchise_tva === true) {
+      setAutoEntrepreneur(true)
+    }
+  }, [entreprise?.franchise_tva])
   const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
   const [useForfait, setUseForfait] = useState(false)
   const [forfaitHT, setForfaitHT] = useState(0)

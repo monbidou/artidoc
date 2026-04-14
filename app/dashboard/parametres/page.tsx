@@ -385,7 +385,15 @@ function EntrepriseSection({
         <InputField label="Nom de l'entreprise" value={nom} onChange={setNom} />
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">Forme juridique</label>
-          <select value={formeJuridique} onChange={e => setFormeJuridique(e.target.value)} className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors bg-white">
+          <select value={formeJuridique} onChange={e => {
+            const newForme = e.target.value
+            setFormeJuridique(newForme)
+            // Auto : micro-entrepreneurs sont quasi toujours en franchise de TVA
+            // (sauf si dépassement du seuil). On coche automatiquement pour gagner du temps.
+            if (newForme === 'Micro-entreprise' || newForme === 'EI') {
+              setFranchiseTva(true)
+            }
+          }} className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors bg-white">
             <option value="">-- Choisir --</option>
             <option value="EI">EI (Entreprise Individuelle)</option>
             <option value="Micro-entreprise">Micro-entreprise (Auto-entrepreneur)</option>
@@ -401,7 +409,7 @@ function EntrepriseSection({
         <InputField label="RCS / RM (n° + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" error={validateRcsRm(rcsRm)} hint='"RCS" ou "RM" + ville + SIREN (9 chiffres)' />
         <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 € (laisser vide si EI)" />
         <InputField label="Métier / activité" value={metier} onChange={setMetier} />
-        <InputField label="Qualification professionnelle" value={qualificationPro} onChange={setQualificationPro} placeholder="Ex : CAP Électricien, BTS Électrotechnique..." />
+        {/* Qualification professionnelle retirée — champ inutile pour l'artisan */}
       </div>
 
       {/* TVA */}
