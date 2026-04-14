@@ -82,6 +82,13 @@ export interface DevisData {
   lignes: Ligne[]
   entreprise: Entreprise
   dechets?: Dechets
+  /** Statut du devis (signe / facture / envoye / brouillon...) — utilisé pour
+   *  afficher "Bon pour accord" + date dans le cadre client si accepté */
+  statut?: string
+  /** Date de signature/acceptation (ISO) — affichée si statut signé */
+  date_signature?: string
+  /** Signature client en base64 (si dessinée par le client) — affichée à la place du texte si présente */
+  client_signature_base64?: string
 }
 
 export interface FactureData {
@@ -532,10 +539,33 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(160)
   doc.text('CLIENT', sigRightX + sigW / 2, sigY + 3, { align: 'center' })
-  doc.setFontSize(6)
-  doc.setFont('helvetica', 'italic')
-  doc.setTextColor(180)
-  doc.text('En attente', sigRightX + sigW / 2, sigY + sigH / 2 + 2, { align: 'center' })
+
+  // Si le devis est accepté/signé, afficher "Bon pour accord" + date,
+  // ou la signature scannée si elle existe. Sinon "En attente".
+  const isAccepte = data.statut === 'signe' || data.statut === 'facture'
+  if (isAccepte) {
+    if (data.client_signature_base64) {
+      try {
+        doc.addImage(data.client_signature_base64, 'PNG', sigRightX + 2, sigY + 4.5, 0, sigH - 8)
+      } catch { /* ignore */ }
+    } else {
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(22, 101, 52) // vert foncé (#166534)
+      doc.text('Bon pour accord', sigRightX + sigW / 2, sigY + sigH / 2, { align: 'center' })
+    }
+    if (data.date_signature) {
+      doc.setFontSize(5.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(120)
+      doc.text(fmtDate(data.date_signature), sigRightX + sigW / 2, sigY + sigH - 2, { align: 'center' })
+    }
+  } else {
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(180)
+    doc.text('En attente', sigRightX + sigW / 2, sigY + sigH / 2 + 2, { align: 'center' })
+  }
 
   rightY = sigY + sigH + 2
 

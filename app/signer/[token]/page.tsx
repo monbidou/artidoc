@@ -547,7 +547,21 @@ export default function SignerDevisPage() {
               </div>
               <div className="border border-gray-200 rounded-lg p-3 min-h-[80px] flex flex-col items-center justify-center">
                 <p className="text-[10px] font-manrope font-bold text-gray-500 uppercase tracking-wider">Client</p>
-                <p className="text-xs italic text-gray-400 mt-1">En attente</p>
+                {(devis.statut === 'signe' || devis.statut === 'facture') ? (
+                  <>
+                    {devis.client_signature_base64 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={devis.client_signature_base64} alt="Signature client" className="h-12 mx-auto mt-1 object-contain" />
+                    ) : (
+                      <p className="text-xs font-bold text-green-700 mt-1">Bon pour accord</p>
+                    )}
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      {devis.date_signature ? formatDate(devis.date_signature) : ''}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs italic text-gray-400 mt-1">En attente</p>
+                )}
               </div>
             </div>
 

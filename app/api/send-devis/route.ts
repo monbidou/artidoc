@@ -92,6 +92,11 @@ export async function POST(req: NextRequest) {
         taux_tva: (l.taux_tva as number) || 10,
       })),
       entreprise: ent,
+      // Statut + signature client : utilisés pour afficher "Bon pour accord" + date
+      // dans le cadre client du PDF (au lieu de "En attente") si le devis est accepté/signé
+      statut: devis.statut,
+      date_signature: devis.date_signature,
+      client_signature_base64: devis.client_signature_base64,
       dechets: (devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) ? {
         nature: devis.dechets_nature || undefined,
         quantite: devis.dechets_quantite || undefined,
