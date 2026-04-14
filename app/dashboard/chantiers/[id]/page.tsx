@@ -211,12 +211,12 @@ export default function ChantierDetailPage() {
     return { deviseTotal, factureTotal, encaisse, reste, devisCount, devisFactures, pctDevis, pctValeur, pctEncaissement, totalST, totalAchats, depenses, marge, margePct }
   }, [chantier, chantierDevis, stPaiements, chantierAchats])
 
-  // ── Gantt data ──
+  // ── Gantt data ── (affiche 14 jours = 2 semaines pour visibilité)
   const ganttDays = useMemo(() => {
     const days: { label: string; date: Date; dateStr: string; isToday: boolean }[] = []
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
       const d = new Date(ganttStart); d.setDate(d.getDate() + i)
-      days.push({ label: DAYS[i], date: d, dateStr: fmtISO(d), isToday: isSameDay(d, new Date()) })
+      days.push({ label: DAYS[i % 7], date: d, dateStr: fmtISO(d), isToday: isSameDay(d, new Date()) })
     }
     return days
   }, [ganttStart])
@@ -308,15 +308,27 @@ export default function ChantierDetailPage() {
   }
 
   // ── Facturation handler ──
+  // Vérifie d'abord si une facture existe déjà pour ce devis (évite les doublons).
+  // Si oui, on redirige simplement vers la facture existante au lieu d'en créer une nouvelle.
   const handleCreateFacture = async (devisId: string) => {
     setFactureCreating(devisId)
     try {
+      // 1. Check : existe-t-il déjà une facture pour ce devis ?
+      const existingFacture = (allFactures as R[]).find(f => f.devis_id === devisId)
+      if (existingFacture) {
+        showToast('Facture déjà existante — redirection')
+        router.push(`/dashboard/factures/${existingFacture.id}`)
+        return
+      }
+      // 2. Sinon, on crée la facture
       const facture = await createFactureFromDevis(devisId)
       showToast('Facture créée ✓')
       const factureId = String((facture as R).id ?? '')
       router.push(`/dashboard/factures/${factureId}`)
-    } catch (_err) {
-      showToast('Erreur création facture')
+    } catch (err) {
+      console.error('Erreur création facture:', err)
+      const msg = err instanceof Error ? err.message : 'Erreur création facture'
+      showToast(msg.length > 60 ? 'Erreur création facture — voir console' : msg)
     } finally {
       setFactureCreating(null)
     }
@@ -496,7 +508,7 @@ export default function ChantierDetailPage() {
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <span className="text-xs font-semibold text-[#0f1a3a] min-w-[100px] text-center">
-                {ganttStart.getDate()} — {new Date(ganttStart.getTime() + 6 * 86400000).getDate()} {MONTHS[ganttStart.getMonth()]}
+                {ganttStart.getDate()} {MONTHS[ganttStart.getMonth()].substring(0, 3)} — {new Date(ganttStart.getTime() + 13 * 86400000).getDate()} {MONTHS[new Date(ganttStart.getTime() + 13 * 86400000).getMonth()].substring(0, 3)}
               </span>
               <button onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() + 7); setGanttStart(d) }}
                 className="w-8 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all">
@@ -507,7 +519,7 @@ export default function ChantierDetailPage() {
 
           <div className="px-5 py-4">
             {/* Header */}
-            <div className="grid grid-cols-[220px_repeat(7,1fr)] mb-1.5">
+            <div className="grid grid-cols-[220px_repeat(14,1fr)] mb-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b8ba3]">Phase / Intervenant</span>
               {ganttDays.map(d => (
                 <span key={d.dateStr} className={`text-[10px] font-bold uppercase tracking-wider text-center ${d.isToday ? 'text-[#5ab4e0] font-extrabold' : 'text-[#7b8ba3]'}`}>
@@ -525,10 +537,24 @@ export default function ChantierDetailPage() {
               const metier = phase.iv?.metier as string ?? ''
               const hex = PALETTE_HEX[phase.colorIdx]
               // Which days have interventions
+              // BUG MULTI-JOURS FIX : on remplit dayMap pour CHAQUE jour entre
+              // date_debut et date_fin (inclus), pas uniquement date_debut.
               const dayMap = new Map<string, R>()
               phase.interventions.forEach(pi => {
-                const d = (pi.date_debut as string)?.split('T')[0]
-                if (d) dayMap.set(d, pi)
+                const startRaw = (pi.date_debut as string)?.split('T')[0]
+                const endRaw = (pi.date_fin as string)?.split('T')[0] || startRaw
+                if (!startRaw) return
+                const startD = new Date(startRaw + 'T00:00:00')
+                const endD = new Date((endRaw || startRaw) + 'T00:00:00')
+                const last = endD < startD ? startD : endD
+                const cur = new Date(startD)
+                let safety = 0
+                while (cur <= last && safety < 60) {
+                  const k = cur.toISOString().split('T')[0]
+                  if (!dayMap.has(k)) dayMap.set(k, pi)
+                  cur.setDate(cur.getDate() + 1)
+                  safety++
+                }
               })
               // Status
               const allDone = phase.interventions.every(pi => pi.statut === 'termine')
@@ -542,7 +568,7 @@ export default function ChantierDetailPage() {
               const devisAmt = linkedDevis ? formatEur(Number(linkedDevis.montant_ttc ?? 0)) : ''
 
               return (
-                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(7,1fr)] mb-1.5 min-h-[68px] items-stretch">
+                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(14,1fr)] mb-1.5 min-h-[68px] items-stretch">
                   {/* Label */}
                   <div className="py-2 pr-3 flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-sm font-bold text-[#1e293b]">
@@ -564,7 +590,7 @@ export default function ChantierDetailPage() {
 
                     // Check continuity (is prev/next day also filled?)
                     const prevDay = di > 0 ? ganttDays[di - 1] : null
-                    const nextDay = di < 6 ? ganttDays[di + 1] : null
+                    const nextDay = di < ganttDays.length - 1 ? ganttDays[di + 1] : null
                     const hasPrev = prevDay && dayMap.has(prevDay.dateStr)
                     const hasNext = nextDay && dayMap.has(nextDay.dateStr)
                     const radius = hasPrev && hasNext ? 'rounded-none' : hasPrev ? 'rounded-r-lg rounded-l-none' : hasNext ? 'rounded-l-lg rounded-r-none' : 'rounded-lg'
@@ -849,7 +875,15 @@ export default function ChantierDetailPage() {
                         ))}
                       </div>
                     </div>
-                    {!isFacture ? (
+                    {linkedFactures.length > 0 ? (
+                      // Facture déjà créée → on redirige vers elle (plus de doublons)
+                      <Link
+                        href={`/dashboard/factures/${(linkedFactures[0] as R).id}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#dcfce7] text-[#166534] rounded-xl text-[12px] font-bold hover:bg-[#bbf7d0] transition-all flex-shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                        {isFacture ? 'Facturé' : 'Voir la facture'}
+                      </Link>
+                    ) : (
                       <button
                         onClick={() => handleCreateFacture(d.id as string)}
                         disabled={factureCreating === (d.id as string)}
@@ -860,10 +894,6 @@ export default function ChantierDetailPage() {
                           <><Plus className="w-3.5 h-3.5" />Créer facture</>
                         )}
                       </button>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-[#dcfce7] text-[#166534] flex-shrink-0">
-                        <Check className="w-3 h-3" />Facturé
-                      </span>
                     )}
                   </div>
                 )
@@ -943,9 +973,12 @@ export default function ChantierDetailPage() {
               </div>
             ))}
             <div className="pt-2.5 text-center">
-              <button className="text-xs text-[#5ab4e0] font-semibold flex items-center gap-1 mx-auto hover:underline">
+              <Link
+                href={`/dashboard/achats?chantier_id=${id}&new=1`}
+                className="text-xs text-[#5ab4e0] font-semibold inline-flex items-center gap-1 mx-auto hover:underline"
+              >
                 <Plus className="w-3 h-3" />Ajouter un achat
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Search,
   Plus,
@@ -65,6 +66,19 @@ export default function AchatsPage() {
     setModalChantier('')
     setEditingId(null)
   }
+
+  // Auto-ouverture de la modal si on arrive depuis ?new=1 (bouton "Ajouter un achat"
+  // depuis la page chantier détail). Pré-remplit le chantier si ?chantier_id=X est fourni.
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      const chId = searchParams.get('chantier_id') || ''
+      setModalChantier(chId)
+      setModalDate(new Date().toISOString().split('T')[0])
+      setShowModal(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Name resolution maps
   const fournisseurMap = useMemo(() => {
