@@ -6,9 +6,6 @@ import {
   Users,
   Plus,
   UserPlus,
-  Wrench,
-  HardHat,
-  Hammer,
   X,
   Trash2,
 } from 'lucide-react'
@@ -23,8 +20,6 @@ import {
 // -------------------------------------------------------------------
 // Types
 // -------------------------------------------------------------------
-
-type EquipeTab = 'employes' | 'interimaires' | 'sous-traitants' | 'materiels'
 
 interface Intervenant {
   id: string
@@ -42,18 +37,8 @@ interface Intervenant {
   created_at?: string
 }
 
-const TAB_OPTIONS: { key: EquipeTab; label: string; icon: typeof Users }[] = [
-  { key: 'employes', label: 'Employés', icon: Users },
-  { key: 'interimaires', label: 'Intérimaires', icon: HardHat },
-  { key: 'sous-traitants', label: 'Sous-traitants', icon: Hammer },
-  { key: 'materiels', label: 'Matériels', icon: Wrench },
-]
-
-const EMPTY_LABELS: Record<string, string> = {
-  interimaires: 'intérimaire',
-  'sous-traitants': 'sous-traitant',
-  materiels: 'matériel',
-}
+type IntervenantType = 'cdi' | 'cdd' | 'apprenti' | 'interimaire' | 'sous-traitant'
+type FilterType = 'tous' | 'employe' | 'interimaire' | 'sous-traitant'
 
 const CONTRAT_LABELS: Record<string, string> = {
   cdi: 'CDI',
@@ -61,6 +46,18 @@ const CONTRAT_LABELS: Record<string, string> = {
   apprenti: 'Apprenti',
   interimaire: 'Intérimaire',
   'sous-traitant': 'Sous-traitant',
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  employe: 'Employé',
+  interimaire: 'Intérimaire',
+  'sous-traitant': 'Sous-traitant',
+}
+
+const TYPE_COLORS: Record<string, { badge: string; bg: string }> = {
+  employe: { badge: '#5ab4e0', bg: 'bg-blue-100' },
+  interimaire: { badge: '#f59e0b', bg: 'bg-amber-100' },
+  'sous-traitant': { badge: '#10b981', bg: 'bg-emerald-100' },
 }
 
 const AVATAR_COLORS = [
@@ -84,34 +81,48 @@ function getAvatarColor(couleur: string | null, id: string): string {
   return AVATAR_COLORS[index]
 }
 
+function getTypeFromContrat(typeContrat: IntervenantType): FilterType {
+  if (['cdi', 'cdd', 'apprenti'].includes(typeContrat)) return 'employe'
+  if (typeContrat === 'interimaire') return 'interimaire'
+  if (typeContrat === 'sous-traitant') return 'sous-traitant'
+  return 'employe'
+}
+
 // -------------------------------------------------------------------
 // Page
 // -------------------------------------------------------------------
 
 export default function EquipePage() {
-  const [activeTab, setActiveTab] = useState<EquipeTab>('employes')
   const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState<FilterType>('tous')
+  const [filterMetier, setFilterMetier] = useState<string>('tous')
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const { data: intervenants, loading, error, refetch } = useIntervenants()
+  const allIntervenants = (intervenants as unknown as Intervenant[])
 
-  // Filter by tab type_contrat mapping
-  const tabContratMap: Record<EquipeTab, string[] | null> = {
-    employes: ['cdi', 'cdd', 'apprenti'],
-    interimaires: ['interimaire'],
-    'sous-traitants': ['sous-traitant'],
-    materiels: null,
-  }
+  // Extract unique métiers, sorted alphabetically
+  const uniqueMetiers = Array.from(
+    new Set(allIntervenants.map((e) => e.metier).filter(Boolean))
+  ).sort()
 
-  const tabData = (intervenants as unknown as Intervenant[]).filter((e) => {
-    const contrats = tabContratMap[activeTab]
-    if (!contrats) return false
-    return contrats.includes(e.type_contrat)
-  })
+  // Calculate stats
+  const employes = allIntervenants.filter((e) => ['cdi', 'cdd', 'apprenti'].includes(e.type_contrat))
+  const interimaires = allIntervenants.filter((e) => e.type_contrat === 'interimaire')
+  const sousTraitants = allIntervenants.filter((e) => e.type_contrat === 'sous-traitant')
 
-  const filteredEmployes = tabData.filter((e) => {
+  // Apply filters
+  const filtered = allIntervenants.filter((e) => {
+    // Filter by type
+    const eType = getTypeFromContrat(e.type_contrat)
+    if (filterType !== 'tous' && eType !== filterType) return false
+
+    // Filter by métier
+    if (filterMetier !== 'tous' && e.metier !== filterMetier) return false
+
+    // Filter by search
     if (search) {
       const q = search.toLowerCase()
       const fullName = `${e.prenom} ${e.nom}`.toLowerCase()
@@ -121,17 +132,18 @@ export default function EquipePage() {
         e.email.toLowerCase().includes(q)
       )
     }
+
     return true
   })
 
-  // ------- Modal form state -------
+  // Modal form state
   const [form, setForm] = useState({
     prenom: '',
     nom: '',
     email: '',
     telephone: '',
     metier: '',
-    type_contrat: 'cdi' as Intervenant['type_contrat'],
+    type_contrat: 'cdi' as IntervenantType,
     niveau_acces: 'compagnon' as Intervenant['niveau_acces'],
   })
 
@@ -192,154 +204,282 @@ export default function EquipePage() {
 
   return (
     <div className="space-y-6">
-      {/* Sub-navigation */}
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-        {TAB_OPTIONS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-syne font-bold -mb-px border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === tab.key
-                ? 'text-[#0f1a3a] border-[#5ab4e0]'
-                : 'text-[#6b7280] border-transparent hover:text-[#1a1a2e]'
-            }`}
-          >
-            <tab.icon size={15} />
-            {tab.label}
-          </button>
-        ))}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">Mon équipe</h1>
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#f59e0b] hover:bg-[#f08c1c] text-white text-sm font-syne font-bold transition-colors"
+        >
+          <Plus size={16} />
+          Ajouter un membre
+        </button>
       </div>
 
-      {activeTab !== 'materiels' ? (
-        <>
-          {/* Action bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Rechercher un employé..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-10 rounded-lg border border-gray-200 pl-9 pr-4 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
-              />
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors"
-            >
-              <Plus size={16} />
-              Nouvel employé
-            </button>
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead>
-                <tr className="bg-gray-50">
-                  {['Nom', 'Contrat', 'Métier', 'Email', 'Téléphone', ''].map((col, i) => (
-                    <th
-                      key={`${col}-${i}`}
-                      className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployes.map((employe, idx) => (
-                  <tr
-                    key={employe.id}
-                    className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                      idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-8 h-8 rounded-full ${getAvatarColor(employe.couleur, employe.id)} flex items-center justify-center text-white text-xs font-syne font-bold`}>
-                          {getInitials(employe.prenom, employe.nom)}
-                        </div>
-                        <span className="text-sm font-manrope font-semibold text-[#1a1a2e]">{employe.prenom} {employe.nom}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-manrope text-gray-600">{CONTRAT_LABELS[employe.type_contrat] || employe.type_contrat}</td>
-                    <td className="px-4 py-3 text-sm font-manrope text-gray-600">{employe.metier}</td>
-                    <td className="px-4 py-3 text-sm font-manrope text-gray-600">{employe.email}</td>
-                    <td className="px-4 py-3 text-sm font-manrope text-gray-600">{employe.telephone}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {employe.niveau_acces === 'compagnon' && (
-                          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors">
-                            <UserPlus size={13} />
-                            Inviter
-                          </button>
-                        )}
-                        {deleteConfirm === employe.id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDelete(employe.id)}
-                              className="px-2 py-1 rounded bg-red-500 text-white text-xs font-syne font-bold hover:bg-red-600 transition-colors"
-                            >
-                              Confirmer
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="px-2 py-1 rounded bg-gray-200 text-gray-600 text-xs font-syne font-bold hover:bg-gray-300 transition-colors"
-                            >
-                              Annuler
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirm(employe.id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Supprimer"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {filteredEmployes.length === 0 && (
-              <div className="py-12 text-center">
-                <Users size={40} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-sm font-manrope text-gray-500">Aucun employé trouvé</p>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        /* Empty state for materiels tab */
-        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <Wrench size={32} className="text-gray-400" />
-          </div>
-          <p className="text-sm font-manrope text-[#6b7280] mb-4">
-            Aucun {EMPTY_LABELS[activeTab]} enregistré
-          </p>
-          <button className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors">
-            <Plus size={16} />
-            Ajouter
-          </button>
+      {/* Stats chips */}
+      <div className="flex flex-wrap gap-2">
+        <div className="px-3 py-1.5 rounded-full bg-blue-100 text-sm font-manrope text-[#0f1a3a]">
+          <span className="font-semibold">{employes.length}</span> employé{employes.length !== 1 ? 's' : ''}
         </div>
-      )}
+        <div className="px-3 py-1.5 rounded-full bg-amber-100 text-sm font-manrope text-[#0f1a3a]">
+          <span className="font-semibold">{interimaires.length}</span> intérimaire{interimaires.length !== 1 ? 's' : ''}
+        </div>
+        <div className="px-3 py-1.5 rounded-full bg-emerald-100 text-sm font-manrope text-[#0f1a3a]">
+          <span className="font-semibold">{sousTraitants.length}</span> sous-traitant{sousTraitants.length !== 1 ? 's' : ''}
+        </div>
+      </div>
 
-      {/* Modal: Nouvel employé */}
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher un membre..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-10 rounded-lg border border-gray-200 pl-9 pr-4 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
+          />
+        </div>
+
+        {/* Type filter */}
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as FilterType)}
+          className="h-10 px-3 rounded-lg border border-gray-200 text-sm font-manrope text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
+        >
+          <option value="tous">Tous les types</option>
+          <option value="employe">Employés</option>
+          <option value="interimaire">Intérimaires</option>
+          <option value="sous-traitant">Sous-traitants</option>
+        </select>
+
+        {/* Métier filter */}
+        <select
+          value={filterMetier}
+          onChange={(e) => setFilterMetier(e.target.value)}
+          className="h-10 px-3 rounded-lg border border-gray-200 text-sm font-manrope text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
+        >
+          <option value="tous">Tous les métiers</option>
+          {uniqueMetiers.map((metier) => (
+            <option key={metier} value={metier}>
+              {metier}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Avatar</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Nom</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Contrat</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Métier</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Email</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Téléphone</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((intervenant, idx) => {
+              const type = getTypeFromContrat(intervenant.type_contrat)
+              const typeColor = TYPE_COLORS[type]
+              return (
+                <tr
+                  key={intervenant.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className={`w-8 h-8 rounded-full ${getAvatarColor(intervenant.couleur, intervenant.id)} flex items-center justify-center text-white text-xs font-syne font-bold`}>
+                      {getInitials(intervenant.prenom, intervenant.nom)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">{intervenant.nom}</p>
+                      <p className="text-xs font-manrope text-gray-500">{intervenant.prenom}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="px-2 py-1 rounded-full text-xs font-syne font-bold text-white"
+                      style={{ backgroundColor: typeColor.badge }}
+                    >
+                      {TYPE_LABELS[type]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">
+                    {CONTRAT_LABELS[intervenant.type_contrat] || intervenant.type_contrat}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{intervenant.metier}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{intervenant.email}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{intervenant.telephone}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {intervenant.niveau_acces === 'compagnon' && (
+                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors">
+                          <UserPlus size={13} />
+                          Inviter
+                        </button>
+                      )}
+                      {deleteConfirm === intervenant.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDelete(intervenant.id)}
+                            className="px-2 py-1 rounded bg-red-500 text-white text-xs font-syne font-bold hover:bg-red-600 transition-colors"
+                          >
+                            Confirmer
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(null)}
+                            className="px-2 py-1 rounded bg-gray-200 text-gray-600 text-xs font-syne font-bold hover:bg-gray-300 transition-colors"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(intervenant.id)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {filtered.length === 0 && (
+          <div className="py-12 text-center">
+            <Users size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun membre trouvé</p>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile cards */}
+      <div className="sm:hidden space-y-3">
+        {filtered.map((intervenant) => {
+          const type = getTypeFromContrat(intervenant.type_contrat)
+          const typeColor = TYPE_COLORS[type]
+          return (
+            <div
+              key={intervenant.id}
+              className="bg-white rounded-lg border border-gray-200 p-4 space-y-3"
+            >
+              {/* Line 1: Avatar + Nom Prénom + Type badge */}
+              <div className="flex items-start gap-3 justify-between">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(intervenant.couleur, intervenant.id)} flex items-center justify-center text-white text-sm font-syne font-bold flex-shrink-0`}>
+                    {getInitials(intervenant.prenom, intervenant.nom)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">
+                      {intervenant.nom} {intervenant.prenom}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="px-2 py-1 rounded-full text-xs font-syne font-bold text-white whitespace-nowrap"
+                  style={{ backgroundColor: typeColor.badge }}
+                >
+                  {TYPE_LABELS[type]}
+                </span>
+              </div>
+
+              {/* Line 2: Métier · Contrat */}
+              <div className="text-xs font-manrope text-gray-500">
+                {intervenant.metier} · {CONTRAT_LABELS[intervenant.type_contrat] || intervenant.type_contrat}
+              </div>
+
+              {/* Line 3: Email */}
+              <div className="text-xs font-manrope text-gray-600">{intervenant.email}</div>
+
+              {/* Line 4: Téléphone */}
+              <div className="text-xs font-manrope text-gray-600">{intervenant.telephone}</div>
+
+              {/* Line 5: Actions */}
+              <div className="flex items-center gap-2 pt-2">
+                {intervenant.niveau_acces === 'compagnon' && (
+                  <button className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors">
+                    <UserPlus size={13} />
+                    Inviter
+                  </button>
+                )}
+                {deleteConfirm === intervenant.id ? (
+                  <div className="flex items-center gap-1 flex-1">
+                    <button
+                      onClick={() => handleDelete(intervenant.id)}
+                      className="flex-1 px-2 py-1 rounded bg-red-500 text-white text-xs font-syne font-bold hover:bg-red-600 transition-colors"
+                    >
+                      Confirmer
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      className="flex-1 px-2 py-1 rounded bg-gray-200 text-gray-600 text-xs font-syne font-bold hover:bg-gray-300 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirm(intervenant.id)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {filtered.length === 0 && (
+          <div className="py-12 text-center">
+            <Users size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm font-manrope text-gray-500">Aucun membre trouvé</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Ajouter un membre */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouvel employé</h2>
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Ajouter un membre</h2>
               <button onClick={() => { setShowModal(false); resetForm() }} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
                 <X size={18} className="text-gray-500" />
               </button>
+            </div>
+
+            {/* Type select first */}
+            <div>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Type *</label>
+              <select
+                value={form.type_contrat}
+                onChange={(e) => setForm({ ...form, type_contrat: e.target.value as IntervenantType })}
+                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              >
+                <option value="cdi">Employé (CDI)</option>
+                <option value="cdd">Employé (CDD)</option>
+                <option value="apprenti">Apprenti</option>
+                <option value="interimaire">Intérimaire</option>
+                <option value="sous-traitant">Sous-traitant</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -363,6 +503,16 @@ export default function EquipePage() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Métier</label>
+              <input
+                type="text"
+                value={form.metier}
+                onChange={(e) => setForm({ ...form, metier: e.target.value })}
+                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Email</label>
@@ -384,31 +534,6 @@ export default function EquipePage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Métier</label>
-              <input
-                type="text"
-                value={form.metier}
-                onChange={(e) => setForm({ ...form, metier: e.target.value })}
-                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Contrat</label>
-              <select
-                value={form.type_contrat}
-                onChange={(e) => setForm({ ...form, type_contrat: e.target.value as Intervenant['type_contrat'] })}
-                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
-              >
-                <option value="cdi">CDI</option>
-                <option value="cdd">CDD</option>
-                <option value="apprenti">Apprenti</option>
-                <option value="interimaire">Intérimaire</option>
-                <option value="sous-traitant">Sous-traitant</option>
-              </select>
-            </div>
-
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => { setShowModal(false); resetForm() }}
@@ -419,7 +544,7 @@ export default function EquipePage() {
               <button
                 onClick={handleCreate}
                 disabled={saving || !form.prenom || !form.nom}
-                className="h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
+                className="h-10 px-5 rounded-lg bg-[#f59e0b] hover:bg-[#f08c1c] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
               >
                 {saving ? 'Enregistrement...' : 'Créer'}
               </button>

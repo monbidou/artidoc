@@ -275,11 +275,15 @@ function NouveauDevisPage() {
 
   // Auto-cocher la TVA 0 si l'entreprise est en franchise (micro-entrepreneur / EI non assujetti)
   // Lu depuis le profil entreprise → plus besoin de cocher manuellement à chaque nouveau devis.
+  // On coche aussi si la forme juridique implique la franchise (micro-entreprise / EI),
+  // même si le toggle "franchise_tva" n'a pas été activé manuellement.
   useEffect(() => {
-    if (entreprise?.franchise_tva === true) {
+    const fj = (entreprise?.forme_juridique || '').toLowerCase()
+    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle')
+    if (entreprise?.franchise_tva === true || estMicro) {
       setAutoEntrepreneur(true)
     }
-  }, [entreprise?.franchise_tva])
+  }, [entreprise?.franchise_tva, entreprise?.forme_juridique])
   const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
   const [useForfait, setUseForfait] = useState(false)
   const [forfaitHT, setForfaitHT] = useState(0)

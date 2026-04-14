@@ -34,11 +34,14 @@ export default function ModifierDevisPage() {
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
 
   // Auto-cocher TVA 0 si l'entreprise est en franchise (propage le paramètre entreprise)
+  // + forcer si forme juridique = micro-entreprise / EI (franchise par défaut)
   useEffect(() => {
-    if (entreprise?.franchise_tva === true) {
+    const fj = (entreprise?.forme_juridique || '').toLowerCase()
+    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle')
+    if (entreprise?.franchise_tva === true || estMicro) {
       setAutoEntrepreneur(true)
     }
-  }, [entreprise?.franchise_tva])
+  }, [entreprise?.franchise_tva, entreprise?.forme_juridique])
 
   const [dateDevis, setDateDevis] = useState('')
   const [dateValidite, setDateValidite] = useState('')
