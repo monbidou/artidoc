@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Search,
@@ -37,7 +37,16 @@ type FilterPeriod = 'Tous' | 'Ce mois' | 'Ce trimestre'
 // Page
 // -------------------------------------------------------------------
 
+// Wrapper en Suspense (requis par Next.js 14 pour useSearchParams() en client component)
 export default function AchatsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-gray-500">Chargement...</div>}>
+      <AchatsPageInner />
+    </Suspense>
+  )
+}
+
+function AchatsPageInner() {
   const { data: achats, loading: achatsLoading, error: achatsError, refetch: refetchAchats } = useAchats()
   const { data: fournisseurs, loading: fournisseursLoading } = useFournisseurs()
   const { data: chantiers, loading: chantiersLoading } = useChantiers()

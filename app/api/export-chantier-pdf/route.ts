@@ -8,6 +8,10 @@ import {
   secureError, rateLimitError, unauthorizedError,
 } from '@/lib/api-security'
 
+// Force le rendu dynamique : la route lit cookies/headers (auth user) donc
+// elle ne peut pas être prerendered statiquement par Next.js.
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     // ✅ SÉCURITÉ : Rate limiting (5 exports par minute par IP)
