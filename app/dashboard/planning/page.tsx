@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import {
   usePlanning, useIntervenants, useClients, useChantiers, useDevis,
-  insertRow, updateRow, deleteRow, LoadingSkeleton,
+  insertRow, updateRow, deleteRow, LoadingSkeleton, useEntreprise,
 } from '@/lib/hooks'
 import { useRouter } from 'next/navigation'
 
@@ -18,13 +18,14 @@ import { useRouter } from 'next/navigation'
 
 type R = Record<string, unknown>
 type ViewPreset = 'complete' | 'planning' | 'annual'
-type Creneau = 'matin' | 'apres_midi' | 'journee'
+type Creneau = 'matin' | 'apres_midi' | 'journee' | 'creneau'
 type FilterType = 'all' | 'client' | 'chantier' | 'conflict'
 
 const CRENEAUX: { value: Creneau; label: string; heures: string }[] = [
-  { value: 'journee', label: 'Journée', heures: '8h-17h' },
-  { value: 'matin', label: 'Matin', heures: '8h-12h' },
-  { value: 'apres_midi', label: 'Après-midi', heures: '13h-17h' },
+  { value: 'journee', label: 'Journée entière', heures: '8h-17h' },
+  { value: 'matin', label: 'Demi-journée matin', heures: '8h-12h' },
+  { value: 'apres_midi', label: 'Demi-journée après-midi', heures: '13h-17h' },
+  { value: 'creneau', label: 'Créneau personnalisé', heures: 'Custom' },
 ]
 
 const PALETTE = [
@@ -96,6 +97,7 @@ export default function PlanningPage() {
   const { data: clients, loading: l3 } = useClients()
   const { data: chantiers } = useChantiers()
   const { data: devisData } = useDevis()
+  const { entreprise } = useEntreprise()
 
   // ── State ──
   const [viewPreset, setViewPreset] = useState<ViewPreset>('complete')
@@ -113,6 +115,7 @@ export default function PlanningPage() {
   const [dragOverCell, setDragOverCell] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
+  const autoDetectedRef = useRef(false)
 
   // Modal state
   const [mDevis, setMDevis] = useState('')
@@ -126,8 +129,22 @@ export default function PlanningPage() {
   const [mNotes, setMNotes] = useState('')
   const [mStatut, setMStatut] = useState('planifie')
   const [submitting, setSubmitting] = useState(false)
+  const [mHeureDebut, setMHeureDebut] = useState('08:00')
+  const [mHeureFin, setMHeureFin] = useState('17:00')
+  const [mConflitWarning, setMConflitWarning] = useState<string | null>(null)
 
   const loading = l1 || l2 || l3
+
+  // ── Auto-detect Solo mode for sole proprietors (once on load) ──
+  useEffect(() => {
+    if (entreprise && !autoDetectedRef.current) {
+      const formeJuridique = (entreprise.forme_juridique as string ?? '').toLowerCase()
+      if (formeJuridique.includes('micro') || formeJuridique === 'ei' || formeJuridique.includes('entreprise individuelle')) {
+        setIsSociete(false)
+      }
+      autoDetectedRef.current = true
+    }
+  }, [entreprise])
 
   // ── View preset effects ──
   useEffect(() => {
@@ -350,6 +367,50 @@ export default function PlanningPage() {
   const openPanel = (intervention: R) => { setPanelIntervention(intervention); setShowPanel(true) }
   const closePanel = () => { setShowPanel(false); setPanelIntervention(null) }
 
+  // ── Conflict detection for custom slots ──
+  const checkCreneauConflits = (ivId: string, dateStr: string, heureDebut: string, heureFin: string): string | null => {
+    const existingOnDay = planningData.filter(p => {
+      const rec = p as R
+      return rec.intervenant_id === ivId && (rec.date_debut as string)?.split('T')[0] === dateStr
+    })
+
+    const timeToMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    const startMin = timeToMinutes(heureDebut)
+    const endMin = timeToMinutes(heureFin)
+
+    for (const item of existingOnDay) {
+      const rec = item as R
+      const creneauType = rec.creneau as string
+      let existingStart = 0, existingEnd = 0
+
+      if (creneauType === 'journee') {
+        existingStart = timeToMinutes('08:00')
+        existingEnd = timeToMinutes('17:00')
+      } else if (creneauType === 'matin') {
+        existingStart = timeToMinutes('08:00')
+        existingEnd = timeToMinutes('12:00')
+      } else if (creneauType === 'apres_midi') {
+        existingStart = timeToMinutes('13:00')
+        existingEnd = timeToMinutes('17:00')
+      } else if (creneauType === 'creneau') {
+        existingStart = timeToMinutes((rec.heure_debut as string) || '08:00')
+        existingEnd = timeToMinutes((rec.heure_fin as string) || '17:00')
+      }
+
+      // Overlap check: not (endMin <= existingStart OR startMin >= existingEnd)
+      if (!(endMin <= existingStart || startMin >= existingEnd)) {
+        const chantier = chantierMap.get(rec.chantier_id as string) as R | undefined
+        const chantierName = chantier ? `${chantier.titre}` : 'Chantier inconnu'
+        return `Conflit détecté: ${existingStart}h-${existingEnd}h sur ${chantierName} (avertissement)`
+      }
+    }
+    return null
+  }
+
   // ── Modal ──
   const openModal = (dateStr?: string, intervenantId?: string, devisId?: string) => {
     // BUG D FIX : en mode Solo, auto-sélectionner l'unique intervenant affiché
@@ -358,6 +419,7 @@ export default function PlanningPage() {
     setMDevis(''); setMClient(''); setMIntervenant(defaultIvId); setMChantier('')
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
+    setMHeureDebut('08:00'); setMHeureFin('17:00'); setMConflitWarning(null)
     // Auto-fill from devis if provided
     if (devisId) {
       setMDevis(devisId)
@@ -389,10 +451,34 @@ export default function PlanningPage() {
 
   const submitIntervention = async () => {
     if (!mIntervenant || !mDate || !mObjet) return
+
+    // Validation du créneau personnalisé
+    if (mCreneau === 'creneau') {
+      if (!mHeureDebut || !mHeureFin) {
+        showToast('Veuillez définir les heures de début et fin')
+        return
+      }
+      if (mHeureFin <= mHeureDebut) {
+        showToast('L\'heure de fin doit être après l\'heure de début')
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
-      const startTime = mCreneau === 'apres_midi' ? '13:00' : '08:00'
-      const endTime = mCreneau === 'matin' ? '12:00' : '17:00'
+      let startTime: string, endTime: string
+
+      if (mCreneau === 'creneau') {
+        startTime = mHeureDebut
+        endTime = mHeureFin
+        // Vérifier les conflits (warning only, ne bloque pas)
+        const conflit = checkCreneauConflits(mIntervenant, mDate, startTime, endTime)
+        if (conflit) setMConflitWarning(conflit)
+      } else {
+        startTime = mCreneau === 'apres_midi' ? '13:00' : '08:00'
+        endTime = mCreneau === 'matin' ? '12:00' : '17:00'
+      }
+
       await insertRow('planning_interventions', {
         intervenant_id: mIntervenant,
         client_id: mClient || null,
@@ -441,10 +527,20 @@ export default function PlanningPage() {
   }
 
   // ── Intervenants list ──
+  // Solo mode: show self + any subcontractors (type_contrat = 'sous-traitant')
+  // Société mode: show all active intervenants
   const displayedIntervenants = useMemo(() => {
-    if (isSociete) return intervenants.filter(iv => (iv as R).actif !== false)
-    return intervenants.slice(0, 1)
+    if (isSociete) {
+      return intervenants.filter(iv => (iv as R).actif !== false)
+    }
+    // Solo mode: self + subcontractors
+    const self = intervenants.slice(0, 1)
+    const subcontractors = intervenants.filter(iv => (iv as R).type_contrat === 'sous-traitant' && (iv as R).actif !== false)
+    return [...self, ...subcontractors]
   }, [intervenants, isSociete])
+
+  // In Solo mode, check if there are any subcontractors (i.e., more than just self)
+  const soloHasSubcontractors = !isSociete && displayedIntervenants.length > 1
 
   // ── Name helpers ──
   const ivName = (id: string) => {
@@ -719,9 +815,17 @@ export default function PlanningPage() {
                     </div>
 
                     {/* Grid: intervenants × days */}
-                    <div className={`grid min-w-max ${isSociete ? 'grid-cols-[220px_repeat(5,145px)]' : 'grid-cols-[220px_repeat(5,145px)]'}`}>
+                    {/* Solo mode: hide artisan column if no subcontractors (full width days); show column if subcontractors exist (reduced width) */}
+                    <div className={`grid min-w-max ${
+                      isSociete
+                        ? 'grid-cols-[220px_repeat(5,1fr)]'
+                        : soloHasSubcontractors
+                          ? 'grid-cols-[180px_repeat(5,minmax(200px,1fr))]'
+                          : 'grid-cols-[repeat(5,minmax(200px,1fr))]'
+                    }`}>
                       {/* Day headers */}
-                      <div className="bg-[#f6f8fb]/50 border-r border-[#e6ecf2]" />
+                      {/* Artisan column header: hidden in Solo mode without subcontractors */}
+                      {(isSociete || soloHasSubcontractors) && <div className="bg-[#f6f8fb]/50 border-r border-[#e6ecf2]" />}
                       {week.days.map(day => (
                         <div key={day.dateStr} className={`px-2 py-1.5 text-center border-r border-[#e6ecf2] last:border-r-0 ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : ''}`}>
                           <div className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-[#5ab4e0]' : 'text-[#7b8ba3]'}`}>
@@ -738,20 +842,22 @@ export default function PlanningPage() {
 
                         return (
                           <div key={`${wi}-${ivId}`} className="contents">
-                            {/* Label */}
-                            <div className="px-3 py-2.5 border-r border-b border-[#e6ecf2] bg-[#f6f8fb]/30 flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ background: color.hex }}>
-                                {initials(`${r.prenom ?? ''} ${r.nom ?? ''}`)}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-syne font-bold text-[#0f1a3a] truncate">
-                                  {isSociete ? `${String(r.prenom ?? '')} ${String(r.nom ?? '').charAt(0)}.` : 'Moi'}
+                            {/* Label — hidden in Solo mode without subcontractors */}
+                            {(isSociete || soloHasSubcontractors) && (
+                              <div className="px-3 py-2.5 border-r border-b border-[#e6ecf2] bg-[#f6f8fb]/30 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ background: color.hex }}>
+                                  {initials(`${r.prenom ?? ''} ${r.nom ?? ''}`)}
                                 </div>
-                                <div className="text-[11px] text-[#5ab4e0] font-semibold truncate bg-[#e8f4fb] px-2 py-0.5 rounded-md inline-block mt-0.5">
-                                  {String(r.metier ?? '')}
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-syne font-bold text-[#0f1a3a] truncate">
+                                    {isSociete ? `${String(r.prenom ?? '')} ${String(r.nom ?? '').charAt(0)}.` : String(r.prenom ?? '')}
+                                  </div>
+                                  <div className="text-[11px] text-[#5ab4e0] font-semibold truncate bg-[#e8f4fb] px-2 py-0.5 rounded-md inline-block mt-0.5">
+                                    {String(r.metier ?? '')}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Day cells */}
                             {week.days.map(day => {
@@ -761,38 +867,62 @@ export default function PlanningPage() {
 
                               return (
                                 <div key={cellKey}
-                                  className={`min-h-[60px] px-1 py-0.5 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
+                                  className={`min-h-[90px] px-1.5 py-1 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
                                   onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                                   onDragLeave={() => setDragOverCell(null)}
                                   onDrop={e => { e.preventDefault(); handleDrop(ivId, day.dateStr) }}>
 
-                                  {interventions.filter(isFiltered).map(item => {
-                                    const rec = item as R
-                                    const isConflict = conflicts.has(rec.id as string)
-                                    const isDragged = draggedId === rec.id as string
-                                    const statut = STATUTS.find(s => s.value === rec.statut)
+                                  <div className="flex flex-col gap-0.5">
+                                    {interventions.filter(isFiltered).map(item => {
+                                      const rec = item as R
+                                      const isConflict = conflicts.has(rec.id as string)
+                                      const isDragged = draggedId === rec.id as string
+                                      const statut = STATUTS.find(s => s.value === rec.statut)
+                                      const isCreneau = (rec.creneau as string) === 'creneau'
+                                      const heureDebut = rec.heure_debut as string || '08:00'
+                                      const heureFin = rec.heure_fin as string || '17:00'
 
-                                    return (
-                                      <div key={rec.id as string}
-                                        draggable
-                                        onDragStart={() => handleDragStart(rec.id as string)}
-                                        onDragEnd={handleDragEnd}
-                                        onClick={() => openPanel(rec)}
-                                        className={`p-1 rounded-md mb-0.5 cursor-grab active:cursor-grabbing transition-all border-l-[3px] text-[9px] leading-tight ${color.bg} ${color.border} ${color.text}
-                                          ${isDragged ? 'opacity-30' : ''} ${isConflict ? 'ring-1 ring-[#ef4444]' : ''} hover:shadow-md`}>
-                                        {statut && (
-                                          <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded ${statut.color} float-right ml-1`}>
-                                            {statut.label}
-                                          </span>
-                                        )}
-                                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-60">
-                                          {creneauLabel(rec.creneau as string)}
+                                      // Hauteur proportionnelle pour créneaux (base 60px pour 480min journée)
+                                      let heightPx = 0
+                                      let timeDisplay = ''
+                                      if (isCreneau) {
+                                        const startMin = parseInt(heureDebut.split(':')[0]) * 60 + parseInt(heureDebut.split(':')[1])
+                                        const endMin = parseInt(heureFin.split(':')[0]) * 60 + parseInt(heureFin.split(':')[1])
+                                        const durationMin = endMin - startMin
+                                        heightPx = Math.max(40, Math.round((durationMin / 480) * 60))
+                                        timeDisplay = `${heureDebut}–${heureFin}`
+                                      }
+
+                                      return (
+                                        <div key={rec.id as string}
+                                          draggable
+                                          onDragStart={() => handleDragStart(rec.id as string)}
+                                          onDragEnd={handleDragEnd}
+                                          onClick={() => openPanel(rec)}
+                                          className={`p-2 rounded-lg mb-1 cursor-grab active:cursor-grabbing transition-all border-l-[3px] leading-normal ${color.bg} ${color.border} ${color.text}
+                                            ${isDragged ? 'opacity-30' : ''} ${isConflict ? 'ring-1 ring-[#ef4444]' : ''} hover:shadow-md hover:scale-[1.01]`}
+                                          style={isCreneau ? { minHeight: `${heightPx}px` } : {}}>
+                                          {isCreneau && (
+                                            <div className="text-[10px] font-extrabold text-[#0f1a3a] leading-tight">
+                                              {timeDisplay}
+                                            </div>
+                                          )}
+                                          {statut && (
+                                            <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded ${statut.color} float-right ml-1`}>
+                                              {statut.label}
+                                            </span>
+                                          )}
+                                          {!isCreneau && (
+                                            <div className="text-[9px] font-bold uppercase tracking-wide opacity-70">
+                                              {creneauLabel(rec.creneau as string)}
+                                            </div>
+                                          )}
+                                          {clNameFromIntervention(rec) && <div className="font-extrabold text-[10px] mt-0.5">{clNameFromIntervention(rec)}</div>}
+                                          <div className="text-xs font-medium opacity-80 mt-1 pr-2 line-clamp-3 leading-snug">{String(rec.titre ?? rec.description_travaux ?? '—')}</div>
                                         </div>
-                                        {clNameFromIntervention(rec) && <div className="font-extrabold text-[10px] mt-0.5">{clNameFromIntervention(rec)}</div>}
-                                        <div className="text-[9px] font-medium opacity-75 mt-0.5 pr-8 line-clamp-1">{String(rec.titre ?? rec.description_travaux ?? '—')}</div>
-                                      </div>
-                                    )
-                                  })}
+                                      )
+                                    })}
+                                  </div>
 
                                   {/* Add button */}
                                   <button onClick={() => openModal(day.dateStr, ivId)}
@@ -984,7 +1114,14 @@ export default function PlanningPage() {
                   </div>
                   <div>
                     <div className="text-[11px] text-[#7b8ba3] mb-1">Créneau</div>
-                    <div className="text-[13px] font-semibold">{creneauLabel(panelIntervention.creneau as string)}</div>
+                    <div className="text-[13px] font-semibold">
+                      {creneauLabel(panelIntervention.creneau as string)}
+                      {(panelIntervention.creneau as string) === 'creneau' && (
+                        <span className="text-[12px] text-[#5ab4e0] ml-2">
+                          {String(panelIntervention.heure_debut ?? '—')} – {String(panelIntervention.heure_fin ?? '—')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <div className="text-[11px] text-[#7b8ba3] mb-1">Travaux</div>
@@ -1116,11 +1253,43 @@ export default function PlanningPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Créneau</label>
-                  <select value={mCreneau} onChange={e => setMCreneau(e.target.value as Creneau)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
+                  <select value={mCreneau} onChange={e => { setMCreneau(e.target.value as Creneau); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
                     {CRENEAUX.map(c => <option key={c.value} value={c.value}>{c.label} ({c.heures})</option>)}
                   </select>
                 </div>
               </div>
+
+              {/* Créneau personnalisé: heure début et fin */}
+              {mCreneau === 'creneau' && (
+                <div className="bg-[#e8f4fb]/30 border border-[#5ab4e0]/20 rounded-xl p-3.5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#5ab4e0]" />
+                    <span className="text-xs font-bold text-[#0f1a3a]">Définir les horaires précis</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Heure début *</label>
+                      <input type="time" value={mHeureDebut} onChange={e => { setMHeureDebut(e.target.value); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Heure fin *</label>
+                      <input type="time" value={mHeureFin} onChange={e => { setMHeureFin(e.target.value); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                    </div>
+                  </div>
+                  {mHeureFin <= mHeureDebut && (
+                    <div className="text-xs text-red-600 font-semibold flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      L'heure de fin doit être après l'heure de début
+                    </div>
+                  )}
+                  {mConflitWarning && (
+                    <div className="text-xs text-amber-600 font-semibold flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{mConflitWarning}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">

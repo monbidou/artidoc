@@ -147,13 +147,25 @@ export default function ChantierDetailPage() {
   const equipeAffichage = useMemo(() => {
     const result = [...(equipe as R[])]
     const knownIds = new Set(result.map(e => e.intervenant_id as string))
-    const planningIds = new Set<string>()
+
+    // Dédupliquer strictement sur intervenant_id UNIQUEMENT
+    const seenPlanning = new Set<string>()
+    const toAdd: string[] = []
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(chantierInterventions as any[]).forEach((p) => {
       const ivId = p?.intervenant_id as string | undefined
-      if (ivId && !knownIds.has(ivId)) planningIds.add(ivId)
+      // Ajouter SEULEMENT si:
+      // 1. ivId est non-vide
+      // 2. Pas dans les manuels (knownIds)
+      // 3. Pas déjà vu dans le planning (seenPlanning)
+      if (ivId && !knownIds.has(ivId) && !seenPlanning.has(ivId)) {
+        seenPlanning.add(ivId)
+        toAdd.push(ivId)
+      }
     })
-    planningIds.forEach(ivId => {
+
+    toAdd.forEach(ivId => {
       result.push({
         id: `auto-${ivId}`,
         chantier_id: id,
@@ -162,6 +174,7 @@ export default function ChantierDetailPage() {
         _autoFromPlanning: true,
       })
     })
+
     return result
   }, [equipe, chantierInterventions, id])
 
@@ -566,22 +579,22 @@ export default function ChantierDetailPage() {
               const devisAmt = linkedDevis ? formatEur(Number(linkedDevis.montant_ttc ?? 0)) : ''
 
               return (
-                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(14,1fr)] mb-1.5 min-h-[68px] items-stretch">
+                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(14,1fr)] mb-2 min-h-[72px] items-stretch">
                   {/* Label */}
-                  <div className="py-2 pr-3 flex flex-col gap-1">
+                  <div className="py-3 pr-3 flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-sm font-bold text-[#1e293b]">
                       <span className="w-2.5 h-2.5 rounded flex-shrink-0" style={{ background: hex }} />
                       {metier || ivName}
                     </div>
                     <div className="text-[11px] text-[#7b8ba3] pl-[18px]">{ivName} {devisRef && `• ${devisRef} : ${devisAmt}`}</div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-fit ml-[18px] ${statusCls}`}>{statusLabel}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md w-fit ml-[18px] ${statusCls}`}>{statusLabel}</span>
                   </div>
 
                   {/* Day cells */}
                   {ganttDays.map((day, di) => {
                     const intervention = dayMap.get(day.dateStr)
                     if (!intervention) {
-                      return <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[68px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
+                      return <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[72px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
                         {day.isToday && <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-[#ef4444] z-10"><span className="absolute -top-1 -left-[3px] w-2 h-2 bg-[#ef4444] rounded-full" /></div>}
                       </div>
                     }
@@ -592,15 +605,15 @@ export default function ChantierDetailPage() {
                     const hasPrev = prevDay && dayMap.has(prevDay.dateStr)
                     const hasNext = nextDay && dayMap.has(nextDay.dateStr)
                     const radius = hasPrev && hasNext ? 'rounded-none' : hasPrev ? 'rounded-r-lg rounded-l-none' : hasNext ? 'rounded-l-lg rounded-r-none' : 'rounded-lg'
-                    const margin = hasPrev ? 'ml-0' : 'ml-0.5'
-                    const marginR = hasNext ? 'mr-0' : 'mr-0.5'
+                    const margin = hasPrev ? 'ml-0' : 'ml-1'
+                    const marginR = hasNext ? 'mr-0' : 'mr-1'
 
                     return (
-                      <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[68px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
-                        <div className={`absolute top-1 bottom-1 ${margin} ${marginR} ${radius} flex flex-col justify-center px-3 text-white cursor-pointer hover:brightness-105 transition-all`}
-                          style={{ background: hex, left: hasPrev ? '-1px' : '2px', right: hasNext ? '-1px' : '2px', outline: '2px solid rgba(255,255,255,.15)', outlineOffset: '-2px' }}>
-                          <div className="text-[12px] font-bold truncate">{ivName}</div>
-                          <div className="text-[10px] font-medium opacity-85 truncate">{String(intervention.titre ?? '')}</div>
+                      <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[72px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
+                        <div className={`absolute top-1.5 bottom-1.5 ${margin} ${marginR} ${radius} flex flex-col justify-center px-3 py-2 text-white cursor-pointer hover:brightness-105 transition-all`}
+                          style={{ background: hex, left: hasPrev ? '-1px' : '4px', right: hasNext ? '-1px' : '4px', outline: '2px solid rgba(255,255,255,.15)', outlineOffset: '-2px' }}>
+                          <div className="text-xs font-bold line-clamp-2">{ivName}</div>
+                          <div className="text-[10px] font-medium opacity-85 line-clamp-2">{String(intervention.titre ?? '')}</div>
                         </div>
                         {day.isToday && <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-[#ef4444] z-10"><span className="absolute -top-1 -left-[3px] w-2 h-2 bg-[#ef4444] rounded-full" /></div>}
                       </div>
