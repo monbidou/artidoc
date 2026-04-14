@@ -17,37 +17,49 @@ export default function AuthConfirmPage() {
     async function handleConfirm() {
       const supabase = createClient()
 
-      // Supabase met les tokens dans le hash fragment (#access_token=...&refresh_token=...)
-      // Le client Supabase les détecte automatiquement via onAuthStateChange
-      // On attend juste que la session soit établie
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // 1. Extraire manuellement les tokens du hash fragment (#access_token=...&refresh_token=...)
+      // Supabase ne le fait pas toujours automatiquement, surtout avec @supabase/ssr.
+      const hash = typeof window !== 'undefined' ? window.location.hash.substring(1) : ''
+      const params = new URLSearchParams(hash)
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const errorParam = params.get('error')
+      const errorDescription = params.get('error_description')
 
-      if (session && !error) {
+      // 2. Si Supabase a renvoyé une erreur dans l'URL (token expiré/déjà utilisé)
+      if (errorParam) {
+        console.error('Supabase auth error in URL:', errorParam, errorDescription)
+        setStatus('error')
+        return
+      }
+
+      // 3. Si on a les tokens, créer la session manuellement
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+
+        if (data.session && !error) {
+          setStatus('success')
+          // Nettoyer le hash de l'URL pour éviter qu'il traîne
+          window.history.replaceState(null, '', window.location.pathname)
+          setTimeout(() => router.push('/dashboard'), 600)
+          return
+        }
+        console.error('setSession error:', error)
+      }
+
+      // 4. Fallback : peut-être que la session existe déjà (utilisateur déjà connecté)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
         setStatus('success')
-        // Petit délai pour que le cookie de session soit bien posé
         setTimeout(() => router.push('/dashboard'), 500)
         return
       }
 
-      // Si pas de session immédiate, attendre un changement d'état auth
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-        if (event === 'SIGNED_IN' && newSession) {
-          setStatus('success')
-          subscription.unsubscribe()
-          setTimeout(() => router.push('/dashboard'), 500)
-        }
-      })
-
-      // Timeout : si rien après 5 secondes, afficher une erreur
-      setTimeout(() => {
-        setStatus(prev => {
-          if (prev === 'loading') {
-            subscription.unsubscribe()
-            return 'error'
-          }
-          return prev
-        })
-      }, 5000)
+      // 5. Sinon, vraie erreur
+      setStatus('error')
     }
 
     handleConfirm()
@@ -85,9 +97,10 @@ export default function AuthConfirmPage() {
                 <line x1="9" y1="9" x2="15" y2="15" />
               </svg>
             </div>
-            <h1 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">Lien expiré ou invalide</h1>
+            <h1 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">Votre compte est peut-être déjà confirmé</h1>
             <p className="font-manrope text-sm text-gray-500 mb-6">
-              Le lien de confirmation a peut-être expiré. Essayez de vous connecter ou demandez un nouveau lien.
+              Si vous avez déjà cliqué sur ce lien, votre compte est probablement actif.
+              Essayez de vous connecter directement.
             </p>
             <div className="flex gap-3 justify-center">
               <button
