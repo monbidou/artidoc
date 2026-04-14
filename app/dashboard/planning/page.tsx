@@ -719,7 +719,7 @@ export default function PlanningPage() {
                     </div>
 
                     {/* Grid: intervenants × days */}
-                    <div className={`grid min-w-max ${isSociete ? 'grid-cols-[150px_repeat(5,1fr)]' : 'grid-cols-[150px_repeat(5,1fr)]'}`}>
+                    <div className={`grid min-w-max ${isSociete ? 'grid-cols-[220px_repeat(5,145px)]' : 'grid-cols-[220px_repeat(5,145px)]'}`}>
                       {/* Day headers */}
                       <div className="bg-[#f6f8fb]/50 border-r border-[#e6ecf2]" />
                       {week.days.map(day => (
@@ -739,15 +739,17 @@ export default function PlanningPage() {
                         return (
                           <div key={`${wi}-${ivId}`} className="contents">
                             {/* Label */}
-                            <div className="px-2.5 py-2 border-r border-b border-[#e6ecf2] bg-[#f6f8fb]/30 flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: color.hex }}>
+                            <div className="px-3 py-2.5 border-r border-b border-[#e6ecf2] bg-[#f6f8fb]/30 flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ background: color.hex }}>
                                 {initials(`${r.prenom ?? ''} ${r.nom ?? ''}`)}
                               </div>
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-bold text-[#0f1a3a] truncate">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-syne font-bold text-[#0f1a3a] truncate">
                                   {isSociete ? `${String(r.prenom ?? '')} ${String(r.nom ?? '').charAt(0)}.` : 'Moi'}
                                 </div>
-                                <div className="text-[9px] text-[#7b8ba3] font-medium truncate">{String(r.metier ?? '')}</div>
+                                <div className="text-[11px] text-[#5ab4e0] font-semibold truncate bg-[#e8f4fb] px-2 py-0.5 rounded-md inline-block mt-0.5">
+                                  {String(r.metier ?? '')}
+                                </div>
                               </div>
                             </div>
 
@@ -759,7 +761,7 @@ export default function PlanningPage() {
 
                               return (
                                 <div key={cellKey}
-                                  className={`min-h-[60px] px-1 py-1 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
+                                  className={`min-h-[60px] px-1 py-0.5 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
                                   onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                                   onDragLeave={() => setDragOverCell(null)}
                                   onDrop={e => { e.preventDefault(); handleDrop(ivId, day.dateStr) }}>
@@ -776,7 +778,7 @@ export default function PlanningPage() {
                                         onDragStart={() => handleDragStart(rec.id as string)}
                                         onDragEnd={handleDragEnd}
                                         onClick={() => openPanel(rec)}
-                                        className={`p-1.5 rounded-md mb-1 cursor-grab active:cursor-grabbing transition-all border-l-[3px] text-[10px] leading-snug ${color.bg} ${color.border} ${color.text}
+                                        className={`p-1 rounded-md mb-0.5 cursor-grab active:cursor-grabbing transition-all border-l-[3px] text-[9px] leading-tight ${color.bg} ${color.border} ${color.text}
                                           ${isDragged ? 'opacity-30' : ''} ${isConflict ? 'ring-1 ring-[#ef4444]' : ''} hover:shadow-md`}>
                                         {statut && (
                                           <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded ${statut.color} float-right ml-1`}>

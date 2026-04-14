@@ -161,6 +161,7 @@ export async function DELETE(request: Request) {
     'factures',
     'devis',
     'achats',
+    'materiel',
     'documents',
     'relances',
     'points_collecte',

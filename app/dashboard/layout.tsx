@@ -31,6 +31,7 @@ import {
   Calendar,
   Shield,
   Trash2,
+  Wrench,
 } from 'lucide-react'
 
 const ADMIN_EMAIL = 'admin@nexartis.fr'
@@ -62,6 +63,7 @@ const NAV_GROUPS: NavItem[][] = [
     { label: 'Clients', href: '/dashboard/clients', icon: UserRound },
     { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Warehouse },
     { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: UsersRound },
+    { label: 'Matériel', href: '/dashboard/materiel', icon: Wrench },
   ],
   [
     { label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp },
@@ -84,6 +86,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/clients': 'Clients',
   '/dashboard/fournisseurs': 'Fournisseurs',
   '/dashboard/equipe': 'Mon équipe',
+  '/dashboard/materiel': 'Matériel',
   '/dashboard/bibliotheque': 'Bibliothèque',
   '/dashboard/statistiques': 'Statistiques',
   '/dashboard/prestations': 'Prestations',

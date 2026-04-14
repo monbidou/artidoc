@@ -279,6 +279,7 @@ function usePaiements() { return useSupabaseQuery<Row>('paiements', { orderBy: '
 function usePlanning() { return useSupabaseQuery<Row>('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
 function useRelances() { return useSupabaseQuery<Row>('relances', { orderBy: 'created_at' }) }
 function usePointsCollecte() { return useSupabaseQuery<Row>('points_collecte', { orderBy: 'created_at' }) }
+function useMateriel() { return useSupabaseQuery<Row>('materiel', { orderBy: 'created_at' }) }
 function useChantierNotes(chantierId?: string) {
   return useSupabaseQuery<Row>('chantier_notes', {
     orderBy: 'created_at',
@@ -388,6 +389,7 @@ export {
   useDevisLignes,
   useFactureLignes,
   usePointsCollecte,
+  useMateriel,
   LoadingSkeleton,
   ErrorBanner,
 }
