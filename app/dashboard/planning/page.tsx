@@ -807,12 +807,27 @@ export default function PlanningPage() {
 
                 return (
                   <div key={wi}>
-                    {/* Week header */}
-                    <div className={`px-4 py-2 flex items-center gap-2 text-xs font-bold ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06] text-[#5ab4e0]' : 'bg-[#f6f8fb] text-[#7b8ba3]'}`}>
-                      <span>S{weekNum}</span>
-                      <span className="font-medium">{week.start.getDate()} — {weekEnd.getDate()} {MONTHS[weekEnd.getMonth()]}</span>
-                      {isCurrentWeek && <span className="text-[10px] bg-[#5ab4e0] text-white px-2 py-0.5 rounded-full font-bold">Cette semaine</span>}
-                    </div>
+                    {/* Week header — split into Artisan label + week info over days (Société only) */}
+                    {isSociete || soloHasSubcontractors ? (
+                      <div className={`grid ${isSociete ? 'grid-cols-[220px_1fr]' : 'grid-cols-[180px_1fr]'}`}>
+                        {/* Left: Artisan column header */}
+                        <div className={`px-4 py-2 flex items-center border-r border-[#e6ecf2] ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06]' : 'bg-[#f0f2f7]'}`}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">Artisan</span>
+                        </div>
+                        {/* Right: Week info above the day columns */}
+                        <div className={`px-4 py-2 flex items-center gap-2 text-xs font-bold ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06] text-[#5ab4e0]' : 'bg-[#f6f8fb] text-[#7b8ba3]'}`}>
+                          <span>S{weekNum}</span>
+                          <span className="font-medium">{week.start.getDate()} — {weekEnd.getDate()} {MONTHS[weekEnd.getMonth()]}</span>
+                          {isCurrentWeek && <span className="text-[10px] bg-[#5ab4e0] text-white px-2 py-0.5 rounded-full font-bold">Cette semaine</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`px-4 py-2 flex items-center gap-2 text-xs font-bold ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06] text-[#5ab4e0]' : 'bg-[#f6f8fb] text-[#7b8ba3]'}`}>
+                        <span>S{weekNum}</span>
+                        <span className="font-medium">{week.start.getDate()} — {weekEnd.getDate()} {MONTHS[weekEnd.getMonth()]}</span>
+                        {isCurrentWeek && <span className="text-[10px] bg-[#5ab4e0] text-white px-2 py-0.5 rounded-full font-bold">Cette semaine</span>}
+                      </div>
+                    )}
 
                     {/* Grid: intervenants × days */}
                     {/* Solo mode: hide artisan column if no subcontractors (full width days); show column if subcontractors exist (reduced width) */}
@@ -824,8 +839,8 @@ export default function PlanningPage() {
                           : 'grid-cols-[repeat(5,minmax(200px,1fr))]'
                     }`}>
                       {/* Day headers */}
-                      {/* Artisan column header: hidden in Solo mode without subcontractors */}
-                      {(isSociete || soloHasSubcontractors) && <div className="bg-[#f6f8fb]/50 border-r border-[#e6ecf2]" />}
+                      {/* Artisan column header cell — styled with subtle background */}
+                      {(isSociete || soloHasSubcontractors) && <div className="bg-[#f0f2f7]/60 border-r border-[#e6ecf2]" />}
                       {week.days.map(day => (
                         <div key={day.dateStr} className={`px-2 py-1.5 text-center border-r border-[#e6ecf2] last:border-r-0 ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : ''}`}>
                           <div className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-[#5ab4e0]' : 'text-[#7b8ba3]'}`}>
@@ -844,7 +859,7 @@ export default function PlanningPage() {
                           <div key={`${wi}-${ivId}`} className="contents">
                             {/* Label — hidden in Solo mode without subcontractors */}
                             {(isSociete || soloHasSubcontractors) && (
-                              <div className="px-3 py-2.5 border-r border-b border-[#e6ecf2] bg-[#f6f8fb]/30 flex items-center gap-2.5">
+                              <div className="px-3 py-2.5 border-r border-b border-[#e6ecf2] bg-[#f0f2f7]/50 flex items-center gap-2.5">
                                 <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ background: color.hex }}>
                                   {initials(`${r.prenom ?? ''} ${r.nom ?? ''}`)}
                                 </div>
