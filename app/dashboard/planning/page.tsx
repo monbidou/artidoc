@@ -136,6 +136,7 @@ export default function PlanningPage() {
   const loading = l1 || l2 || l3
 
   // ── Auto-detect Solo mode for sole proprietors (once on load) ──
+  const profilRempli = Boolean(entreprise?.forme_juridique && (entreprise.forme_juridique as string).trim().length > 0)
   useEffect(() => {
     if (entreprise && !autoDetectedRef.current) {
       const formeJuridique = (entreprise.forme_juridique as string ?? '').toLowerCase()
@@ -624,20 +625,28 @@ export default function PlanningPage() {
             <h1 className="text-lg sm:text-xl font-extrabold text-[#0f1a3a] tracking-tight font-jakarta shrink-0">
               {isSociete ? 'Planning' : 'Planning'}
             </h1>
-            {/* Profile toggle */}
-            <div className="hidden sm:flex items-center gap-2 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
-              <span className={!isSociete ? 'text-[#0f1a3a]' : ''}>Solo</span>
-              <button onClick={() => setIsSociete(!isSociete)}
-                className={`w-9 h-5 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isSociete ? 'left-[18px]' : 'left-0.5'}`} />
-              </button>
-              <span className={isSociete ? 'text-[#0f1a3a]' : ''}>Société</span>
-            </div>
-            {/* Mobile solo/société compact toggle */}
-            <button onClick={() => setIsSociete(!isSociete)}
-              className={`sm:hidden w-8 h-4 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
-              <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isSociete ? 'left-[18px]' : 'left-0.5'}`} />
-            </button>
+            {/* Profile toggle — hidden when profile is filled, auto-detected */}
+            {profilRempli ? (
+              <div className="hidden sm:flex items-center gap-1.5 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
+                <span className="text-[#0f1a3a]">{isSociete ? 'Société' : 'Solo'}</span>
+              </div>
+            ) : (
+              <>
+                <div className="hidden sm:flex items-center gap-2 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
+                  <span className={!isSociete ? 'text-[#0f1a3a]' : ''}>Solo</span>
+                  <button onClick={() => setIsSociete(!isSociete)}
+                    className={`w-9 h-5 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isSociete ? 'left-[18px]' : 'left-0.5'}`} />
+                  </button>
+                  <span className={isSociete ? 'text-[#0f1a3a]' : ''}>Société</span>
+                </div>
+                {/* Mobile solo/société compact toggle */}
+                <button onClick={() => setIsSociete(!isSociete)}
+                  className={`sm:hidden w-8 h-4 rounded-full relative transition-colors ${isSociete ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
+                  <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isSociete ? 'left-[18px]' : 'left-0.5'}`} />
+                </button>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
