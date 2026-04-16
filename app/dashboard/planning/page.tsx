@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, CalendarDays, X, FileText,
-  Search, AlertTriangle, Users, Briefcase, Clock,
+  Search, AlertTriangle, Users, Briefcase, Clock, HardHat,
   MapPin, Eye, Maximize2, Minimize2, Check, Trash2
 } from 'lucide-react'
 import {
