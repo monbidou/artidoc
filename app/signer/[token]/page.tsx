@@ -389,8 +389,8 @@ export default function SignerDevisPage() {
 
             {/* CADRES ARTISAN / CLIENT — comme dans le PDF */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <p className="text-[10px] font-manrope font-bold text-[#2563eb] uppercase tracking-wider mb-2">Artisan</p>
+              <div className="rounded-lg p-4" style={{background:'#cde4f5', border:'1px solid #5ab4e0', borderLeft:'4px solid #5ab4e0'}}>
+                <p className="text-[10px] font-manrope font-bold uppercase tracking-wider mb-2" style={{color:'#1a6fb5'}}>Artisan</p>
                 <p className="font-manrope font-bold text-[#1a1a2e] text-sm mb-1">{entreprise.nom}</p>
                 {entreprise.adresse && <p className="font-manrope text-gray-700 text-xs">{entreprise.adresse}</p>}
                 {(entreprise.code_postal || entreprise.ville) && (
@@ -399,10 +399,12 @@ export default function SignerDevisPage() {
                 {entreprise.siret && <p className="font-manrope text-gray-700 text-xs mt-1">SIRET : {entreprise.siret}</p>}
                 {entreprise.telephone && <p className="font-manrope text-gray-700 text-xs">Tél : {entreprise.telephone}</p>}
               </div>
-              <div className="border border-green-200 rounded-lg p-4 bg-green-50/30">
-                <p className="text-[10px] font-manrope font-bold text-green-700 uppercase tracking-wider mb-2">Client</p>
+              <div className="rounded-lg p-4" style={{background:'#c9efd5', border:'1px solid #22c55e', borderLeft:'4px solid #22c55e'}}>
+                <p className="text-[10px] font-manrope font-bold uppercase tracking-wider mb-2" style={{color:'#15803d'}}>Client</p>
                 <p className="font-manrope font-bold text-[#1a1a2e] text-sm mb-1">{client.nom}</p>
-                {client.adresse && <p className="font-manrope text-gray-700 text-xs">{client.adresse}</p>}
+                {client.adresse && client.adresse.split(/\s*\|\s*/).map(s=>s.trim()).filter(Boolean).map((part,idx)=>(
+                  <p key={idx} className="font-manrope text-gray-700 text-xs">{part}</p>
+                ))}
                 {client.telephone && <p className="font-manrope text-gray-700 text-xs mt-1">{client.telephone}</p>}
                 {client.email && <p className="font-manrope text-gray-700 text-xs">{client.email}</p>}
               </div>
@@ -430,13 +432,39 @@ export default function SignerDevisPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {lignes.map((l, i) => {
+                  {(() => {
+                    const subtotalAt = (idx: number): number => {
+                      const cur = lignes[idx]
+                      if (!cur || (cur.type !== 'section' && cur.type !== 'sous_section')) return 0
+                      let sum = 0
+                      for (let j = idx + 1; j < lignes.length; j++) {
+                        const ll = lignes[j]
+                        if (cur.type === 'section' && ll.type === 'section') break
+                        if (cur.type === 'sous_section' && (ll.type === 'section' || ll.type === 'sous_section')) break
+                        if (!ll.type || ll.type === 'prestation') sum += (ll.quantite ?? 0) * (ll.prix_unitaire_ht ?? 0)
+                      }
+                      return sum
+                    }
+                    return lignes.map((l, i) => {
                     if (l.type === 'section') {
                       return (
-                        <tr key={i} className="bg-gray-50">
-                          <td colSpan={6} className="py-2 px-3 font-manrope font-bold text-[#1a1a2e] text-xs uppercase tracking-wider">
+                        <tr key={i} style={{background:'#dceefa', borderLeft:'4px solid #5ab4e0'}}>
+                          <td className="py-2.5 px-3 font-manrope font-bold text-xs" style={{color:'#1a6fb5'}}>{i+1}</td>
+                          <td colSpan={4} className="py-2.5 px-3 font-manrope font-bold text-sm" style={{color:'#0f1a3a'}}>
                             {l.designation}
                           </td>
+                          <td className="py-2.5 px-3 font-manrope font-bold text-right" style={{color:'#1a6fb5'}}>{formatCurrency(subtotalAt(i))}</td>
+                        </tr>
+                      )
+                    }
+                    if (l.type === 'sous_section') {
+                      return (
+                        <tr key={i} style={{background:'#e8f4fb'}}>
+                          <td className="py-2.5 px-3 font-manrope text-xs text-gray-600">{i+1}</td>
+                          <td colSpan={4} className="py-2.5 px-3 font-manrope font-semibold text-sm" style={{color:'#0f1a3a'}}>
+                            {l.designation}
+                          </td>
+                          <td className="py-2.5 px-3 font-manrope font-semibold text-right" style={{color:'#0f1a3a'}}>{formatCurrency(subtotalAt(i))}</td>
                         </tr>
                       )
                     }
@@ -465,7 +493,8 @@ export default function SignerDevisPage() {
                         <td className="py-2.5 px-2 sm:px-3 font-manrope text-[#1a1a2e] font-medium text-right">{formatCurrency(montantHT)}</td>
                       </tr>
                     )
-                  })}
+                  })
+                  })()}
                 </tbody>
               </table>
             </div>

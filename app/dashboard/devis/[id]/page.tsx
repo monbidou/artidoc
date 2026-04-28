@@ -478,8 +478,8 @@ export default function DevisDetailPage() {
             {/* 2 CADRES : artisan gauche, client droite */}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12, alignItems:'stretch'}}>
               {/* Cadre artisan */}
-              <div className="print-info-box" style={{border:'1.5px solid #2563eb', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:6}}>Artisan</div>
+              <div className="print-info-box" style={{background:'#cde4f5', border:'1px solid #5ab4e0', borderLeft:'4px solid #5ab4e0', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#1a6fb5', marginBottom:6}}>Artisan</div>
                 <div style={{fontSize:12, fontWeight:700, color:'#111', marginBottom:3}}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
                 <div className="print-info-lines" style={{fontSize:11, color:'#6b7280', lineHeight:1.7}}>
                   {Boolean(entreprise?.adresse) && <div>{String(entreprise?.adresse || '')}</div>}
@@ -489,11 +489,11 @@ export default function DevisDetailPage() {
                 </div>
               </div>
               {/* Cadre client */}
-              <div className="print-info-box" style={{border:'1.5px solid #10b981', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:6}}>Client</div>
+              <div className="print-info-box" style={{background:'#c9efd5', border:'1px solid #22c55e', borderLeft:'4px solid #22c55e', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#15803d', marginBottom:6}}>Client</div>
                 <div className="print-info-lines" style={{lineHeight:1.7}}>
                   {devis.notes_client ? (() => {
-                    const parts = devis.notes_client.split(' | ')
+                    const parts = devis.notes_client.split(/\s*\|\s*/).map(s=>s.trim()).filter(Boolean)
                     return parts.map((info: string, i: number) => (
                       <div key={i} style={{fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 12 : 11}}>
                         {info}
