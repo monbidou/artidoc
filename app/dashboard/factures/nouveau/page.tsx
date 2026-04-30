@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { useClients, useEntreprise, insertRow } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
+import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -191,9 +192,14 @@ export default function NouvelleFacturePage() {
       const facture = await insertRow('factures', factureData)
       const factureId = (facture as Record<string, unknown>).id as string
 
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i]
-        if (!l.designation && l.priceHT === 0) continue
+      // Calcul auto de la numerotation (1, 2, 3... pour prestations a plat)
+      const lignesPourNumero = lines
+        .filter(l => l.designation || l.priceHT !== 0)
+        .map(l => ({ type: 'prestation' as const, _orig: l }))
+      const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
+      for (let i = 0; i < lignesAvecNumero.length; i++) {
+        const item = lignesAvecNumero[i]
+        const l = item._orig as typeof lines[0]
         await insertRow('facture_lignes', {
           facture_id: factureId,
           designation: l.designation,
@@ -202,6 +208,9 @@ export default function NouvelleFacturePage() {
           prix_unitaire_ht: l.priceHT,
           taux_tva: globalTvaRate,
           ordre: i + 1,
+          type: 'prestation',
+          niveau: 3,
+          numero: item.numero || null,
         })
       }
 

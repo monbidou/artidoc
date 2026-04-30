@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft, Mic, MicOff, X } from 'lucide-react'
 import { useClients, useChantiers, useEntreprise, usePointsCollecte, insertRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
+import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
 // -------------------------------------------------------------------
 // Types
@@ -467,11 +468,19 @@ function NouveauDevisPage() {
         chantier_id: null,
       }
       const devis = await insertRow('devis', devisData)
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i]
-        if (l.type !== 'line' && !l.designation) continue
-        const dbType = l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation'
-        const dbNiveau = l.type === 'section' ? 1 : l.type === 'subsection' ? 2 : 3
+      // Pre-calcul de la numerotation hierarchique (1, 1.1, 1.1.1, etc.)
+      const lignesPourNumero = lines
+        .filter(l => l.type === 'line' || !!l.designation)
+        .map(l => ({
+          type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
+          _orig: l,
+        }))
+      const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
+      for (let i = 0; i < lignesAvecNumero.length; i++) {
+        const item = lignesAvecNumero[i]
+        const l = item._orig as typeof lines[0]
+        const dbType = item.type
+        const dbNiveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
         await insertRow('devis_lignes', {
           devis_id: (devis as { id: string }).id,
           designation: l.designation,
@@ -482,6 +491,7 @@ function NouveauDevisPage() {
           ordre: i + 1,
           type: dbType,
           niveau: dbNiveau,
+          numero: item.numero || null,
         })
       }
       // Sauvegarder/mettre à jour le client + chantier dans la base de données et lier au devis
