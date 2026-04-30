@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, CalendarDays, X, FileText,
   Search, AlertTriangle, Users, Briefcase, Clock, HardHat,
@@ -10,7 +10,7 @@ import {
   usePlanning, useIntervenants, useClients, useChantiers, useDevis,
   insertRow, updateRow, deleteRow, LoadingSkeleton, useEntreprise,
 } from '@/lib/hooks'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // ===================================================================
 // Types & Constants
@@ -90,8 +90,9 @@ function getFirstDayOffset(year: number, month: number): number {
 // Page
 // ===================================================================
 
-export default function PlanningPage() {
+function PlanningPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: planningData, loading: l1, refetch } = usePlanning()
   const { data: intervenants, loading: l2 } = useIntervenants()
   const { data: clients, loading: l3 } = useClients()
@@ -135,6 +136,9 @@ export default function PlanningPage() {
   const [mConflitWarning, setMConflitWarning] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  // Conflict confirmation modal state
+  const [showConflitConfirm, setShowConflitConfirm] = useState(false)
+  const [conflitConfirmMessage, setConflitConfirmMessage] = useState('')
 
   const loading = l1 || l2 || l3
 
@@ -164,6 +168,13 @@ export default function PlanningPage() {
       localStorage.setItem('nexartis_planning_show_weekend', showWeekend ? '1' : '0')
     }
   }, [showWeekend])
+
+  // ── Auto-activate conflict filter from URL query param ──
+  useEffect(() => {
+    if (searchParams && searchParams.get('filter') === 'conflict') {
+      setActiveFilter('conflict')
+    }
+  }, [searchParams])
 
   // ── View preset effects ──
   useEffect(() => {
@@ -297,23 +308,37 @@ export default function PlanningPage() {
     return map
   }, [planningData, isSociete, intervenants])
 
-  // ── Conflicts detection ──
+  // ── Conflicts detection (hour-based overlap: A.start < B.end && B.start < A.end) ──
   const conflicts = useMemo(() => {
     const set = new Set<string>()
+    // Helper: convert HH:MM string to total minutes
+    const t2m = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
+    // Helper: get [startMin, endMin] for a record
+    const recRange = (rec: R): [number, number] => {
+      const c = rec.creneau as string
+      if (c === 'journee') return [t2m('08:00'), t2m('17:00')]
+      if (c === 'matin') return [t2m('08:00'), t2m('12:00')]
+      if (c === 'apres_midi') return [t2m('13:00'), t2m('17:00')]
+      return [t2m((rec.heure_debut as string) || '08:00'), t2m((rec.heure_fin as string) || '17:00')]
+    }
+    // Group by intervenant + date
     const byIntervenantDate = new Map<string, R[]>()
     for (const item of planningData) {
       const rec = item as R
+      if (!rec.intervenant_id) continue
       const key = `${rec.intervenant_id}__${(rec.date_debut as string)?.split('T')[0]}`
       if (!byIntervenantDate.has(key)) byIntervenantDate.set(key, [])
       byIntervenantDate.get(key)!.push(rec)
     }
     byIntervenantDate.forEach((items) => {
-      if (items.length > 1) {
-        const hasJournee = items.some(i => (i.creneau as string) === 'journee')
-        const hasMatin = items.filter(i => (i.creneau as string) === 'matin').length > 1
-        const hasAm = items.filter(i => (i.creneau as string) === 'apres_midi').length > 1
-        if ((hasJournee && items.length > 1) || hasMatin || hasAm) {
-          items.forEach(i => set.add(i.id as string))
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const [aStart, aEnd] = recRange(items[i])
+          const [bStart, bEnd] = recRange(items[j])
+          if (aStart < bEnd && bStart < aEnd) {
+            set.add(items[i].id as string)
+            set.add(items[j].id as string)
+          }
         }
       }
     })
@@ -441,6 +466,7 @@ export default function PlanningPage() {
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
     setMHeureDebut('08:00'); setMHeureFin('17:00'); setMConflitWarning(null)
+    setShowConflitConfirm(false); setConflitConfirmMessage('')
     setEditMode(false); setEditId(null)
     // Auto-fill from devis if provided
     if (devisId) {
@@ -474,6 +500,7 @@ export default function PlanningPage() {
     setMHeureDebut(String(intervention.heure_debut ?? '08:00'))
     setMHeureFin(String(intervention.heure_fin ?? '17:00'))
     setMConflitWarning(null)
+    setShowConflitConfirm(false); setConflitConfirmMessage('')
     setShowModal(true)
   }
 
@@ -491,6 +518,57 @@ export default function PlanningPage() {
       // Reset when deselecting devis
       setMClient(''); setMChantier(''); setMObjet('')
     }
+  }
+
+  // ── Helper: convert HH:MM to minutes ──
+  const timeToMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return h * 60 + (m || 0)
+  }
+
+  // ── Helper: get start/end minutes for a creneau type ──
+  const creneauToRange = (creneauType: string, heureDebut?: string, heureFin?: string): [number, number] => {
+    if (creneauType === 'journee') return [timeToMinutes('08:00'), timeToMinutes('17:00')]
+    if (creneauType === 'matin') return [timeToMinutes('08:00'), timeToMinutes('12:00')]
+    if (creneauType === 'apres_midi') return [timeToMinutes('13:00'), timeToMinutes('17:00')]
+    // creneau personnalise
+    return [timeToMinutes(heureDebut || '08:00'), timeToMinutes(heureFin || '17:00')]
+  }
+
+  // ── Detect conflicts for the new intervention before saving ──
+  const detectConflitAvantSave = (
+    ivId: string,
+    dateStr: string,
+    newStart: number,
+    newEnd: number,
+    excludeId?: string | null
+  ): { titre: string; heureDebut: string; heureFin: string } | null => {
+    const existingOnDay = planningData.filter(p => {
+      const rec = p as R
+      if (rec.intervenant_id !== ivId) return false
+      if ((rec.date_debut as string)?.split('T')[0] !== dateStr) return false
+      if (excludeId && rec.id === excludeId) return false
+      return true
+    })
+    for (const item of existingOnDay) {
+      const rec = item as R
+      const [exStart, exEnd] = creneauToRange(
+        rec.creneau as string,
+        rec.heure_debut as string,
+        rec.heure_fin as string
+      )
+      // Overlap: A.start < B.end AND B.start < A.end
+      if (newStart < exEnd && exStart < newEnd) {
+        const hd = String(rec.heure_debut || (rec.creneau === 'apres_midi' ? '13:00' : '08:00'))
+        const hf = String(rec.heure_fin || (rec.creneau === 'matin' ? '12:00' : '17:00'))
+        return {
+          titre: String(rec.titre || rec.description_travaux || 'Intervention'),
+          heureDebut: hd,
+          heureFin: hf,
+        }
+      }
+    }
+    return null
   }
 
   const submitIntervention = async () => {
@@ -517,20 +595,49 @@ export default function PlanningPage() {
       }
     }
 
+    // Calculer le creneau de la nouvelle intervention
+    let startTime: string, endTime: string
+    if (mCreneau === 'creneau') {
+      startTime = mHeureDebut
+      endTime = mHeureFin
+    } else {
+      startTime = mCreneau === 'apres_midi' ? '13:00' : '08:00'
+      endTime = mCreneau === 'matin' ? '12:00' : '17:00'
+    }
+
+    // ── Verifier les conflits horaires AVANT d'enregistrer ──
+    const ivRec = intervenantMap.get(mIntervenant) as R | undefined
+    const ivNom = ivRec
+      ? `${ivRec.prenom ?? ''} ${ivRec.nom ?? ''}`.trim()
+      : 'L\'intervenant'
+
+    const newStart = timeToMinutes(startTime)
+    const newEnd = timeToMinutes(endTime)
+    const conflitTrouve = detectConflitAvantSave(
+      mIntervenant,
+      mDate,
+      newStart,
+      newEnd,
+      editMode ? editId : null
+    )
+
+    if (conflitTrouve && !showConflitConfirm) {
+      // Show inline conflict warning — do not submit yet
+      const conflitH = `${conflitTrouve.heureDebut.replace(':', 'h')} a ${conflitTrouve.heureFin.replace(':', 'h')}`
+      setConflitConfirmMessage(
+        `${ivNom} est deja sur "${conflitTrouve.titre}" de ${conflitH}. Voulez-vous quand meme ${editMode ? 'modifier' : 'creer'} cette intervention ?`
+      )
+      setShowConflitConfirm(true)
+      return
+    }
+    // Reset confirm state before submitting (whether forced or no conflict)
+    setShowConflitConfirm(false)
+    setConflitConfirmMessage('')
+
     setSubmitting(true)
     try {
-      let startTime: string, endTime: string
-
-      if (mCreneau === 'creneau') {
-        startTime = mHeureDebut
-        endTime = mHeureFin
-        // Vérifier les conflits (warning only, ne bloque pas)
-        const conflit = checkCreneauConflits(mIntervenant, mDate, startTime, endTime)
-        if (conflit) setMConflitWarning(conflit)
-      } else {
-        startTime = mCreneau === 'apres_midi' ? '13:00' : '08:00'
-        endTime = mCreneau === 'matin' ? '12:00' : '17:00'
-      }
+      // Effacer l'avertissement de conflit visuel si on force quand meme
+      setMConflitWarning(null)
 
       const payload = {
         intervenant_id: mIntervenant,
@@ -552,15 +659,15 @@ export default function PlanningPage() {
         setShowModal(false)
         setEditMode(false); setEditId(null)
         refetch()
-        showToast('Intervention modifiée ✓')
+        showToast('Intervention modifiee ✓')
       } else {
         await insertRow('planning_interventions', payload)
         setShowModal(false)
         refetch()
-        showToast('Intervention créée ✓')
+        showToast('Intervention creee ✓')
       }
     } catch {
-      showToast('Erreur lors de la création')
+      showToast('Erreur lors de la creation')
     } finally { setSubmitting(false) }
   }
 
@@ -998,9 +1105,16 @@ export default function PlanningPage() {
                                           onDragStart={() => handleDragStart(rec.id as string)}
                                           onDragEnd={handleDragEnd}
                                           onClick={() => openPanel(rec)}
-                                          className={`p-2 rounded-lg mb-1 cursor-grab active:cursor-grabbing transition-all border-l-[3px] leading-normal ${color.bg} ${color.border} ${color.text}
-                                            ${isDragged ? 'opacity-30' : ''} ${isConflict ? 'ring-1 ring-[#ef4444]' : ''} hover:shadow-md hover:scale-[1.01]`}
-                                          style={isCreneau ? { minHeight: `${heightPx}px` } : {}}>
+                                          className={`relative p-2 rounded-lg mb-1 cursor-grab active:cursor-grabbing transition-all border-l-[3px] leading-normal ${color.bg} ${color.border} ${color.text}
+                                            ${isDragged ? 'opacity-30' : ''} ${isConflict ? 'ring-2 ring-[#ef4444] shadow-[0_0_0_2px_rgba(239,68,68,0.15)]' : ''} hover:shadow-md hover:scale-[1.01]`}
+                                          style={isCreneau ? { minHeight: `${heightPx}px` } : {}}
+                                          title={isConflict ? 'Conflit : cet intervenant a une autre intervention sur le meme creneau' : undefined}>
+                                          {isConflict && (
+                                            <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1 bg-[#ef4444] text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md animate-pulse">
+                                              <AlertTriangle className="w-3 h-3" />
+                                              <span>Conflit</span>
+                                            </div>
+                                          )}
                                           {isCreneau && (
                                             <div className="text-[10px] font-extrabold text-[#0f1a3a] leading-tight">
                                               {timeDisplay}
@@ -1352,14 +1466,14 @@ export default function PlanningPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant *</label>
-                  <select value={mIntervenant} onChange={e => setMIntervenant(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required>
+                  <select value={mIntervenant} onChange={e => { setMIntervenant(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required>
                     <option value="">— Choisir</option>
                     {intervenants.map(iv => { const r = iv as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')} — {String(r.metier ?? '')}</option> })}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Créneau</label>
-                  <select value={mCreneau} onChange={e => { setMCreneau(e.target.value as Creneau); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
+                  <select value={mCreneau} onChange={e => { setMCreneau(e.target.value as Creneau); setMConflitWarning(null); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
                     {CRENEAUX.map(c => <option key={c.value} value={c.value}>{c.label} ({c.heures})</option>)}
                   </select>
                 </div>
@@ -1375,11 +1489,11 @@ export default function PlanningPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Heure début *</label>
-                      <input type="time" value={mHeureDebut} onChange={e => { setMHeureDebut(e.target.value); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                      <input type="time" value={mHeureDebut} onChange={e => { setMHeureDebut(e.target.value); setMConflitWarning(null); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Heure fin *</label>
-                      <input type="time" value={mHeureFin} onChange={e => { setMHeureFin(e.target.value); setMConflitWarning(null) }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                      <input type="time" value={mHeureFin} onChange={e => { setMHeureFin(e.target.value); setMConflitWarning(null); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-lg text-sm bg-[#5ab4e0]/[.03] focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
                     </div>
                   </div>
                   {mHeureFin <= mHeureDebut && (
@@ -1401,7 +1515,7 @@ export default function PlanningPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Date début *</label>
-                  <input type="date" value={mDate} onChange={e => { setMDate(e.target.value); if (!mDateFin || mDateFin < e.target.value) setMDateFin(e.target.value) }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                  <input type="date" value={mDate} onChange={e => { setMDate(e.target.value); if (!mDateFin || mDateFin < e.target.value) setMDateFin(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Date fin</label>
@@ -1441,7 +1555,7 @@ export default function PlanningPage() {
                       if (ch?.client_id && !mClient) setMClient(ch.client_id as string)
                     }
                   }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
-                    <option value="">— Sélectionner un chantier (optionnel)</option>
+                    <option value="">{"— Selectionner un chantier (optionnel)"}</option>
                     {chantiers
                       .filter(ch => !mClient || (ch as R).client_id === mClient)
                       .map(ch => {
@@ -1471,11 +1585,38 @@ export default function PlanningPage() {
                 <input type="text" value={mNotes} onChange={e => setMNotes(e.target.value)} placeholder="Notes optionnelles..." className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" />
               </div>
             </div>
+            {/* ── Conflict confirmation banner ── */}
+            {showConflitConfirm && (
+              <div className="mx-6 mb-4 bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-red-700">Conflit detecte</p>
+                    <p className="text-xs text-red-600 mt-0.5 leading-snug">{conflitConfirmMessage}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowConflitConfirm(false); setConflitConfirmMessage('') }}
+                    className="flex-1 px-4 py-2 border border-red-200 rounded-lg text-sm font-semibold text-red-600 bg-white hover:bg-red-50 transition-all"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={submitIntervention}
+                    disabled={submitting}
+                    className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
+                  >
+                    Confirmer quand meme
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="px-6 py-4 border-t border-[#e6ecf2] flex justify-end gap-3">
               <button onClick={() => { setShowModal(false); setEditMode(false); setEditId(null) }} className="px-5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">Annuler</button>
               <button onClick={submitIntervention} disabled={submitting || !mIntervenant || !mDate}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-semibold shadow-[0_4px_15px_rgba(232,122,42,.3)] hover:shadow-[0_6px_20px_rgba(232,122,42,.4)] hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                {submitting ? (editMode ? 'Modification...' : 'Création...') : (editMode ? "Enregistrer les modifications" : "Créer l'intervention")}
+                {submitting ? (editMode ? 'Modification...' : 'Creation...') : (editMode ? "Enregistrer les modifications" : "Creer l'intervention")}
               </button>
             </div>
           </div>
@@ -1510,5 +1651,13 @@ function MiniStat({ icon, label, value, color }: { icon: React.ReactNode; label:
       <span className="text-[11px] text-[#7b8ba3] font-medium">{label}</span>
       <span className={`text-sm font-extrabold ${color}`}>{value}</span>
     </div>
+  )
+}
+
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageInner />
+    </Suspense>
   )
 }

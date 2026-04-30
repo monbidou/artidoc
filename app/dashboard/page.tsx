@@ -319,39 +319,48 @@ export default function DashboardPage() {
     })
   }
 
-  // Conflits planning (même intervenant, même jour, créneaux incompatibles)
+  // Conflits planning — detection heure par heure (A.start < B.end && B.start < A.end)
+  const t2mDash = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
+  const recRangeDash = (rec: Record<string, unknown>): [number, number] => {
+    const c = rec.creneau as string
+    if (c === 'journee') return [t2mDash('08:00'), t2mDash('17:00')]
+    if (c === 'matin') return [t2mDash('08:00'), t2mDash('12:00')]
+    if (c === 'apres_midi') return [t2mDash('13:00'), t2mDash('17:00')]
+    return [t2mDash((rec.heure_debut as string) || '08:00'), t2mDash((rec.heure_fin as string) || '17:00')]
+  }
   const conflictDays = new Map<string, Record<string, unknown>[]>()
   for (const p of planning) {
     const rec = p as Record<string, unknown>
     const statut = rec.statut as string
     if (statut === 'termine' || statut === 'annule') continue
+    if (!rec.intervenant_id) continue
     const key = `${rec.intervenant_id}__${(rec.date_debut as string)?.split('T')[0]}`
     if (!conflictDays.has(key)) conflictDays.set(key, [])
     conflictDays.get(key)!.push(rec)
   }
-  const conflictEntries: { date: string; count: number }[] = []
-  conflictDays.forEach((items, key) => {
-    if (items.length > 1) {
-      const hasJournee = items.some(i => (i.creneau as string) === 'journee')
-      const hasMatin = items.filter(i => (i.creneau as string) === 'matin').length > 1
-      const hasAm = items.filter(i => (i.creneau as string) === 'apres_midi').length > 1
-      if ((hasJournee && items.length > 1) || hasMatin || hasAm) {
-        const date = key.split('__')[1]
-        conflictEntries.push({ date, count: items.length })
+  const conflictingIds = new Set<string>()
+  conflictDays.forEach((items) => {
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const [aStart, aEnd] = recRangeDash(items[i])
+        const [bStart, bEnd] = recRangeDash(items[j])
+        if (aStart < bEnd && bStart < aEnd) {
+          conflictingIds.add(items[i].id as string)
+          conflictingIds.add(items[j].id as string)
+        }
       }
     }
   })
-  for (const c of conflictEntries.slice(0, 3)) {
-    const dateObj = new Date(c.date)
-    const dateLabel = dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-    todoItems.push({
-      title: `⚠ Conflit planning — ${dateLabel}`,
-      desc: `${c.count} interventions en conflit`,
+  const conflitsPlanningCount = conflictingIds.size
+  if (conflitsPlanningCount > 0) {
+    todoItems.unshift({
+      title: 'Conflits dans le planning',
+      desc: `${conflitsPlanningCount} intervention${conflitsPlanningCount > 1 ? 's' : ''} qui se chevauchent`,
       amount: '',
       dotColor: '#ef4444', amountColor: '#ef4444',
-      tag: 'Résoudre', tagBg: '#fef2f2', tagColor: '#ef4444',
-      href: `/dashboard/planning`,
-      actionHref: `/dashboard/planning`,
+      tag: 'Resoudre', tagBg: '#fef2f2', tagColor: '#dc2626',
+      href: '/dashboard/planning?filter=conflict',
+      actionHref: '/dashboard/planning?filter=conflict',
     })
   }
 
@@ -979,7 +988,7 @@ export default function DashboardPage() {
                 {activityData.length === 0 && (
                   <div className="text-center py-10">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{background: '#f1f5f9'}}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" aria-hidden={true}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" strokeLinecap="round" /></svg>
                     </div>
                     <p className="font-jakarta text-sm font-medium" style={{color: '#7b8ba3'}}>Aucune activité récente</p>
                   </div>
