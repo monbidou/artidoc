@@ -379,11 +379,11 @@ export default function FactureDetailPage() {
               <table className="w-full mb-3 print-table">
                 <thead>
                   <tr className="bg-[#2563eb] text-white">
-                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8">N°</th>
-                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase">Désignation</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Qté</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Unité</th>
-                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Prix U. HT</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase border-r border-white/30">Désignation</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Qté</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Unité</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20 border-r border-white/30">Prix U. HT</th>
                     <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Total HT</th>
                   </tr>
                 </thead>
@@ -442,11 +442,11 @@ export default function FactureDetailPage() {
                     }
                     return (
                       <tr key={ligne.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{ligne.numero || ''}</td>
-                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e]">{ligne.designation}</td>
-                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e]">{ligne.quantite}</td>
-                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280]">{ligne.unite}</td>
-                        <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e]">{fmt(ligne.prix_unitaire_ht ?? 0)}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280] border-r border-gray-100">{ligne.numero || ''}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e] border-r border-gray-100">{ligne.designation}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e] border-r border-gray-100">{ligne.quantite}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280] border-r border-gray-100">{ligne.unite}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e] border-r border-gray-100">{fmt(ligne.prix_unitaire_ht ?? 0)}</td>
                         <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a1a2e]">{fmt(ligne.total_ht || (ligne.quantite ?? 0) * (ligne.prix_unitaire_ht ?? 0))}</td>
                       </tr>
                     )

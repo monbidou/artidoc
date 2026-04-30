@@ -531,11 +531,11 @@ export default function DevisDetailPage() {
               <table className="w-full mb-3 print-table">
                 <thead>
                   <tr className="bg-[#2563eb] text-white">
-                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8">N°</th>
-                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase">Désignation</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Qté</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Unité</th>
-                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Prix U. HT</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase border-r border-white/30">Désignation</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Qté</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Unité</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20 border-r border-white/30">Prix U. HT</th>
                     <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Total HT</th>
                   </tr>
                 </thead>
@@ -578,11 +578,11 @@ export default function DevisDetailPage() {
                       }
                       return (
                         <tr key={l.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{numAffiche}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e]">{l.designation}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e]">{l.quantite}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280]">{l.unite}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e]">{formatCurrency(l.prix_unitaire_ht)}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280] border-r border-gray-100">{numAffiche}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e] border-r border-gray-100">{l.designation}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e] border-r border-gray-100">{l.quantite}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280] border-r border-gray-100">{l.unite}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e] border-r border-gray-100">{formatCurrency(l.prix_unitaire_ht)}</td>
                           <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a1a2e]">{formatCurrency(l.quantite * l.prix_unitaire_ht)}</td>
                         </tr>
                       )

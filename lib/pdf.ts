@@ -715,6 +715,17 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
           doc.rect(data.cell.x, data.cell.y, 0.8, data.cell.height, 'F')
         }
       }
+      // Traits verticaux fins entre colonnes (header + lignes prestation uniquement,
+      // pas pour sections/sous-sections qui ont des cellules fusionnees visuellement)
+      const m = meta[data.row.index]
+      const isPrestationRow = data.section === 'body' && (!m || m.kind === 'prestation')
+      const isHeader = data.section === 'head'
+      if ((isHeader || isPrestationRow) && data.column.index < 5) {
+        setDraw(doc, isHeader ? [255, 255, 255] : C.border)
+        doc.setLineWidth(0.1)
+        const x = data.cell.x + data.cell.width
+        doc.line(x, data.cell.y, x, data.cell.y + data.cell.height)
+      }
     },
   })
 
