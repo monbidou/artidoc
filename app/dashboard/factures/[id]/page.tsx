@@ -74,6 +74,9 @@ interface LigneRecord {
   total_ht: number
   taux_tva?: number
   ordre: number
+  type?: string
+  niveau?: number
+  numero?: string
 }
 
 const STATUT_STYLES: Record<string, string> = {
@@ -336,7 +339,13 @@ export default function FactureDetailPage() {
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#10b981', marginBottom: 10 }}>Client</div>
                 <div style={{ lineHeight: 2 }}>
                   {facture.notes_client ? (() => {
-                    const parts = facture.notes_client.split(' | ')
+                    // Split sur | (avec ou sans espaces autour) ET sur virgule
+                    // pour s'assurer que code postal + ville passent sur une ligne séparée.
+                    const parts = facture.notes_client
+                      .split(/\s*\|\s*/)
+                      .flatMap((s: string) => s.split(/,(?=\s*\d{5}\b)/))
+                      .map((s: string) => s.trim())
+                      .filter(Boolean)
                     return parts.map((info: string, i: number) => (
                       <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 16 : 14 }}>
                         {info}
@@ -382,17 +391,60 @@ export default function FactureDetailPage() {
                 </thead>
                 <tbody>
                   {lignes.map((ligne, i) => {
-                    const isSection = ligne.designation?.startsWith('---')
-                    if (isSection) {
+                    // Helper : calcule le sous-total d'une section ou sous-section
+                    const subtotalAt = (idx: number): number => {
+                      const cur = lignes[idx]
+                      if (!cur || (cur.type !== 'section' && cur.type !== 'sous_section')) return 0
+                      let sum = 0
+                      for (let j = idx + 1; j < lignes.length; j++) {
+                        const ll = lignes[j]
+                        if (cur.type === 'section' && ll.type === 'section') break
+                        if (cur.type === 'sous_section' && (ll.type === 'section' || ll.type === 'sous_section')) break
+                        if (!ll.type || ll.type === 'prestation') sum += (ll.quantite ?? 0) * (ll.prix_unitaire_ht ?? 0)
+                      }
+                      return sum
+                    }
+                    if (ligne.type === 'section') {
                       return (
-                        <tr key={ligne.id ?? i} className="bg-gray-50">
-                          <td colSpan={6} className="px-3 py-2 text-sm font-manrope font-bold text-[#1a1a2e]">{ligne.designation.replace(/^---\s*/, '').replace(/\s*---$/, '')}</td>
+                        <tr key={ligne.id ?? i} className="bg-[#dceefa] border-l-4 border-[#5ab4e0]">
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#1a6fb5]">{ligne.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#1a6fb5]">{fmt(subtotalAt(i))}</td>
+                        </tr>
+                      )
+                    }
+                    if (ligne.type === 'sous_section') {
+                      return (
+                        <tr key={ligne.id ?? i} className="bg-[#e8f4fb] border-l-2 border-[#5ab4e0]/60">
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#5f6c80]">{ligne.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#0f1a3a]">{fmt(subtotalAt(i))}</td>
+                        </tr>
+                      )
+                    }
+                    if (ligne.type === 'commentaire') {
+                      return (
+                        <tr key={ligne.id ?? i}>
+                          <td className="px-3 py-1.5 text-xs font-manrope text-[#6b7280]" />
+                          <td className="px-3 py-1.5 text-xs font-manrope italic text-[#6b7280]" colSpan={5}>{ligne.designation}</td>
+                        </tr>
+                      )
+                    }
+                    if (ligne.type === 'saut_page') {
+                      return <tr key={ligne.id ?? i}><td colSpan={6} className="py-1 border-t border-dashed border-gray-300" /></tr>
+                    }
+                    // backward compat : ancien format ---
+                    const isLegacySection = !ligne.type && ligne.designation?.startsWith('---')
+                    if (isLegacySection) {
+                      return (
+                        <tr key={ligne.id ?? i} className="bg-[#dceefa] border-l-4 border-[#5ab4e0]">
+                          <td colSpan={6} className="px-3 py-2 text-sm font-manrope font-bold text-[#0f1a3a]">{ligne.designation.replace(/^---\s*/, '').replace(/\s*---$/, '')}</td>
                         </tr>
                       )
                     }
                     return (
                       <tr key={ligne.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#6b7280]">{i + 1}</td>
+                        <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#6b7280]">{ligne.numero || i + 1}</td>
                         <td className="px-3 py-2.5 text-sm font-manrope text-[#1a1a2e]">{ligne.designation}</td>
                         <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#1a1a2e]">{ligne.quantite}</td>
                         <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#6b7280]">{ligne.unite}</td>

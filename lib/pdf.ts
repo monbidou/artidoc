@@ -483,8 +483,8 @@ function drawIdentityBoxes(
   // --- Dessin ARTISAN ---
   setFill(doc, C.skyArtisanBg)
   doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'F')
-  setDraw(doc, C.skyBorder)
-  doc.setLineWidth(0.3)
+  setDraw(doc, C.sky)
+  doc.setLineWidth(0.6)
   doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'S')
   // Bordure gauche épaisse 4px ≈ 1.4mm
   setFill(doc, C.sky)
@@ -503,8 +503,8 @@ function drawIdentityBoxes(
   // --- Dessin CLIENT ---
   setFill(doc, C.greenPale)
   doc.roundedRect(rx, y, boxW, boxH, radius, radius, 'F')
-  setDraw(doc, C.greenBorder)
-  doc.setLineWidth(0.3)
+  setDraw(doc, C.green)
+  doc.setLineWidth(0.6)
   doc.roundedRect(rx, y, boxW, boxH, radius, radius, 'S')
   setFill(doc, C.green)
   doc.rect(rx, y, 1.4, boxH, 'F')

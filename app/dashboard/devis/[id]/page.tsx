@@ -86,6 +86,7 @@ interface LigneRecord {
   ordre: number
   type?: string
   niveau?: number
+  numero?: string
 }
 
 // -------------------------------------------------------------------
@@ -271,6 +272,9 @@ export default function DevisDetailPage() {
           prix_unitaire_ht: l.prix_unitaire_ht,
           taux_tva: l.taux_tva || 10,
           ordre: l.ordre,
+          type: l.type || null,
+          niveau: l.niveau || null,
+          numero: l.numero || null,
         })
       }
       // Marquer le devis comme "Facturé"
