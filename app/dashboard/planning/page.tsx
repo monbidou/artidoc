@@ -633,6 +633,20 @@ function PlanningPageInner() {
   const submitIntervention = async () => {
     if (!mIntervenant || !mDate) return
 
+    // Garde-fou : verifier que l'annee n'est pas absurde (faute de frappe).
+    // Limite a 4 chiffres et avertir si > annee courante + 2 ans.
+    const yearStart = parseInt((mDate || '').split('-')[0] || '0', 10)
+    const yearEnd = parseInt((mDateFin || mDate || '').split('-')[0] || '0', 10)
+    const currentYear = new Date().getFullYear()
+    if (yearStart > 9999 || yearEnd > 9999) {
+      showToast('Annee invalide : 4 chiffres maximum')
+      return
+    }
+    if ((yearStart > currentYear + 2 || yearEnd > currentYear + 2) && !showConflitConfirm) {
+      const ok = confirm(`Cette intervention est planifiee en ${yearStart} (anormalement loin dans le futur). Etes-vous sur de la date ?`)
+      if (!ok) return
+    }
+
     // Si pas de description saisie, fallback automatique sur le titre du devis
     // ou sur "Intervention" pour ne pas bloquer la planification (utile pour
     // les depannages urgents ou demandes par telephone).
@@ -905,6 +919,14 @@ function PlanningPageInner() {
                 </button>
               ))}
             </div>
+
+            {/* Historique button */}
+            <button
+              onClick={() => router.push('/dashboard/planning/historique')}
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-[#e6ecf2] text-[#64748b] bg-white hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all"
+            >
+              Historique
+            </button>
 
             {/* Search — hidden on mobile */}
             <div ref={searchRef} className="relative hidden sm:block w-64">
@@ -1645,11 +1667,11 @@ function PlanningPageInner() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Date début *</label>
-                  <input type="date" value={mDate} onChange={e => { setMDate(e.target.value); if (!mDateFin || mDateFin < e.target.value) setMDateFin(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
+                  <input type="date" value={mDate} onChange={e => { setMDate(e.target.value); if (!mDateFin || mDateFin < e.target.value) setMDateFin(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} max={`${new Date().getFullYear() + 4}-12-31`} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Date fin</label>
-                  <input type="date" value={mDateFin} onChange={e => setMDateFin(e.target.value)} min={mDate} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" />
+                  <input type="date" value={mDateFin} onChange={e => setMDateFin(e.target.value)} min={mDate} max={`${new Date().getFullYear() + 4}-12-31`} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" />
                 </div>
               </div>
 
@@ -1777,6 +1799,56 @@ function PlanningPageInner() {
 function MiniStat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
   return (
     <div className="flex items-center gap-2 bg-white border border-[#e6ecf2] rounded-lg px-3 py-1.5">
+      <span className={color}>{icon}</span>
+      <span className="text-[11px] text-[#7b8ba3] font-medium">{label}</span>
+      <span className={`text-sm font-extrabold ${color}`}>{value}</span>
+    </div>
+  )
+}
+
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageInner />
+    </Suspense>
+  )
+}
+slateX(-50%) translateY(0) } }
+      `}</style>
+    </div>
+  )
+}
+
+function MiniStat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 bg-white border border-[#e6ecf2] rounded-lg px-3 py-1.5">
+      <span className={color}>{icon}</span>
+      <span className="text-[11px] text-[#7b8ba3] font-medium">{label}</span>
+      <span className={`text-sm font-extrabold ${color}`}>{value}</span>
+    </div>
+  )
+}
+
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageInner />
+    </Suspense>
+  )
+}
+e}</span>
+    </div>
+  )
+}
+
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageInner />
+    </Suspense>
+  )
+}
+r gap-2 bg-white border border-[#e6ecf2] rounded-lg px-3 py-1.5">
       <span className={color}>{icon}</span>
       <span className="text-[11px] text-[#7b8ba3] font-medium">{label}</span>
       <span className={`text-sm font-extrabold ${color}`}>{value}</span>
