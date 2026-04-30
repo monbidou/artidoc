@@ -20,15 +20,16 @@ const C = {
   navy: [15, 26, 58] as [number, number, number],          // #0f1a3a
   navyText: [15, 26, 58] as [number, number, number],
   sky: [90, 180, 224] as [number, number, number],         // #5ab4e0
-  skyPale: [220, 238, 250] as [number, number, number],    // #dceefa (sections)
+  skySection: [168, 212, 236] as [number, number, number], // #a8d4ec (fond section tableau)
+  skyPale: [220, 238, 250] as [number, number, number],    // #dceefa
   skyVeryPale: [232, 244, 251] as [number, number, number],// #e8f4fb (objet)
-  skyArtisanBg: [205, 228, 245] as [number, number, number], // #cde4f5 (fond cadre artisan, plus visible)
+  skyArtisanBg: [230, 243, 251] as [number, number, number], // #e6f3fb (fond cadre artisan pale)
   skyBorder: [171, 214, 236] as [number, number, number],  // #abd6ec (bordure 40%)
   netBlue: [26, 111, 181] as [number, number, number],     // #1a6fb5 (NET A PAYER, accents)
   netBlueAccent: [45, 139, 201] as [number, number, number], // #2d8bc9
   green: [34, 197, 94] as [number, number, number],        // #22c55e
   greenDark: [21, 128, 61] as [number, number, number],    // #15803d
-  greenPale: [201, 239, 213] as [number, number, number],  // #c9efd5 (fond client, plus visible)
+  greenPale: [230, 247, 235] as [number, number, number],  // #e6f7eb (fond cadre client pale)
   greenBorder: [168, 216, 185] as [number, number, number],// #a8d8b9
   orange: [232, 122, 42] as [number, number, number],      // #e87a2a
   muted: [95, 108, 128] as [number, number, number],       // #5f6c80
@@ -578,7 +579,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
       const sub = (l.id && subtotals.get(l.id)) || 0
       body.push([
         l.numero ?? '',
-        l.designation,
+        l.designation.toUpperCase(),
         '', '', '',
         fmt(sub),
       ])
@@ -657,11 +658,13 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
       if (!m) return
 
       if (m.kind === 'section') {
-        data.cell.styles.fillColor = C.skyPale
+        data.cell.styles.fillColor = C.skySection
         data.cell.styles.fontStyle = 'bold'
         data.cell.styles.cellPadding = 2.8
         if (data.column.index === 0) {
           data.cell.styles.textColor = C.netBlue
+        } else if (data.column.index === 1) {
+          data.cell.styles.textColor = C.navy
         } else if (data.column.index === 5) {
           data.cell.styles.textColor = C.netBlue
           data.cell.styles.halign = 'right'
@@ -673,10 +676,13 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
         data.cell.styles.fontStyle = 'bold'
         data.cell.styles.cellPadding = 2.6
         if (data.column.index === 0) {
-          data.cell.styles.textColor = C.muted
+          data.cell.styles.textColor = C.sky
           data.cell.styles.fontStyle = 'normal'
+        } else if (data.column.index === 1) {
+          data.cell.styles.textColor = C.netBlue
+          data.cell.styles.fontStyle = 'bolditalic'
         } else if (data.column.index === 5) {
-          data.cell.styles.textColor = C.navy
+          data.cell.styles.textColor = C.netBlue
           data.cell.styles.halign = 'right'
         } else {
           data.cell.styles.textColor = C.navy
@@ -698,12 +704,15 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
       }
     },
     didDrawCell: (data: CellHookData) => {
-      // Trait gauche d'accent pour les bandeaux SECTION (4px sky sur la première colonne)
+      // Trait gauche d'accent : SECTION (2pt netBlue) et SOUS_SECTION (1pt sky)
       if (data.section === 'body' && data.column.index === 0) {
         const m = meta[data.row.index]
         if (m?.kind === 'section') {
           setFill(doc, C.netBlue)
           doc.rect(data.cell.x, data.cell.y, 1.2, data.cell.height, 'F')
+        } else if (m?.kind === 'sous_section') {
+          setFill(doc, C.sky)
+          doc.rect(data.cell.x, data.cell.y, 0.8, data.cell.height, 'F')
         }
       }
     },

@@ -406,19 +406,19 @@ export default function FactureDetailPage() {
                     }
                     if (ligne.type === 'section') {
                       return (
-                        <tr key={ligne.id ?? i} className="bg-[#dceefa] border-l-4 border-[#5ab4e0]">
-                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#1a6fb5]">{ligne.numero || ''}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#1a6fb5]">{fmt(subtotalAt(i))}</td>
+                        <tr key={ligne.id ?? i} className="bg-[#a8d4ec] border-l-[6px] border-[#1a6fb5]">
+                          <td className="px-2 py-2 text-[12px] font-manrope font-extrabold text-[#0f3d63]">{ligne.numero || ''}</td>
+                          <td className="px-2 py-2 text-[12px] font-manrope font-extrabold text-[#0f1a3a] uppercase tracking-wide" colSpan={4}>{ligne.designation}</td>
+                          <td className="px-2 py-2 text-[12px] font-manrope text-right font-extrabold text-[#0f3d63]">{fmt(subtotalAt(i))}</td>
                         </tr>
                       )
                     }
                     if (ligne.type === 'sous_section') {
                       return (
-                        <tr key={ligne.id ?? i} className="bg-[#e8f4fb] border-l-2 border-[#5ab4e0]/60">
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#5f6c80]">{ligne.numero || ''}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#0f1a3a]">{fmt(subtotalAt(i))}</td>
+                        <tr key={ligne.id ?? i} className="bg-white border-l-[4px] border-[#5ab4e0]">
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#5f6c80] pl-6">{ligne.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold italic text-[#1a6fb5]" colSpan={4}>↳ {ligne.designation}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a6fb5]">{fmt(subtotalAt(i))}</td>
                         </tr>
                       )
                     }

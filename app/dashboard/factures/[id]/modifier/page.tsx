@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { useSupabaseRecord, useEntreprise, updateRow, insertRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
+import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
 interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; taux_tva: number; type: 'line' | 'section' | 'text' }
 interface FactureRecord { id: string; numero: string; statut: string; type?: string; date_emission?: string; date_echeance?: string; notes?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number; client_id?: string; devis_id?: string }
@@ -119,9 +120,20 @@ export default function ModifierFacturePage() {
       // Delete old lignes and re-insert
       const supabase = createClient()
       await supabase.from('facture_lignes').delete().eq('facture_id', facture.id)
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i]
-        if (l.type !== 'line' && !l.designation) continue
+
+      // Preparer les lignes pour la numerotation hierarchique
+      const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
+      const lignesPourNumero = lignesFiltrees.map(l => ({
+        type: (l.type === 'section' ? 'section' : 'prestation') as 'section' | 'prestation',
+        _orig: l,
+      }))
+      const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
+
+      for (let i = 0; i < lignesAvecNumero.length; i++) {
+        const item = lignesAvecNumero[i]
+        const l = item._orig as typeof lines[0]
+        const dbType = item.type
+        const dbNiveau = dbType === 'section' ? 1 : 3
         await insertRow('facture_lignes', {
           facture_id: facture.id,
           designation: l.designation,
@@ -130,6 +142,9 @@ export default function ModifierFacturePage() {
           prix_unitaire_ht: l.priceHT,
           taux_tva: autoEntrepreneur ? 0 : l.taux_tva,
           ordre: i + 1,
+          type: dbType,
+          niveau: dbNiveau,
+          numero: item.numero || null,
         })
       }
       if (action === 'brouillon') {

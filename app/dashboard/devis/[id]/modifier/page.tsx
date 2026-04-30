@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, insertRow, LoadingSkeleton } from '@/lib/hooks'
+import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
 interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'subsection' | 'text' }
 interface DevisRecord { id: string; numero: string; statut: string; date_emission?: string; date_validite?: string; date_debut_travaux?: string; duree_estimee?: string; description?: string; objet?: string; conditions_paiement?: string; notes_internes?: string; notes_client?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number }
@@ -153,11 +154,20 @@ export default function ModifierDevisPage() {
       // Delete old lignes and re-insert (simplest approach)
       const supabase = (await import('@/lib/supabase/client')).createClient()
       await supabase.from('devis_lignes').delete().eq('devis_id', devis.id)
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i]
-        if (l.type !== 'line' && !l.designation) continue
-        const dbType = l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation'
-        const dbNiveau = l.type === 'section' ? 1 : l.type === 'subsection' ? 2 : 3
+
+      // Preparer les lignes avec leur type DB pour la numerotation
+      const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
+      const lignesPourNumero = lignesFiltrees.map(l => ({
+        type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
+        _orig: l,
+      }))
+      const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
+
+      for (let i = 0; i < lignesAvecNumero.length; i++) {
+        const item = lignesAvecNumero[i]
+        const l = item._orig as typeof lines[0]
+        const dbType = item.type
+        const dbNiveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
         await insertRow('devis_lignes', {
           devis_id: devis.id,
           designation: l.designation,
@@ -168,6 +178,7 @@ export default function ModifierDevisPage() {
           ordre: i + 1,
           type: dbType,
           niveau: dbNiveau,
+          numero: item.numero || null,
         })
       }
       if (action === 'brouillon') {
