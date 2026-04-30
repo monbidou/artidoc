@@ -168,24 +168,75 @@ export function buildDocumentEmailHtml(params: DocumentEmailParams): string {
 
 export async function sendWelcomeEmail(user: { email: string; name: string }) {
   const body = `
-    <h2 style="margin:0 0 8px;font-size:20px;color:#1e293b;">Bienvenue sur Nexartis, ${user.name} !</h2>
+    <h2 style="margin:0 0 12px;font-size:22px;color:#1e293b;">Bienvenue sur Nexartis, ${user.name} !</h2>
+
     <p style="font-size:15px;color:#475569;line-height:1.7;">
-      Votre compte a bien été créé. Nexartis vous accompagne au quotidien pour gérer vos devis, factures, clients et chantiers en toute simplicité.
+      Tout d'abord, un grand <strong>merci pour votre inscription</strong>. Votre confiance compte beaucoup pour nous.
     </p>
-    <p style="font-size:15px;color:#475569;line-height:1.7;">Commencez dès maintenant :</p>
-    <ul style="font-size:14px;color:#475569;line-height:2;padding-left:20px;">
-      <li>Créez votre premier devis en quelques clics</li>
-      <li>Ajoutez vos clients et chantiers</li>
-      <li>Suivez vos factures et paiements</li>
-    </ul>
+
+    <p style="font-size:15px;color:#475569;line-height:1.7;">
+      Notre mission est simple : aider chaque artisan à disposer du <strong>meilleur outil de gestion possible</strong>, à un prix juste et raisonnable. Nexartis a été pensé par des artisans, pour des artisans.
+    </p>
+
+    <!-- Encart bêta -->
+    <div style="background:#eff6ff;border-left:4px solid #5ab4e0;border-radius:8px;padding:14px 18px;margin:22px 0;">
+      <p style="margin:0 0 6px;font-size:14px;color:#0c4a6e;font-weight:700;">Version bêta — pleinement fonctionnelle</p>
+      <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">
+        Nexartis est encore jeune mais opérationnel : devis, factures, suivi de chantiers, planning, équipe… Vous pouvez l'utiliser au quotidien sans réserve. Quelques retouches sont régulièrement apportées pour rendre l'outil toujours plus fluide.
+      </p>
+    </div>
+
+    <h3 style="margin:24px 0 10px;font-size:16px;color:#1e293b;">Pour bien démarrer</h3>
+
+    <!-- Étape 1 : profil -->
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;margin:10px 0;">
+      <p style="margin:0 0 4px;font-size:14px;color:#1e293b;font-weight:700;">1. Complétez votre profil</p>
+      <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6;">
+        Renseignez votre nom d'entreprise, SIRET, adresse, logo et conditions de paiement. Ces informations apparaîtront automatiquement sur tous vos devis et factures, et vous éviteront de tout ressaisir à chaque document.
+      </p>
+    </div>
+
+    <!-- Étape 2 : premier devis -->
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;margin:10px 0;">
+      <p style="margin:0 0 4px;font-size:14px;color:#1e293b;font-weight:700;">2. Créez votre premier devis ou facture</p>
+      <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6;">
+        Tout se fait en quelques clics, avec PDF généré automatiquement et envoi par email à vos clients.
+      </p>
+    </div>
+
+    <!-- Étape 3 : explorer -->
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;margin:10px 0;">
+      <p style="margin:0 0 4px;font-size:14px;color:#1e293b;font-weight:700;">3. Explorez les autres modules</p>
+      <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6;">
+        Planning, gestion d'équipe, suivi des chantiers, bibliothèque matériel, relances automatiques. Tout est déjà disponible dans votre espace.
+      </p>
+    </div>
+
     ${btn('Accéder à mon espace', 'https://nexartis.fr/dashboard')}
-    <p style="font-size:13px;color:#94a3b8;margin-top:24px;">
-      Une question ? Répondez simplement à cet email, nous sommes là pour vous aider.
+
+    <!-- Encart contact / contribution -->
+    <div style="background:#fef9f3;border:1px solid #fde6c8;border-radius:8px;padding:16px 20px;margin:24px 0;">
+      <p style="margin:0 0 8px;font-size:14px;color:#9a3412;font-weight:700;">Vos retours sont précieux</p>
+      <p style="margin:0;font-size:14px;color:#475569;line-height:1.7;">
+        Si vous repérez un bug, si une fonctionnalité vous manque, ou si quelque chose pourrait être plus simple, écrivez-nous directement à <a href="mailto:contact.nexartis@gmail.com" style="color:#2563eb;text-decoration:underline;font-weight:600;">contact.nexartis@gmail.com</a>. Nous lisons chaque message et répondons personnellement.
+      </p>
+      <p style="margin:8px 0 0;font-size:13px;color:#9a3412;line-height:1.6;font-style:italic;">
+        Les utilisateurs qui contribuent activement à l'amélioration de Nexartis bénéficient régulièrement d'avantages exclusifs sur leur abonnement.
+      </p>
+    </div>
+
+    <p style="font-size:14px;color:#475569;line-height:1.7;margin-top:20px;">
+      Encore merci pour votre confiance, et bonne prise en main de Nexartis.
+    </p>
+
+    <p style="font-size:14px;color:#1e293b;line-height:1.6;margin-top:20px;">
+      <strong>Jérémy Schmitt</strong><br/>
+      <span style="color:#64748b;">Fondateur — Nexartis</span>
     </p>`
 
   return sendEmail({
     to: { email: user.email, name: user.name },
-    subject: 'Bienvenue sur Nexartis !',
+    subject: 'Bienvenue sur Nexartis — merci pour votre inscription',
     html: layout(body, { entrepriseNom: 'Nexartis' }),
   })
 }
