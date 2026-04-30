@@ -111,6 +111,7 @@ export default function PlanningPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [isSociete, setIsSociete] = useState(true)
+  const [showWeekend, setShowWeekend] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCell, setDragOverCell] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -146,6 +147,21 @@ export default function PlanningPage() {
       autoDetectedRef.current = true
     }
   }, [entreprise])
+
+  // ── Weekend toggle: read from localStorage on mount ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('nexartis_planning_show_weekend')
+      if (stored === '1') setShowWeekend(true)
+    }
+  }, [])
+
+  // ── Weekend toggle: persist to localStorage on change ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexartis_planning_show_weekend', showWeekend ? '1' : '0')
+    }
+  }, [showWeekend])
 
   // ── View preset effects ──
   useEffect(() => {
@@ -304,13 +320,14 @@ export default function PlanningPage() {
 
   // ── Stats ──
   const weekDaysForStats = useMemo(() => {
+    const numDays = showWeekend ? 7 : 5
     const days: string[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < numDays; i++) {
       const d = new Date(weekStart); d.setDate(d.getDate() + i)
       days.push(fmtISO(d))
     }
     return days
-  }, [weekStart])
+  }, [weekStart, showWeekend])
 
   const stats = useMemo(() => {
     const weekInterventions = planningData.filter(p => {
@@ -319,7 +336,8 @@ export default function PlanningPage() {
       return weekDaysForStats.includes(d.split('T')[0])
     })
     const activeChantiers = new Set(weekInterventions.map(p => (p as R).chantier_id).filter(Boolean))
-    const totalSlots = (isSociete ? intervenants.length : 1) * 5
+    const numDays = showWeekend ? 7 : 5
+    const totalSlots = (isSociete ? intervenants.length : 1) * numDays
     const occupation = totalSlots > 0 ? Math.round((weekInterventions.length / totalSlots) * 100) : 0
     return {
       interventions: weekInterventions.length,
@@ -327,7 +345,7 @@ export default function PlanningPage() {
       occupation: Math.min(occupation, 100),
       conflicts: conflicts.size,
     }
-  }, [planningData, weekDaysForStats, intervenants, isSociete, conflicts])
+  }, [planningData, weekDaysForStats, intervenants, isSociete, conflicts, showWeekend])
 
   // ── Search ──
   const searchResults = useMemo(() => {
@@ -589,22 +607,24 @@ export default function PlanningPage() {
     return months
   }, [])
 
-  // ── 5 weeks for detail view ──
+  // ── 5 weeks for detail view (7 days if weekend shown) ──
+  const DAY_LABELS_WEEK = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
   const detailWeeks = useMemo(() => {
-    const weeks: { start: Date; days: { label: string; date: Date; dateStr: string; isToday: boolean }[] }[] = []
+    const numDays = showWeekend ? 7 : 5
+    const weeks: { start: Date; days: { label: string; date: Date; dateStr: string; isToday: boolean; isWeekend: boolean }[] }[] = []
     for (let w = 0; w < 5; w++) {
       const start = new Date(weekStart)
       start.setDate(start.getDate() + w * 7)
       const days: typeof weeks[0]['days'] = []
-      for (let d = 0; d < 5; d++) {
+      for (let d = 0; d < numDays; d++) {
         const date = new Date(start)
         date.setDate(date.getDate() + d)
-        days.push({ label: DAYS[d], date, dateStr: fmtISO(date), isToday: isSameDay(date, new Date()) })
+        days.push({ label: DAY_LABELS_WEEK[d], date, dateStr: fmtISO(date), isToday: isSameDay(date, new Date()), isWeekend: d >= 5 })
       }
       weeks.push({ start, days })
     }
     return weeks
-  }, [weekStart])
+  }, [weekStart, showWeekend])
 
   // ── Loading ──
   if (loading) return <div className="p-8"><LoadingSkeleton /></div>
@@ -779,7 +799,7 @@ export default function PlanningPage() {
         {!detailCollapsed && (
           <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-[#e6ecf2] flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#e87a2a]" />
                   <h2 className="text-[15px] font-extrabold text-[#0f1a3a]">Planning détaillé</h2>
@@ -787,6 +807,17 @@ export default function PlanningPage() {
                 <span className="text-xs text-[#7b8ba3] font-medium">
                   Semaine {getWeekNumber(weekStart)} → {getWeekNumber(detailWeeks[4]?.start ?? weekStart)}
                 </span>
+                <button
+                  onClick={() => setShowWeekend(!showWeekend)}
+                  className={`flex items-center gap-2 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b] hover:bg-[#eef2f7] transition-colors`}
+                  title="Afficher samedi et dimanche"
+                >
+                  <span className={!showWeekend ? 'text-[#0f1a3a]' : ''}>5 jours</span>
+                  <span className={`w-9 h-5 rounded-full relative transition-colors ${showWeekend ? 'bg-[#e87a2a]' : 'bg-[#5ab4e0]'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showWeekend ? 'left-[18px]' : 'left-0.5'}`} />
+                  </span>
+                  <span className={showWeekend ? 'text-[#0f1a3a]' : ''}>7 jours</span>
+                </button>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={goToday} className="px-3 py-1 text-[11px] font-semibold text-[#5ab4e0] bg-[#e8f4fb] rounded-lg hover:bg-[#5ab4e0] hover:text-white transition-all">
@@ -811,7 +842,7 @@ export default function PlanningPage() {
               {detailWeeks.map((week, wi) => {
                 const weekNum = getWeekNumber(week.start)
                 const weekEnd = new Date(week.start)
-                weekEnd.setDate(weekEnd.getDate() + 4)
+                weekEnd.setDate(weekEnd.getDate() + (showWeekend ? 6 : 4))
                 const isCurrentWeek = week.days.some(d => d.isToday)
 
                 return (
@@ -839,22 +870,23 @@ export default function PlanningPage() {
                       </div>
                     )}
 
-                    {/* Grid: intervenants × days */}
+                    {/* Grid: intervenants × days (5 or 7 depending on showWeekend) */}
                     {/* Solo mode: hide artisan column if no subcontractors (full width days); show column if subcontractors exist (reduced width) */}
                     <div className={`grid min-w-max ${
                       isSociete
-                        ? 'grid-cols-[220px_repeat(5,1fr)]'
+                        ? showWeekend ? 'grid-cols-[220px_repeat(7,1fr)]' : 'grid-cols-[220px_repeat(5,1fr)]'
                         : soloHasSubcontractors
-                          ? 'grid-cols-[180px_repeat(5,minmax(200px,1fr))]'
-                          : 'grid-cols-[repeat(5,minmax(200px,1fr))]'
+                          ? showWeekend ? 'grid-cols-[180px_repeat(7,minmax(200px,1fr))]' : 'grid-cols-[180px_repeat(5,minmax(200px,1fr))]'
+                          : showWeekend ? 'grid-cols-[repeat(7,minmax(200px,1fr))]' : 'grid-cols-[repeat(5,minmax(200px,1fr))]'
                     }`}>
                       {/* Day headers — with strong bottom border as separator */}
                       {(isSociete || soloHasSubcontractors) && <div className="bg-[#f0f2f7]/60 border-r border-[#e6ecf2] border-b-2 border-b-[#d0d7e2]" />}
                       {week.days.map(day => (
-                        <div key={day.dateStr} className={`px-2 py-2 text-center border-r border-[#e6ecf2] last:border-r-0 border-b-2 border-b-[#d0d7e2] ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : ''}`}>
-                          <div className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-[#5ab4e0]' : 'text-[#7b8ba3]'}`}>
+                        <div key={day.dateStr} className={`px-2 py-2 text-center border-r border-[#e6ecf2] last:border-r-0 border-b-2 border-b-[#d0d7e2] ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : day.isWeekend ? 'bg-[#fafbfd]' : ''}`}>
+                          <div className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-[#5ab4e0]' : day.isWeekend ? 'text-[#94a3b8]' : 'text-[#7b8ba3]'}`}>
                             {day.label} {day.date.getDate()}
                           </div>
+                          {day.isWeekend && <div className="text-[8px] text-[#c0cad8] font-medium mt-0.5">Weekend</div>}
                         </div>
                       ))}
 
@@ -891,7 +923,7 @@ export default function PlanningPage() {
 
                               return (
                                 <div key={cellKey}
-                                  className={`min-h-[90px] px-1.5 py-1 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
+                                  className={`min-h-[90px] px-1.5 py-1 border-r border-b border-[#e6ecf2] last:border-r-0 relative group transition-all ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : day.isWeekend ? 'bg-[#fafbfd]' : ''} ${isDragOver ? 'bg-[#5ab4e0]/10 outline-2 outline-dashed outline-[#5ab4e0] outline-offset-[-2px]' : ''}`}
                                   onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                                   onDragLeave={() => setDragOverCell(null)}
                                   onDrop={e => { e.preventDefault(); handleDrop(ivId, day.dateStr) }}>
