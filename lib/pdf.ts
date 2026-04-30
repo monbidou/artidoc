@@ -239,7 +239,7 @@ function normalizeLignes(input: Ligne[]): Ligne[] {
       ...l,
       niveau,
       type,
-      numero: l.numero ?? String(i + 1),
+      numero: l.numero ?? '',
     }
   })
 }
@@ -672,15 +672,15 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
           data.cell.styles.textColor = C.navy
         }
       } else if (m.kind === 'sous_section') {
-        data.cell.styles.fillColor = C.white
+        data.cell.styles.fillColor = C.skyPale
         data.cell.styles.fontStyle = 'bold'
         data.cell.styles.cellPadding = 2.6
         if (data.column.index === 0) {
-          data.cell.styles.textColor = C.sky
-          data.cell.styles.fontStyle = 'normal'
-        } else if (data.column.index === 1) {
           data.cell.styles.textColor = C.netBlue
-          data.cell.styles.fontStyle = 'bolditalic'
+          data.cell.styles.fontStyle = 'bold'
+        } else if (data.column.index === 1) {
+          data.cell.styles.textColor = C.navy
+          data.cell.styles.fontStyle = 'bold'
         } else if (data.column.index === 5) {
           data.cell.styles.textColor = C.netBlue
           data.cell.styles.halign = 'right'
@@ -1135,7 +1135,7 @@ export function generateFacturePdf(data: FactureData): string {
   }
 
   const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
-  const NEEDED_BOTTOM = hasReste ? 95 : 80
+  const NEEDED_BOTTOM = hasReste ? 65 : 52
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
   const tvaGroups = computeTvaGroups(lignes)
