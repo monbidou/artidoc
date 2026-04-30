@@ -81,6 +81,19 @@ export async function POST(request: NextRequest) {
       })
     } catch {} // Non bloquant
 
+    // 2bis. Alerte admin : nouvelle inscription (non bloquant)
+    try {
+      const { sendNewSignupAlert } = await import('@/lib/email')
+      sendNewSignupAlert({
+        email,
+        prenom,
+        nom,
+        entreprise,
+      }).catch((err: unknown) => console.error('sendNewSignupAlert failed:', err))
+    } catch (e) {
+      console.error('Admin alert hook error:', e)
+    }
+
     // 3. Générer le lien de confirmation
     // On utilise generateLink pour obtenir une URL signée qu'on intègre dans notre mail Nexartis
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexartis.fr'

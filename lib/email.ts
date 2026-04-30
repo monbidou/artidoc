@@ -430,3 +430,62 @@ export async function sendPaymentReminderEmail(
     senderName: entNom,
   })
 }
+
+// -------------------------------------------------------------------
+// 7. Alerte admin : nouvelle inscription
+// -------------------------------------------------------------------
+
+interface NewSignupAlertParams {
+  email: string
+  prenom?: string
+  nom?: string
+  entreprise?: string
+  metier?: string
+  telephone?: string
+  ville?: string
+}
+
+export async function sendNewSignupAlert(params: NewSignupAlertParams) {
+  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || 'contact.nexartis@gmail.com'
+  const fullName = [params.prenom, params.nom].filter(Boolean).join(' ') || '—'
+  const dateFmt = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+
+  const row = (label: string, value: string | undefined) => `
+    <tr>
+      <td style="padding:8px 0;font-size:13px;color:#64748b;width:140px;">${label}</td>
+      <td style="padding:8px 0;font-size:14px;color:#1e293b;font-weight:600;">${value || '<span style="color:#cbd5e1;font-weight:400;">non renseigné</span>'}</td>
+    </tr>`
+
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#1e293b;">Nouvelle inscription Nexartis</h2>
+    <p style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px;">
+      Un nouvel utilisateur vient de s'inscrire sur la plateforme.
+    </p>
+
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin:8px 0 20px;">
+      <table style="width:100%;border-collapse:collapse;">
+        ${row('Date', dateFmt)}
+        ${row('Email', params.email)}
+        ${row('Nom complet', fullName)}
+        ${row('Entreprise', params.entreprise)}
+        ${row('Métier', params.metier)}
+        ${row('Téléphone', params.telephone)}
+        ${row('Ville', params.ville)}
+      </table>
+    </div>
+
+    ${btn('Voir dans le panneau admin', 'https://nexartis.fr/dashboard/admin')}
+
+    <p style="font-size:12px;color:#94a3b8;margin-top:24px;line-height:1.6;">
+      Vous recevez cet email automatique parce que vous êtes administrateur de Nexartis.
+    </p>`
+
+  return sendEmail({
+    to: { email: adminEmail, name: 'Admin Nexartis' },
+    subject: `Nouvelle inscription : ${fullName !== '—' ? fullName : params.email}`,
+    html: layout(body, { entrepriseNom: 'Nexartis' }),
+  })
+}
