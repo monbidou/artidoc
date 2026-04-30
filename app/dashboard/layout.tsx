@@ -686,12 +686,14 @@ export default function DashboardLayout({
           </p>
         </div>
 
-        <DashboardHeader
-          title={pageTitle}
-          onMenuClick={() => setMobileOpen(true)}
-          userInitials={userInitials}
-          userLoading={isLoading}
-        />
+        {pathname !== '/dashboard/planning' && (
+          <DashboardHeader
+            title={pageTitle}
+            onMenuClick={() => setMobileOpen(true)}
+            userInitials={userInitials}
+            userLoading={isLoading}
+          />
+        )}
 
         {/* Bandeau profil incomplet retiré : on laisse uniquement
             la carte d'alerte sur le tableau de bord (UX moins agressive) */}
