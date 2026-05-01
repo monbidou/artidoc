@@ -3,6 +3,19 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useDevis, useFactures, usePlanning, useChantiers, useClients, useIntervenants, useEntreprise, useChantierNotes, LoadingSkeleton } from "@/lib/hooks";
+import { createClient } from "@/lib/supabase/client";
+
+// Type pour un rappel artisan (note privée datée à afficher dans "À faire")
+interface ArtisanReminder {
+  noteId: string
+  interventionId: string
+  texte: string
+  dateIntervention: string  // YYYY-MM-DD
+  isToday: boolean
+  isTomorrow: boolean
+  chantierId?: string | null
+  clientName?: string
+}
 // EmptyDashboard supprimé — on affiche toujours le vrai dashboard
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
@@ -57,6 +70,70 @@ export default function DashboardPage() {
   const { data: chantierNotes } = useChantierNotes();
   const entrepriseNom = (entreprise?.nom as string) || '';
   const [mounted, setMounted] = useState(false);
+
+  // === Rappels artisan privés (notes type 'note_artisan' pour aujourd'hui ou demain) ===
+  const [artisanReminders, setArtisanReminders] = useState<ArtisanReminder[]>([]);
+
+  useEffect(() => {
+    if (!planning || planning.length === 0) {
+      setArtisanReminders([]);
+      return;
+    }
+    // Filtrer les interventions de J et J+1 (en LOCAL, pas UTC)
+    const fmtISOLocal = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayKey = fmtISOLocal(today);
+    const tomorrowKey = fmtISOLocal(tomorrow);
+
+    const ivsConcernees = (planning as Record<string, unknown>[]).filter(p => {
+      const dd = (p.date_debut as string | null)?.split('T')[0];
+      return dd === todayKey || dd === tomorrowKey;
+    });
+    if (ivsConcernees.length === 0) {
+      setArtisanReminders([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const ids = ivsConcernees.map(iv => iv.id as string);
+      const { data: notes } = await supabase
+        .from('intervention_notes_client')
+        .select('id, intervention_id, texte, type')
+        .in('intervention_id', ids)
+        .eq('type', 'note_artisan');
+      if (cancelled) return;
+
+      const ivMap = new Map<string, Record<string, unknown>>();
+      ivsConcernees.forEach(iv => ivMap.set(iv.id as string, iv));
+      const reminders: ArtisanReminder[] = (notes ?? []).map(n => {
+        const iv = ivMap.get(n.intervention_id) || {};
+        const dateRaw = ((iv.date_debut as string | undefined) || '').split('T')[0];
+        const cId = iv.client_id as string | undefined;
+        const cl = cId ? (clients as Record<string, unknown>[] | undefined)?.find(c => c.id === cId) : null;
+        const cName = cl ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim() : '';
+        return {
+          noteId: n.id,
+          interventionId: n.intervention_id,
+          texte: n.texte,
+          dateIntervention: dateRaw,
+          isToday: dateRaw === todayKey,
+          isTomorrow: dateRaw === tomorrowKey,
+          chantierId: (iv.chantier_id as string | null) ?? null,
+          clientName: cName,
+        };
+      })
+      // Aujourd'hui d'abord, puis demain
+      .sort((a, b) => (a.isToday === b.isToday ? 0 : a.isToday ? -1 : 1));
+      setArtisanReminders(reminders);
+    })();
+    return () => { cancelled = true; };
+  }, [planning, clients]);
 
   /* ── Profil incomplet : champs obligatoires manquants ── */
   const champsObligatoires: { champ: string; label: string }[] = [
@@ -168,6 +245,27 @@ export default function DashboardPage() {
     actionHref?: string;   // navigation clic sur le bouton tag
   };
   const todoItems: TodoItem[] = [];
+
+  // ── Rappels artisan privés (notes type 'note_artisan') — TOUJOURS EN PREMIER ──
+  // Ces rappels (ex: "Appeler le client la veille") sont les choses que l'artisan
+  // a notées pour lui-même. On les remonte en haut du widget "À faire" pour qu'il
+  // n'oublie pas le jour J ou la veille.
+  for (const r of artisanReminders) {
+    const dayLabel = r.isToday ? "Aujourd'hui" : 'Demain';
+    const cName = r.clientName ? ` · ${r.clientName}` : '';
+    todoItems.push({
+      title: `🔔 ${dayLabel} — ${r.texte}`,
+      desc: `Rappel privé${cName}`,
+      amount: '',
+      dotColor: '#7c3aed',
+      amountColor: '#7c3aed',
+      tag: r.isToday ? 'Aujourd\'hui' : 'Demain',
+      tagBg: '#f3e8ff',
+      tagColor: '#7c3aed',
+      href: r.chantierId ? `/dashboard/chantiers/${r.chantierId}` : '/dashboard/planning',
+      actionHref: r.chantierId ? `/dashboard/chantiers/${r.chantierId}` : '/dashboard/planning',
+    });
+  }
 
   // Helper : extraire l'email depuis notes_client "Nom | Adresse | CP Ville | Tel | email@..."
   const extractEmail = (notesClient: unknown): string => {

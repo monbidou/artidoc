@@ -11,6 +11,7 @@ import {
   insertRow, updateRow, deleteRow, LoadingSkeleton, useEntreprise,
 } from '@/lib/hooks'
 import { useRouter, useSearchParams } from 'next/navigation'
+import NotesIntervention from '@/components/NotesIntervention'
 
 // ===================================================================
 // Types & Constants
@@ -1469,6 +1470,16 @@ function PlanningPageInner() {
                   )}
                 </div>
               </div>
+
+              {/* === Notes datées (V2) : présence client, préparation, rappels privés === */}
+              <div className="px-5 py-4 border-t border-[#e6ecf2]">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[12px] font-bold uppercase tracking-wider text-[#5ab4e0]">
+                    Rappels & notes pour ce jour
+                  </h3>
+                </div>
+                <NotesIntervention interventionId={panelIntervention.id as string} />
+              </div>
             </div>
 
             {/* Actions en bas du panel */}
@@ -1794,8 +1805,7 @@ function PlanningPageInner() {
 
 // ===================================================================
 // Sub-components
-// ===================================================================
-
+// ========================================================
 function MiniStat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
   return (
     <div className="flex items-center gap-2 bg-white border border-[#e6ecf2] rounded-lg px-3 py-1.5">

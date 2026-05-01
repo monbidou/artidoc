@@ -118,6 +118,16 @@ interface ChantierNote {
   visible_in_pdf?: boolean | null
 }
 
+/** Note datée attachée à une intervention (V2) — visible dans le PDF section "À noter pour vous" */
+interface InterventionNoteForPdf {
+  id: string
+  intervention_id: string
+  type: 'note_client' | 'presence_requise' | 'presence_obligatoire' | 'preparation' | 'note_artisan'
+  texte: string
+  /** Date de l'intervention liée (pour le tri chronologique dans le PDF) */
+  date_intervention?: string | null
+}
+
 export interface ChantierPdfData {
   entreprise: Entreprise
   chantier: Chantier
@@ -126,6 +136,8 @@ export interface ChantierPdfData {
   intervenants: Intervenant[]
   devis?: DevisForPdf[]
   notes: ChantierNote[]
+  /** Notes datées par intervention (V2). Filtrer côté API : exclure 'note_artisan' qui est privé. */
+  interventionNotes?: InterventionNoteForPdf[]
 }
 
 // ============ HELPERS ============
@@ -761,6 +773,71 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     y += 8
   }
 
+  // ============ À NOTER POUR VOUS (NEW V2 — notes datées par intervention) ============
+  // On affiche uniquement les notes type CLIENT (pas note_artisan qui est privé).
+  // Triées par date d'intervention ascendante.
+  const notesClient = (data.interventionNotes || [])
+    .filter(n => n.type !== 'note_artisan')
+    .slice()
+    .sort((a, b) => {
+      const da = a.date_intervention || '9999-12-31'
+      const db = b.date_intervention || '9999-12-31'
+      return da.localeCompare(db)
+    })
+
+  if (notesClient.length > 0) {
+    y = ensureSpace(doc, y, 30)
+    y = drawSectionTitle(doc, M, y, contentW, 'À noter pour vous')
+
+    // Couleurs par type (cohérent avec le composant NotesIntervention)
+    const typeMeta: Record<string, { bg: [number, number, number]; border: [number, number, number]; label: string; symbol: string }> = {
+      note_client:           { bg: [241, 245, 249], border: [148, 163, 184], label: 'Note',                  symbol: '•' },
+      presence_requise:      { bg: [254, 243, 199], border: [217, 119, 6],   label: 'Présence souhaitée',    symbol: '⚠' },
+      presence_obligatoire:  { bg: [254, 226, 226], border: [220, 38, 38],   label: 'Présence obligatoire',  symbol: '!' },
+      preparation:           { bg: [219, 234, 254], border: [37, 99, 235],   label: 'À préparer',            symbol: '▸' },
+    }
+
+    notesClient.forEach(note => {
+      const meta = typeMeta[note.type] || typeMeta.note_client
+      // Format date courte : "lun. 4 mai"
+      const dateLabel = note.date_intervention
+        ? new Date(note.date_intervention).toLocaleDateString('fr-FR', {
+            weekday: 'short', day: 'numeric', month: 'short',
+          })
+        : ''
+      const fullText = `${dateLabel ? dateLabel + ' — ' : ''}${note.texte}`
+      const lines = doc.splitTextToSize(fullText, contentW - 22)
+      const noteH = Math.max(11, lines.length * 4 + 4)
+      y = ensureSpace(doc, y, noteH + 2)
+
+      // Fond
+      setFill(meta.bg)
+      doc.roundedRect(M, y, contentW, noteH, 1.5, 1.5, 'F')
+      // Barre verticale gauche
+      setFill(meta.border)
+      doc.rect(M, y, 1.5, noteH, 'F')
+
+      // Symbole + label type (mini-pill à gauche)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      setText(meta.border)
+      doc.text(meta.symbol, M + 5, y + 5)
+      // Petit label type
+      doc.setFontSize(6)
+      doc.setFont('helvetica', 'bold')
+      doc.text(meta.label.toUpperCase(), M + 11, y + 5)
+
+      // Texte (date + contenu)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      setText([15, 23, 42])
+      doc.text(lines, M + 11, y + 9.5)
+
+      y += noteH + 2
+    })
+    y += 4
+  }
+
   // ============ PRÉPARATION À VOTRE CHARGE (NEW V2) ============
   const preparationTexte = (chantier.preparation_client || '').trim()
   if (preparationTexte) {
@@ -1251,7 +1328,6 @@ function drawCalendarByPhases(
 
     weeks.forEach((week, wi) => {
       week.forEach((day, di) => {
-        // ⚠️ Local format pour eviter le bug timezone (toISOString décale en UTC)
         const dayKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
         const isPresent = phase.days.has(dayKey)
         if (isPresent) {

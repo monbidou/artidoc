@@ -99,6 +99,33 @@ export async function GET(req: NextRequest) {
       .eq('visible_in_pdf', true)
       .order('created_at', { ascending: true })
 
+    // V2 : charger les notes datées attachées aux interventions de ce chantier.
+    // On EXCLUT les notes type 'note_artisan' (privées, jamais dans le PDF client).
+    const interventionIds = (interventions || []).map(i => i.id).filter(Boolean) as string[]
+    let interventionNotesData: { id: string; intervention_id: string; type: string; texte: string }[] = []
+    if (interventionIds.length > 0) {
+      const { data: rawNotes } = await supabase
+        .from('intervention_notes_client')
+        .select('id, intervention_id, type, texte')
+        .in('intervention_id', interventionIds)
+        .eq('user_id', user.id)
+        .neq('type', 'note_artisan')
+        .order('created_at', { ascending: true })
+      interventionNotesData = rawNotes ?? []
+    }
+    // Map intervention_id -> date_debut pour le tri chronologique dans le PDF
+    const ivDateMap = new Map<string, string>()
+    ;(interventions || []).forEach(iv => {
+      if (iv.id && iv.date_debut) ivDateMap.set(iv.id as string, iv.date_debut as string)
+    })
+    const interventionNotes = interventionNotesData.map(n => ({
+      id: n.id,
+      intervention_id: n.intervention_id,
+      type: n.type as 'note_client' | 'presence_requise' | 'presence_obligatoire' | 'preparation' | 'note_artisan',
+      texte: n.texte,
+      date_intervention: ivDateMap.get(n.intervention_id) ?? null,
+    }))
+
     // Préparer les données (V2 : champs PDF étendus — préparation, non inclus,
     // modalités personnalisées, pacte de chantier — passés au générateur)
     const pdfData: ChantierPdfData = {
@@ -124,6 +151,7 @@ export async function GET(req: NextRequest) {
       intervenants: intervenants || [],
       devis: devis || [],
       notes: notes || [],
+      interventionNotes,
     }
 
     // Générer le PDF
