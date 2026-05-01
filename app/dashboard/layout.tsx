@@ -32,6 +32,8 @@ import {
   Shield,
   Trash2,
   Wrench,
+  CreditCard,
+  AlertTriangle,
 } from 'lucide-react'
 
 const ADMIN_EMAIL = 'admin@nexartis.fr'
@@ -68,6 +70,7 @@ const NAV_GROUPS: NavItem[][] = [
   [
     { label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp },
     { label: 'Prestations', href: '/dashboard/prestations', icon: FileText },
+    { label: 'Abonnement', href: '/dashboard/abonnement', icon: CreditCard },
     { label: 'Paramètres', href: '/dashboard/parametres', icon: SlidersHorizontal },
     { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
     { label: 'Corbeille', href: '/dashboard/corbeille', icon: Trash2 },
@@ -91,6 +94,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/statistiques': 'Statistiques',
   '/dashboard/prestations': 'Prestations',
   '/dashboard/import': 'Importer des données',
+  '/dashboard/abonnement': 'Abonnement',
   '/dashboard/parametres': 'Paramètres',
   '/dashboard/corbeille': 'Corbeille',
   '/dashboard/admin': 'Administration',
@@ -545,19 +549,29 @@ export default function DashboardLayout({
   const isLoading = userLoading || entrepriseLoading
 
   // Vérification expiration période d'essai (14 jours)
+  // EXCEPTION : la page /dashboard/abonnement n'est jamais bloquée,
+  // sinon un utilisateur expiré ne pourrait pas se réabonner.
+  // Quand expiré : redirection directe vers /dashboard/abonnement (seule page accessible).
   useEffect(() => {
     if (isLoading || !entreprise || !user) return
     // L'admin ne vérifie jamais
     if (user.email === ADMIN_EMAIL) return
-    // Déjà sur la page expiration → pas de boucle
-    if (pathname === '/subscription-expired') return
+    // Déjà sur la page abonnement → pas de boucle ni de blocage
+    if (pathname.startsWith('/dashboard/abonnement')) return
+
+    const redirectExpired = () => router.replace('/dashboard/abonnement?expired=1')
 
     const abonnementType = (entreprise.abonnement_type as string) ?? 'trial'
     // Abonnement actif ou à vie → pas de blocage
     if (abonnementType === 'lifetime' || abonnementType === 'actif') return
-    // Suspendu → bloquer immédiatement
+    // Suspendu : laisser passer si la période payée n'est pas encore terminée
     if (abonnementType === 'suspendu') {
-      router.replace('/subscription-expired')
+      const expireAt = entreprise.abonnement_expire_at
+        ? new Date(entreprise.abonnement_expire_at as string)
+        : null
+      if (!expireAt || expireAt < new Date()) {
+        redirectExpired()
+      }
       return
     }
     // Trial → vérifier les 14 jours
@@ -567,9 +581,41 @@ export default function DashboardLayout({
     const msEcoules = Date.now() - trialStarted.getTime()
     const joursEcoules = msEcoules / (1000 * 60 * 60 * 24)
     if (joursEcoules > 14) {
-      router.replace('/subscription-expired')
+      redirectExpired()
     }
   }, [isLoading, entreprise, user, pathname, router])
+
+  // Calcul du nombre de jours restants pour le bandeau d'alerte
+  // Affiché si trial avec ≤7 jours restants OU suspendu avec date proche
+  const expirationInfo = (() => {
+    if (isLoading || !entreprise || !user) return null
+    if (user.email === ADMIN_EMAIL) return null
+    if (pathname === '/subscription-expired') return null
+    if (pathname.startsWith('/dashboard/abonnement')) return null
+
+    const abonnementType = (entreprise.abonnement_type as string) ?? 'trial'
+    if (abonnementType === 'lifetime' || abonnementType === 'actif') return null
+
+    let expireAt: Date | null = null
+    let label = ''
+    if (abonnementType === 'trial') {
+      const trialStarted = entreprise.trial_started_at
+        ? new Date(entreprise.trial_started_at as string)
+        : new Date(entreprise.created_at as string)
+      expireAt = new Date(trialStarted.getTime() + 14 * 86_400_000)
+      label = 'Essai'
+    } else if (abonnementType === 'suspendu') {
+      expireAt = entreprise.abonnement_expire_at
+        ? new Date(entreprise.abonnement_expire_at as string)
+        : null
+      label = 'Accès'
+    }
+    if (!expireAt) return null
+    const msRestant = expireAt.getTime() - Date.now()
+    const joursRestants = Math.ceil(msRestant / (1000 * 60 * 60 * 24))
+    if (joursRestants > 7 || joursRestants < 0) return null
+    return { joursRestants, label }
+  })()
 
   const userInitials = getInitials(
     user?.user_metadata?.prenom,
@@ -685,6 +731,30 @@ export default function DashboardLayout({
             </a>
           </p>
         </div>
+
+        {/* Bandeau expiration imminente (≤ 7 jours restants) */}
+        {expirationInfo && (
+          <div className="bg-orange-50 border-y border-orange-200 px-4 py-2.5 flex items-center justify-center gap-3 flex-wrap text-center print:hidden">
+            <AlertTriangle size={16} className="text-orange-600 flex-shrink-0" />
+            <p className="font-manrope text-sm text-orange-900">
+              <span className="font-semibold">
+                {expirationInfo.label}{' '}
+                {expirationInfo.joursRestants === 0
+                  ? "expire aujourd'hui"
+                  : expirationInfo.joursRestants === 1
+                    ? 'expire demain'
+                    : `expire dans ${expirationInfo.joursRestants} jours`}
+              </span>
+              {' '}— Pour ne pas perdre l&apos;accès à vos données,{' '}
+              <Link
+                href="/dashboard/abonnement"
+                className="font-bold underline hover:text-orange-700 transition-colors"
+              >
+                souscrivez maintenant
+              </Link>
+            </p>
+          </div>
+        )}
 
         {pathname !== '/dashboard/planning' && (
           <DashboardHeader

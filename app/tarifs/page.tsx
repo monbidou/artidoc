@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import PricingSection from "@/components/PricingSection";
 
@@ -245,9 +246,12 @@ export default function TarifsPage() {
               14 jours gratuits, toutes les fonctionnalit&eacute;s, sans carte
               bancaire. Annulez quand vous voulez.
             </p>
-            <button className="h-16 rounded-xl bg-orange px-10 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
+            <Link
+              href="/register"
+              className="inline-flex h-16 items-center justify-center rounded-xl bg-orange px-10 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover"
+            >
               D&eacute;marrer mon essai gratuit &mdash; 14 jours
-            </button>
+            </Link>
           </div>
         </div>
       </section>

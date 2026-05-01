@@ -7,7 +7,6 @@ import {
   Receipt,
   Bell,
   User,
-  CreditCard,
   Camera,
   PenTool,
 } from 'lucide-react'
@@ -27,7 +26,6 @@ type Section =
   | 'facturation'
   | 'notifications'
   | 'compte'
-  | 'abonnement'
   | 'signature'
 
 interface NavItem {
@@ -43,8 +41,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'signature', label: 'Ma signature', icon: PenTool },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'compte', label: 'Compte', icon: User },
-  { id: 'abonnement', label: 'Abonnement', icon: CreditCard },
 ]
+// Note : la section "Abonnement" a sa propre page dédiée /dashboard/abonnement
 
 // -------------------------------------------------------------------
 // Shared components
@@ -1579,44 +1577,8 @@ function TamponUpload({
   )
 }
 
-function AbonnementSection() {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-8">
-      <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-6">
-        Abonnement
-      </h2>
-
-      <div className="border border-gray-200 rounded-xl p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="font-syne font-bold text-lg text-[#1a1a2e]">
-              Nexartis &mdash; 25 &euro; / mois HT
-            </h3>
-            <p className="font-manrope text-sm text-[#6b7280] mt-1">
-              Toutes les fonctionnalités incluses
-            </p>
-          </div>
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 font-manrope text-xs font-medium">
-            Actif
-          </span>
-        </div>
-
-        <p className="font-manrope text-sm text-[#6b7280] mb-4">
-          Prochaine facturation : 07/05/2026
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <button className="font-manrope text-sm text-[#5ab4e0] font-medium hover:underline text-left">
-            Modifier le moyen de paiement
-          </button>
-          <button className="font-manrope text-sm text-red-500 hover:text-red-700 hover:underline text-left">
-            Résilier l’abonnement
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// La section AbonnementSection a été déplacée vers la page dédiée
+// /dashboard/abonnement (page principale plus complète avec checkout Stripe).
 
 // -------------------------------------------------------------------
 // Main page
@@ -1676,7 +1638,7 @@ export default function ParametresPage() {
         {activeSection === 'signature' && entreprise && <SignatureSection entreprise={entreprise} update={update} />}
         {activeSection === 'notifications' && <NotificationsSection />}
         {activeSection === 'compte' && <CompteSection userEmail={user?.email ?? ''} />}
-        {activeSection === 'abonnement' && <AbonnementSection />}
+        {/* Section "Abonnement" déplacée vers la page dédiée /dashboard/abonnement */}
       </div>
     </div>
   )

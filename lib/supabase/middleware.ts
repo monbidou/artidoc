@@ -107,26 +107,69 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 5) Verif abonnement (uniquement si user present et sur /dashboard).
-  // Timeout court la aussi : si la base ne repond pas, on laisse passer
-  // plutot que de bloquer l'utilisateur.
-  if (user && isDashboardRoute) {
+  // EXCEPTION : la page /dashboard/abonnement n'est JAMAIS bloquee, sinon
+  // un utilisateur expire ne pourrait jamais se reabonner.
+  // Idem pour l'admin qui ne paye pas.
+  const ADMIN_EMAIL = 'admin@nexartis.fr'
+  const isAbonnementPage = pathname.startsWith('/dashboard/abonnement')
+  const isAdminUser = user?.email?.toLowerCase() === ADMIN_EMAIL
+
+  if (user && isDashboardRoute && !isAbonnementPage && !isAdminUser) {
+    const TRIAL_DAYS = 14
     const entrepriseResult = await withTimeout(
       Promise.resolve(supabase
         .from('entreprises')
-        .select('date_expiration')
+        .select('abonnement_type, trial_started_at, abonnement_expire_at, created_at')
         .eq('user_id', user.id)
         .single()),
       SUPABASE_TIMEOUT_MS,
-      'entreprises.date_expiration',
+      'entreprises.abonnement',
     )
 
-    const entreprise = entrepriseResult?.data
-    if (entreprise?.date_expiration) {
-      const expDate = new Date(entreprise.date_expiration)
-      if (expDate < new Date()) {
+    const entreprise = entrepriseResult?.data as
+      | {
+          abonnement_type: string | null
+          trial_started_at: string | null
+          abonnement_expire_at: string | null
+          created_at: string | null
+        }
+      | null
+      | undefined
+
+    if (entreprise) {
+      const abonnementType = entreprise.abonnement_type ?? 'trial'
+
+      // Helper : rediriger l'utilisateur expire vers la page abonnement,
+      // seule page accessible jusqu'au paiement.
+      const redirectToAbonnement = () => {
         const url = request.nextUrl.clone()
-        url.pathname = '/subscription-expired'
+        url.pathname = '/dashboard/abonnement'
+        url.searchParams.set('expired', '1')
         return NextResponse.redirect(url)
+      }
+
+      // lifetime / actif : aucune restriction
+      if (abonnementType === 'lifetime' || abonnementType === 'actif') {
+        // OK, on laisse passer
+      } else if (abonnementType === 'suspendu') {
+        // Suspendu : on regarde si la fin de periode payee est passee.
+        // Si null : suspendu immediat. Sinon : laisser passer jusqu'a la date.
+        const expireAt = entreprise.abonnement_expire_at
+          ? new Date(entreprise.abonnement_expire_at)
+          : null
+        if (!expireAt || expireAt < new Date()) {
+          return redirectToAbonnement()
+        }
+      } else {
+        // Trial (par defaut) : 14 jours depuis trial_started_at
+        const startRef = entreprise.trial_started_at ?? entreprise.created_at
+        if (startRef) {
+          const trialStart = new Date(startRef)
+          const trialEnd = new Date(trialStart.getTime() + TRIAL_DAYS * 86_400_000)
+          if (trialEnd < new Date()) {
+            return redirectToAbonnement()
+          }
+        }
       }
     }
   }

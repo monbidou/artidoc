@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/tarifs`,
+      success_url: `${siteUrl}/dashboard/abonnement?success=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/dashboard/abonnement?canceled=1`,
       // Collecter le SIRET et la TVA (obligatoire en France)
       tax_id_collection: { enabled: true },
       // Appliquer la TVA automatiquement
