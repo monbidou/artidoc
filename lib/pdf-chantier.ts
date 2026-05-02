@@ -368,9 +368,11 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   const contentW = pageW - 2 * M
   let y = 12
 
-  // ============ PAGE DE GARDE — PACTE DE CHANTIER (V2 optionnel) ============
-  // Si l'artisan a coché "Inclure le Pacte" lors de l'export, on commence
-  // par cette page (engagement mutuel). Sinon, on saute direct au planning.
+  // ============ PACTE DE CHANTIER (V2 optionnel) ============
+  // Le Pacte est désormais ajouté en DERNIÈRE PAGE (cf. retour Jerem).
+  // Le client veut d'abord voir le planning concret, le pacte engageant
+  // est un bonus à la fin. Le code est déclaré ici (sanitize + variable),
+  // mais l'appel à drawPacteCoverPage est fait à la fin, juste avant le return.
   //
   // SANITIZE : on enlève les caractères Unicode étendus que helvetica jsPDF
   // ne peut pas rendre (═, ✓, ✗, etc — ils apparaissent en %P%P ou en ').
@@ -389,22 +391,6 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
       .trim()
   }
   const pacteTexte = sanitizePacteText(data.pacteTexte || '')
-  if (pacteTexte) {
-    drawPacteCoverPage(doc, {
-      pageW,
-      M,
-      contentW,
-      pacteTexte,
-      artisanNom: entreprise.nom || 'Artisan',
-      artisanLogo: entreprise.logo_url || null,
-      clientNom: client
-        ? `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
-        : 'Client',
-      chantierTitre: chantier.titre || 'Chantier',
-    })
-    doc.addPage()
-    y = 12
-  }
 
   // Palette helpers
   const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
@@ -1355,6 +1341,26 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   doc.setFont('helvetica', 'normal')
   setText([148, 163, 184])
   doc.text('Document généré avec Nexartis · www.nexartis.fr', pageW / 2, y, { align: 'center' })
+
+  // ============ PACTE DE CHANTIER (DERNIÈRE PAGE, optionnel) ============
+  // Si l'artisan a coché "Inclure le Pacte" lors de l'export, on l'ajoute en
+  // toute fin de document. Le client voit d'abord le planning concret (dates,
+  // équipe, engagements) puis découvre le pacte à la fin comme un bonus engageant.
+  if (pacteTexte) {
+    doc.addPage()
+    drawPacteCoverPage(doc, {
+      pageW,
+      M,
+      contentW,
+      pacteTexte,
+      artisanNom: entreprise.nom || 'Artisan',
+      artisanLogo: entreprise.logo_url || null,
+      clientNom: client
+        ? `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
+        : 'Client',
+      chantierTitre: chantier.titre || 'Chantier',
+    })
+  }
 
   return doc.output('datauristring')
 }
