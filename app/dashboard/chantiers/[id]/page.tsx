@@ -217,22 +217,61 @@ export default function ChantierDetailPage() {
 
   // ── Finances (calculées dynamiquement depuis les factures) ──
   const finances = useMemo(() => {
-    // Devisé : depuis chantier OU somme des devis liés
-    const deviseFromChantier = Number(chantier?.montant_devis_total ?? 0)
-    const deviseFromDevis = chantierDevis.reduce((sum, d) => sum + Number(d.montant_ttc ?? 0), 0)
-    const deviseTotal = deviseFromChantier || deviseFromDevis
+    // ── DEVISÉ TTC ──
+    // TOUJOURS calculer depuis les devis liés au chantier (somme des montants).
+    // On n'utilise PLUS chantier.montant_devis_total qui est une valeur obsolète
+    // figée à la création du chantier (cf. bug "42 403€" alors que somme = 27 120€).
+    const deviseTotal = chantierDevis.reduce((sum, d) => sum + Number(d.montant_ttc ?? 0), 0)
 
-    // Facturé et encaissé : calculé depuis les factures liées au chantier
-    const factureTotal = chantierFactures.reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
-    const encaisse = chantierFactures.filter(f => f.statut === 'payee').reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
-    const reste = deviseTotal - factureTotal
+    // ── FACTURÉ TTC ──
+    // Déduplication par devis_id : si plusieurs factures existent pour le MÊME
+    // devis (cas des doublons accidentels), on garde uniquement la facture la
+    // plus récente par devis. Évite l'absurdité "Facturé > Devisé" (cf. bug 121%).
+    // Les factures sans devis_id sont toutes comptées (factures manuelles).
+    const facturesParDevis = new Map<string, R>()
+    const facturesSansDevis: R[] = []
+    chantierFactures.forEach(f => {
+      const devisId = f.devis_id as string | null | undefined
+      if (!devisId) {
+        facturesSansDevis.push(f)
+        return
+      }
+      const existing = facturesParDevis.get(devisId)
+      const fDate = String(f.date_emission ?? f.date_facture ?? f.created_at ?? '')
+      const eDate = existing ? String(existing.date_emission ?? existing.date_facture ?? existing.created_at ?? '') : ''
+      if (!existing || fDate > eDate) facturesParDevis.set(devisId, f)
+    })
+    const facturesUtiles = [...Array.from(facturesParDevis.values()), ...facturesSansDevis]
+    const factureTotal = facturesUtiles.reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
 
+    // ── ENCAISSÉ ──
+    // Somme des factures dont statut === 'payee' (parmi les facturesUtiles dédupliquées)
+    const encaisse = facturesUtiles
+      .filter(f => f.statut === 'payee')
+      .reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
+
+    // ── RESTE À FACTURER ──
+    // Cap à 0 : si Facturé > Devisé (cas anormal), on n'affiche pas un négatif
+    const reste = Math.max(0, deviseTotal - factureTotal)
+
+    // ── AVANCEMENT PAR DEVIS ──
+    // Un devis est "facturé" SEULEMENT s'il a au moins une facture LIÉE EXISTANTE
+    // (pas juste un statut "facture" ou "signe" qui peut être obsolète).
     const devisCount = chantierDevis.length
-    const devisFactures = chantierDevis.filter(d => d.statut === 'facture' || d.statut === 'signe').length
-    const pctDevis = devisCount > 0 ? Math.round((devisFactures / devisCount) * 100) : 0
-    const pctValeur = deviseTotal > 0 ? Math.round((factureTotal / deviseTotal) * 100) : 0
-    const pctEncaissement = deviseTotal > 0 ? Math.round((encaisse / deviseTotal) * 100) : 0
+    const devisIdsAvecFacture = new Set<string>()
+    chantierFactures.forEach(f => {
+      const dId = f.devis_id as string | null | undefined
+      if (dId) devisIdsAvecFacture.add(dId)
+    })
+    const devisFactures = chantierDevis.filter(d => devisIdsAvecFacture.has(d.id as string)).length
+    const pctDevis = devisCount > 0 ? Math.min(100, Math.round((devisFactures / devisCount) * 100)) : 0
 
+    // ── AVANCEMENT VALEUR / ENCAISSEMENT ──
+    // Cap à 100% pour éviter les valeurs absurdes (>100%) en cas d'incohérence
+    const pctValeur = deviseTotal > 0 ? Math.min(100, Math.round((factureTotal / deviseTotal) * 100)) : 0
+    const pctEncaissement = deviseTotal > 0 ? Math.min(100, Math.round((encaisse / deviseTotal) * 100)) : 0
+
+    // ── RENTABILITÉ ──
     const totalST = (stPaiements as R[]).reduce((sum, p) => sum + Number(p.montant_prevu ?? 0), 0)
     const totalAchats = chantierAchats.reduce((sum, a) => sum + Number(a.montant_ttc ?? a.montant_ht ?? 0), 0)
     const depenses = totalST + totalAchats
@@ -240,7 +279,7 @@ export default function ChantierDetailPage() {
     const margePct = factureTotal > 0 ? Math.round((marge / factureTotal) * 100) : 0
 
     return { deviseTotal, factureTotal, encaisse, reste, devisCount, devisFactures, pctDevis, pctValeur, pctEncaissement, totalST, totalAchats, depenses, marge, margePct }
-  }, [chantier, chantierDevis, stPaiements, chantierAchats])
+  }, [chantierDevis, chantierFactures, stPaiements, chantierAchats])
 
   // ── Gantt data ── (affiche 10 jours pour des cases plus larges et lisibles)
   const ganttDays = useMemo(() => {
@@ -361,14 +400,32 @@ export default function ChantierDetailPage() {
   const handleCreateFacture = async (devisId: string) => {
     setFactureCreating(devisId)
     try {
-      // 1. Check : existe-t-il déjà une facture pour ce devis ?
-      const existingFacture = (allFactures as R[]).find(f => f.devis_id === devisId)
-      if (existingFacture) {
+      // 1. Check côté CLIENT (rapide, sur les factures déjà chargées) :
+      // existe-t-il déjà une facture pour ce devis dans le state local ?
+      const existingLocal = chantierFactures.find(f => f.devis_id === devisId)
+      if (existingLocal) {
         showToast('Facture déjà existante — redirection')
-        router.push(`/dashboard/factures/${existingFacture.id}`)
+        router.push(`/dashboard/factures/${existingLocal.id}`)
         return
       }
-      // 2. Sinon, on crée la facture
+
+      // 2. Check côté SERVEUR (requête fraîche) : permet d'éviter les doublons
+      // en cas de double-click ou de cache obsolète. Indispensable car on a vu
+      // des doublons (2 factures pour le même devis sur le même chantier).
+      const supabase = createClient()
+      const { data: factureExistante } = await supabase
+        .from('factures')
+        .select('id')
+        .eq('devis_id', devisId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (factureExistante) {
+        showToast('Facture déjà existante — redirection')
+        router.push(`/dashboard/factures/${factureExistante.id}`)
+        return
+      }
+
+      // 3. Sinon, on crée la facture
       const facture = await createFactureFromDevis(devisId)
       showToast('Facture créée ✓')
       // Rafraîchir les données du chantier en tâche de fond (stats finance + barres)
