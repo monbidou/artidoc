@@ -183,8 +183,18 @@ export default function DashboardPage() {
     return c.prenom ? `${c.prenom} ${c.nom}` : String(c.nom || '');
   };
 
-  /* ── Planning this week ── */
+  /* ── Planning sur 7 jours glissants (aujourd'hui → J+6) ──
+   * Avant on filtrait juste la semaine ISO en cours (lun→ven), ce qui faisait
+   * disparaître les interventions de la semaine prochaine quand on consultait
+   * le dashboard un vendredi. Maintenant on regarde les 7 prochains jours
+   * peu importe le jour de la semaine, ce qui colle mieux à l'usage artisan.
+   * ⚠️ fmtISOLocal pour éviter le bug timezone classique. */
   const now = new Date();
+  const today0 = new Date(now); today0.setHours(0, 0, 0, 0);
+  const fmtISOLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // monday/friday gardés pour la sous-info "Semaine du X au Y mois" (compat affichage)
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   monday.setHours(0, 0, 0, 0);
@@ -192,26 +202,37 @@ export default function DashboardPage() {
   friday.setDate(monday.getDate() + 4);
   friday.setHours(23, 59, 59, 999);
 
-  const weekPlanning = planning.filter((p: Record<string, unknown>) => {
-    const d = new Date(p.date_debut as string);
-    return d >= monday && d <= friday;
+  const dayShortLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const dayFullLabelsArr = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+  // 7 jours glissants à partir d'aujourd'hui
+  const next7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today0);
+    d.setDate(today0.getDate() + i);
+    return d;
   });
 
-  /* ── Planning grouped by day (detailed view) ── */
-  const dayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
-  const dayFullLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
-  const planningByDay = dayLabels.map((label, idx) => {
-    const dayDate = new Date(monday);
-    dayDate.setDate(monday.getDate() + idx);
-    const dayStr = dayDate.toISOString().split('T')[0];
-    const entries = weekPlanning.filter((p: Record<string, unknown>) => String(p.date_debut).startsWith(dayStr));
+  const planningByDay = next7Days.map((dayDate) => {
+    const dayKey = fmtISOLocal(dayDate);
+    const dowIdx = (dayDate.getDay() + 6) % 7; // Lun=0, ..., Dim=6
+    const entries = (planning as Record<string, unknown>[]).filter(p =>
+      String(p.date_debut ?? '').startsWith(dayKey)
+    );
     const isToday = dayDate.toDateString() === now.toDateString();
     const dateStr = dayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    return { day: label, fullDay: dayFullLabels[idx], entries, isToday, dateStr };
+    return {
+      day: dayShortLabels[dowIdx],
+      fullDay: dayFullLabelsArr[dowIdx],
+      entries,
+      isToday,
+      dateStr,
+    };
   });
 
-  // Only show days that have events OR today
-  const visibleDays = planningByDay.filter(d => d.entries.length > 0 || d.isToday);
+  // Only show days that have events OR today (cap à 5 jours pour ne pas saturer)
+  const visibleDays = planningByDay
+    .filter(d => d.entries.length > 0 || d.isToday)
+    .slice(0, 5);
 
   const planningEventColors = ['#5ab4e0', '#e87a2a', '#22c55e', '#7c3aed', '#d4a017'];
 
@@ -462,23 +483,25 @@ export default function DashboardPage() {
     })
   }
 
-  // Notes/rappels/tâches des chantiers (non cochés, toutes catégories sauf info)
-  const notesActives = chantierNotes.filter((n: Record<string, unknown>) => {
-    if (n.fait === true) return false
-    return n.categorie !== 'info' // tout sauf les notes simples
-  })
+  // Notes/rappels/tâches des chantiers (toutes catégories non cochées).
+  // Auparavant on excluait 'info' mais ça empêchait les notes du type
+  // "le client sera absent demain" de remonter sur l'accueil. Maintenant
+  // on remonte TOUTES les notes non faites (limité à 5 pour pas saturer).
+  const notesActives = chantierNotes.filter((n: Record<string, unknown>) => n.fait !== true)
   const noteCatConfig: Record<string, { tag: string; dot: string; tagBg: string; tagColor: string }> = {
     urgent: { tag: 'Urgent', dot: '#ef4444', tagBg: '#fef2f2', tagColor: '#ef4444' },
     rappel: { tag: 'À faire', dot: '#e87a2a', tagBg: '#fff7ed', tagColor: '#ea580c' },
     materiel: { tag: 'Matériel', dot: '#8b5cf6', tagBg: '#f5f3ff', tagColor: '#7c3aed' },
     appel: { tag: 'Appel', dot: '#3b82f6', tagBg: '#eff6ff', tagColor: '#2563eb' },
+    demain: { tag: 'Demain', dot: '#f59e0b', tagBg: '#fffbeb', tagColor: '#b45309' },
+    info: { tag: 'Note', dot: '#5ab4e0', tagBg: '#e8f4fb', tagColor: '#1a6fb5' },
   }
   for (const n of notesActives.slice(0, 5)) {
     const chantier = chantiers.find((c: Record<string, unknown>) => c.id === n.chantier_id) as Record<string, unknown> | undefined
     const chantierTitre = chantier ? String(chantier.titre || 'Chantier') : 'Chantier'
-    const cat = noteCatConfig[n.categorie as string] || noteCatConfig.rappel
+    const cat = noteCatConfig[n.categorie as string] || noteCatConfig.info
     todoItems.push({
-      title: `${n.categorie === 'urgent' ? '⚠️ ' : ''}${String(n.texte || n.contenu || '').slice(0, 60)}`,
+      title: `${n.categorie === 'urgent' ? '⚠️ ' : n.categorie === 'demain' ? '🔔 ' : ''}${String(n.texte || n.contenu || '').slice(0, 60)}`,
       desc: chantierTitre,
       amount: '',
       dotColor: cat.dot, amountColor: cat.dot,
