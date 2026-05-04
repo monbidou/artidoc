@@ -82,7 +82,7 @@ export default function StatistiquesPage() {
     for (const f of facs) {
       const statut = (f.statut as string) ?? "";
       if (statut === "brouillon") continue;
-      const dateStr = (f.date_facture as string) || (f.date_emission as string) || (f.created_at as string);
+      const dateStr = (f.date_emission as string) || (f.created_at as string);
       if (!dateStr) continue;
       const d = new Date(dateStr);
       if (d.getFullYear() !== chartYear) continue;

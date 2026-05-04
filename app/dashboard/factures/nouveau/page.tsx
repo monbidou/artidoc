@@ -124,15 +124,22 @@ export default function NouvelleFacturePage() {
     setSaving(true)
     setError(null)
     try {
-      const now = new Date()
-      const numero = `F-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
+      // Annee du numero = annee de la date de facture (coherent en cas d'antidatage).
+      // Fallback sur l'annee systeme si parsing impossible.
+      const yearFromDate = (() => {
+        const y = Number((dateFacture || '').slice(0, 4))
+        return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear()
+      })()
+      const numero = `F-${yearFromDate}-${String(Date.now()).slice(-5)}`
       const clientDisplay = `${clientCivilite ? clientCivilite + ' ' : ''}${clientPrenom ? clientPrenom + ' ' : ''}${clientNom}`.trim()
 
       const factureData: Record<string, unknown> = {
         numero,
         statut,
+        // NE PAS ajouter `date_facture` : la colonne n'existe pas dans la table `factures`,
+        // PostgREST renvoyait "Could not find the 'date_facture' column ... in the schema cache".
+        // La date d'emission/de facture est stockee dans `date_emission` uniquement.
         date_emission: dateFacture,
-        date_facture: dateFacture,
         date_echeance: dateEcheance,
         objet: objet || null,
         notes: conditions || null,

@@ -238,8 +238,8 @@ export default function ChantierDetailPage() {
         return
       }
       const existing = facturesParDevis.get(devisId)
-      const fDate = String(f.date_emission ?? f.date_facture ?? f.created_at ?? '')
-      const eDate = existing ? String(existing.date_emission ?? existing.date_facture ?? existing.created_at ?? '') : ''
+      const fDate = String(f.date_emission ?? f.created_at ?? '')
+      const eDate = existing ? String(existing.date_emission ?? existing.created_at ?? '') : ''
       if (!existing || fDate > eDate) facturesParDevis.set(devisId, f)
     })
     const facturesUtiles = [...Array.from(facturesParDevis.values()), ...facturesSansDevis]
