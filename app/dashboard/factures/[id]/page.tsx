@@ -59,7 +59,7 @@ interface FactureRecord {
 }
 
 const DEFAULT_CONDITIONS_PAIEMENT =
-  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque.'
 
 interface ClientRecord {
   id: string
@@ -505,19 +505,19 @@ export default function FactureDetailPage() {
 
               {/* Colonne droite : récap totaux + acompte + NET À PAYER */}
               <div>
-                <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                  <div className="px-3 py-1.5 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-100">Récapitulatif</div>
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope bg-gray-50/50">
+                <div className="rounded-lg border border-gray-200 bg-[#f9fafb] overflow-hidden">
+                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-200">Récapitulatif</div>
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope">
                     <span className="text-[#5f6c80]">Sous-total HT</span>
                     <span className="text-[#0f1a3a] font-bold">{fmt(totalHT)}</span>
                   </div>
                   {Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
-                    <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-100">
+                    <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
                       <span className="text-[#5f6c80]">TVA {rate}%</span>
                       <span className="text-[#0f1a3a]">{fmt(group.tva)}</span>
                     </div>
                   ))}
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-100 bg-gray-50/50">
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
                     <span className="text-[#0f1a3a] font-bold">Total TTC</span>
                     <span className="text-[#0f1a3a] font-bold">{fmt(totalTTC)}</span>
                   </div>
@@ -576,32 +576,30 @@ export default function FactureDetailPage() {
             </div>
 
             {/* ────────────────────────────────────────────────── */}
-            {/* BLOC IBAN/BIC — EN BAS, pleine largeur (parité PDF) */}
+            {/* BLOC IBAN/BIC — moitié gauche, juste après mentions (parité PDF) */}
             {/* ────────────────────────────────────────────────── */}
             {Boolean(entreprise?.iban && String(entreprise?.iban).trim()) && (
               <div style={{
-                marginTop: 14,
+                marginTop: 12,
                 background: '#e8f4fb',
                 border: '1px solid #5ab4e0',
                 borderLeft: '4px solid #5ab4e0',
                 borderRadius: 8,
                 padding: '10px 14px',
+                width: '50%',
+                maxWidth: 360,
               }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#1a6fb5', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>POUR RÉGLER PAR VIREMENT</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
-                  <div>
-                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 13, color: '#0f1a3a', fontWeight: 700, letterSpacing: 0.5 }}>
-                      IBAN : {String(entreprise?.iban || '').replace(/\s+/g, '').toUpperCase().match(/.{1,4}/g)?.join(' ')}
-                    </div>
-                    {Boolean(entreprise?.bic && String(entreprise?.bic).trim()) && (
-                      <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12, color: '#0f1a3a', fontWeight: 700, marginTop: 2 }}>
-                        BIC : {String(entreprise?.bic || '').trim().toUpperCase()}
-                      </div>
-                    )}
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#1a6fb5', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 }}>POUR RÉGLER PAR VIREMENT</div>
+                <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12.5, color: '#0f1a3a', fontWeight: 700, letterSpacing: 0.5 }}>
+                  IBAN : {String(entreprise?.iban || '').replace(/\s+/g, '').toUpperCase().match(/.{1,4}/g)?.join(' ')}
+                </div>
+                {Boolean(entreprise?.bic && String(entreprise?.bic).trim()) && (
+                  <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12, color: '#0f1a3a', fontWeight: 700, marginTop: 2 }}>
+                    BIC : {String(entreprise?.bic || '').trim().toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 11, color: '#5f6c80' }}>
-                    Bénéficiaire : {String(entreprise?.nom || '')}
-                  </div>
+                )}
+                <div style={{ fontSize: 10.5, color: '#5f6c80', marginTop: 4 }}>
+                  Bénéficiaire : {String(entreprise?.nom || '')}
                 </div>
               </div>
             )}

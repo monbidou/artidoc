@@ -27,14 +27,14 @@ interface ChantierRecord { id: string; nom?: string; titre?: string; objet?: str
 const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'h', 'jour', 'forfait', 'lot', 'ensemble']
 const TVA_RATES = [0, 5.5, 10, 20]
 const DEFAULT_CONDITIONS_PAIEMENT =
-  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque.'
 let nextId = 200
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-const inputCls = 'w-full h-11 rounded-xl border-2 border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/20 transition-all bg-white placeholder:text-gray-400'
+const inputCls = 'w-full h-11 rounded-xl border-2 border-[#5ab4e0]/40 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/20 transition-all bg-white placeholder:text-gray-400'
 
 // ─── Page ─────────────────────────────────────────────────────────────────
 
@@ -461,21 +461,20 @@ export default function NouvelleFacturePage() {
           </select>
         </div>
 
-        {/* Acompte versé */}
+        {/* Acompte versé — checkbox simple */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acompteActive}
+              onChange={e => setAcompteActive(e.target.checked)}
+              className="mt-1 w-5 h-5 rounded border-2 border-[#5ab4e0] text-[#1a6fb5] focus:ring-2 focus:ring-[#5ab4e0]/30 cursor-pointer accent-[#1a6fb5]"
+            />
             <div>
-              <label className="block text-sm font-manrope font-semibold text-[#1a1a2e]">Acompte déjà versé</label>
-              <p className="text-[11px] font-manrope text-gray-400 mt-0.5">Si le client a déjà versé un acompte (souvent via un devis signé), il s&apos;affichera dans le récapitulatif (sous-total brut → acompte → reste à payer).</p>
+              <span className="block text-sm font-manrope font-semibold text-[#1a1a2e]">Un acompte a déjà été versé</span>
+              <span className="block text-[11px] font-manrope text-gray-400 mt-0.5">Cochez si le client a versé un acompte (souvent via un devis signé). Il sera affiché dans le récapitulatif (sous-total brut → acompte → reste à payer).</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setAcompteActive(v => !v)}
-              className={`shrink-0 inline-flex items-center gap-2 h-9 px-3 rounded-xl border-2 text-xs font-syne font-bold uppercase tracking-wider transition-colors ${acompteActive ? 'bg-[#1a6fb5] text-white border-[#1a6fb5]' : 'bg-white text-gray-400 border-gray-200 hover:border-[#5ab4e0]'}`}
-            >
-              {acompteActive ? 'Activé' : 'Activer'}
-            </button>
-          </div>
+          </label>
           {acompteActive && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
               <div>
@@ -547,7 +546,7 @@ export default function NouvelleFacturePage() {
               <span className="ml-2 text-[10px] font-manrope text-gray-400 font-normal">(visibles par le client)</span>
             </label>
             <textarea value={notesPerso} onChange={e => setNotesPerso(e.target.value)} rows={3}
-              placeholder="Ex. : Travaux realises du lundi 13 au lundi 18 mai 2026. Merci pour votre confiance."
+              placeholder="Écrire ici…"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
             <p className="text-[11px] font-manrope text-gray-400 mt-1">Ce texte apparait sur la facture remise au client.</p>
           </div>

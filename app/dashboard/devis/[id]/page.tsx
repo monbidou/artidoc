@@ -456,15 +456,15 @@ export default function DevisDetailPage() {
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-3 sm:p-8 lg:p-12 print-zone">
-            <div className="devis-header-block" style={{position:'relative', marginBottom:10}}>
-              {/* DEVIS + Numéro — centré absolument au milieu de la page, définit la hauteur du bloc */}
+            <div className="devis-header-block" style={{position:'relative', marginBottom:10, minHeight: 90}}>
+              {/* DEVIS + Numéro — centré absolument au milieu de la page */}
               <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>
                 <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#1a6fb5', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>DEVIS</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:10, lineHeight:1}}>N° <strong>{devis.numero}</strong></div>
               </div>
-              {/* Logo — positionné à gauche, hauteur = du haut de DEVIS au bas du numéro, largeur proportionnelle */}
+              {/* Logo — généreux, position absolue à gauche, hauteur agrandie pour mise en valeur (parité facture style Obat) */}
               {Boolean(entreprise?.logo_url) && (
-                <img src={String(entreprise?.logo_url || '')} alt="Logo" className="print-logo-img" style={{ position:'absolute', left:0, top:0, height:'100%', width:'auto', maxWidth: 180, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                <img src={String(entreprise?.logo_url || '')} alt="Logo" className="print-logo-img" style={{ position:'absolute', left:0, top:0, height:90, width:'auto', maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
               )}
             </div>
 
@@ -662,43 +662,46 @@ export default function DevisDetailPage() {
                   </div>
                 )}
               </div>
-              {/* Droite : totaux — alignés en haut */}
+              {/* Droite : récap totaux avec fond grisé (parité facture style Obat) */}
               <div>
-                <div className="flex justify-between py-1 text-xs font-manrope">
-                  <span className="text-[#6b7280]">Total HT</span>
-                  <span className="text-[#1a1a2e] font-medium">{formatCurrency(totalHT)}</span>
+                <div className="rounded-lg border border-gray-200 bg-[#f9fafb] overflow-hidden">
+                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-200">Récapitulatif</div>
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope">
+                    <span className="text-[#5f6c80]">Sous-total HT</span>
+                    <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalHT)}</span>
+                  </div>
+                  {Object.entries(tvaGroups)
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .map(([rate, group]) => (
+                      <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                        <span className="text-[#5f6c80]">TVA {rate}%</span>
+                        <span className="text-[#0f1a3a]">{formatCurrency(group.tva)}</span>
+                      </div>
+                    ))}
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                    <span className="text-[#0f1a3a] font-bold">Total TTC</span>
+                    <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalTTC)}</span>
+                  </div>
                 </div>
-                {Object.entries(tvaGroups)
-                  .sort(([a], [b]) => Number(a) - Number(b))
-                  .map(([rate, group]) => (
-                    <div key={rate} className="flex justify-between py-0.5 text-xs font-manrope">
-                      <span className="text-[#6b7280]">TVA {rate}%</span>
-                      <span className="text-[#1a1a2e] font-medium">{formatCurrency(group.tva)}</span>
-                    </div>
-                  ))}
-                <div className="border-t border-gray-200 mt-1 pt-1 flex justify-between py-1 text-xs font-manrope">
-                  <span className="text-[#1a1a2e] font-bold">Total TTC</span>
-                  <span className="text-[#1a1a2e] font-bold">{formatCurrency(totalTTC)}</span>
+                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
+                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
+                  <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
                 </div>
                 {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (() => {
                   const acompteMnt = totalTTC * (devis.acompte_pourcent / 100)
                   return (
-                    <>
-                      <div className="flex justify-between py-0.5 text-xs font-manrope border-t mt-0.5 pt-1">
-                        <span className="text-[#1a6fb5] font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
-                        <span className="text-[#1a6fb5] font-semibold">{formatCurrency(acompteMnt)}</span>
+                    <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2 space-y-1">
+                      <div className="flex justify-between text-sm font-manrope">
+                        <span className="text-[#15803d] font-bold">Acompte à verser ({devis.acompte_pourcent}%)</span>
+                        <span className="text-[#15803d] font-bold">{formatCurrency(acompteMnt)}</span>
                       </div>
-                      <div className="flex justify-between py-0.5 text-xs font-manrope">
-                        <span className="text-[#6b7280]">Reste à facturer</span>
-                        <span className="font-semibold">{formatCurrency(totalTTC - acompteMnt)}</span>
+                      <div className="flex justify-between text-[11px] font-manrope text-[#5f6c80]">
+                        <span>Reste à facturer</span>
+                        <span className="text-[#0f1a3a] font-bold text-sm">{formatCurrency(totalTTC - acompteMnt)}</span>
                       </div>
-                    </>
+                    </div>
                   )
                 })()}
-                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-2 mt-1.5 flex justify-between items-center">
-                  <span className="font-syne font-bold text-xs">NET À PAYER</span>
-                  <span className="font-syne font-bold text-base">{formatCurrency(totalTTC)}</span>
-                </div>
                 {/* ═══ SIGNATURES — sous NET À PAYER, 2 cadres identiques ═══ */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {/* Signature artisan */}

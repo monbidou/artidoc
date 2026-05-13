@@ -36,6 +36,7 @@ const C = {
   border: [230, 236, 242] as [number, number, number],     // #e6ecf2
   white: [255, 255, 255] as [number, number, number],
   black: [40, 40, 40] as [number, number, number],
+  grayLightBg: [249, 250, 251] as [number, number, number], // #f9fafb (fond récap totaux)
 }
 
 // -------------------------------------------------------------------
@@ -173,7 +174,7 @@ export interface FactureData {
 // Conditions de paiement par défaut (si vide)
 // -------------------------------------------------------------------
 const DEFAULT_CONDITIONS_PAIEMENT =
-  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque.'
 
 // -------------------------------------------------------------------
 // TVA mentions automatiques
@@ -791,37 +792,33 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
 
   // ── BLOC A — RÉCAPITULATIF HT/TVA/TTC ──
   const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
-  const headerH = 4.5     // hauteur du header "RÉCAPITULATIF"
+  const headerH = 5       // hauteur du header "RÉCAPITULATIF" (un poil plus haut)
   const rowH = 4.5        // hauteur de chaque ligne
   const rowsCount = 2 + sortedRates.length // HT + TVA(s) + TTC
   const blockAH = headerH + rowsCount * rowH + 1.5
 
-  // Cadre extérieur
-  setFill(doc, C.white)
-  setDraw(doc, C.border); doc.setLineWidth(0.2)
+  // Cadre extérieur — fond gris très clair #f9fafb, bordure visible
+  setFill(doc, C.grayLightBg)
+  setDraw(doc, C.border); doc.setLineWidth(0.4)
   doc.roundedRect(rightX, y, blockW, blockAH, 1.5, 1.5, 'FD')
 
-  // Header "RÉCAPITULATIF"
+  // Header "RÉCAPITULATIF" — uppercase tracking-wider, ton muted
   doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
-  doc.text('RÉCAPITULATIF', labelX, y + 3.2)
+  doc.text('RÉCAPITULATIF', labelX, y + 3.4, { charSpace: 0.4 })
 
   let rowY = y + headerH + 0.5
   let rowIdx = 0
 
-  // Helper : dessine une ligne
+  // Helper : dessine une ligne — fond uniforme gris très clair, séparation par trait subtil
   const drawRow = (label: string, value: string, isBold: boolean) => {
-    // Fond alterné
-    if (rowIdx % 2 === 0) {
-      doc.setFillColor(249, 250, 251)
-      doc.rect(rightX + 0.3, rowY, blockW - 0.6, rowH, 'F')
-    }
+    // Fond uniforme sur tout le bloc (déjà peint), pas d'alternance
     // Bordure haute (sauf 1ère ligne)
     if (rowIdx > 0) {
       setDraw(doc, C.border); doc.setLineWidth(0.15)
       doc.line(rightX + 1.5, rowY, rightX + blockW - 1.5, rowY)
     }
     doc.setFontSize(8.5)
-    doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); setText(doc, isBold ? C.navy : C.muted)
     doc.text(label, labelX, rowY + rowH - 1.4)
     doc.setFont('helvetica', isBold ? 'bold' : 'normal'); setText(doc, C.navy)
     doc.text(value, valueX, rowY + rowH - 1.4, { align: 'right' })
@@ -829,8 +826,8 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
     rowIdx++
   }
 
-  // Total HT
-  drawRow('Total HT', fmt(opts.ht), true)
+  // Sous-total HT
+  drawRow('Sous-total HT', fmt(opts.ht), true)
   // TVA par taux
   for (const rate of sortedRates) {
     drawRow(`TVA ${rate}%`, fmt(opts.tvaGroups[rate]), false)
@@ -838,10 +835,10 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   // Total TTC
   drawRow('Total TTC', fmt(opts.ttc), true)
 
-  y = y + blockAH + 2
+  y = y + blockAH + 3 // marge 3mm récap ↔ NET À PAYER
 
   // ── BLOC B — NET À PAYER ──
-  const netH = 11
+  const netH = 12
   setFill(doc, C.netBlue)
   doc.roundedRect(rightX, y, blockW, netH, 2, 2, 'F')
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); setText(doc, C.white)
@@ -1279,40 +1276,36 @@ export function generateFacturePdf(data: FactureData): string {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // BLOC IBAN/BIC — EN BAS, pleine largeur, après tout le reste
+  // BLOC IBAN/BIC — moitié gauche (88mm), juste APRÈS les mentions
   // ─────────────────────────────────────────────────────────────
   if (hasIban) {
-    const pageW = 210
-    const fullW = pageW - 2 * M
-    const ribH = 19
+    const ribW = leftMaxW  // 88mm — moitié gauche
+    const ribH = 21
 
-    const candidateBottom = 297 - 14 - 4
-    let ribY = Math.max(leftY + 2, rightEndY + 4)
-    if (ribY + ribH < candidateBottom - 2) {
-      ribY = candidateBottom - ribH - 1
-    }
+    // Position : juste après les mentions, avec une petite respiration
+    const ribY = leftY + 2
 
     setFill(doc, C.skyVeryPale)
     setDraw(doc, C.sky); doc.setLineWidth(0.3)
-    doc.roundedRect(M, ribY, fullW, ribH, 2, 2, 'FD')
+    doc.roundedRect(M, ribY, ribW, ribH, 2, 2, 'FD')
     setFill(doc, C.sky)
     doc.rect(M, ribY, 1.6, ribH, 'F')
 
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
     doc.text('POUR RÉGLER PAR VIREMENT', M + 5, ribY + 5)
 
     const ibanClean = (ent.iban as string).replace(/\s+/g, '').toUpperCase()
     const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
 
-    doc.setFontSize(9); doc.setFont('courier', 'bold'); setText(doc, C.navy)
+    doc.setFontSize(8); doc.setFont('courier', 'bold'); setText(doc, C.navy)
     doc.text(`IBAN : ${ibanFormatted}`, M + 5, ribY + 10)
 
     if (ent.bic && ent.bic.trim()) {
-      doc.setFontSize(8.5); doc.setFont('courier', 'bold'); setText(doc, C.navy)
+      doc.setFontSize(8); doc.setFont('courier', 'bold'); setText(doc, C.navy)
       doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 5, ribY + 14.5)
     }
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); setText(doc, C.muted)
-    doc.text(`Bénéficiaire : ${ent.nom || ''}`, pageW - M - 5, ribY + 14.5, { align: 'right' })
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); setText(doc, C.muted)
+    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
   }
 
   const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
