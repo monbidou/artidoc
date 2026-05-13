@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import { useClients, useEntreprise, insertRow } from '@/lib/hooks'
+import { useClients, useEntreprise, useChantiers, insertRow } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
@@ -20,10 +20,14 @@ interface LineItem {
 
 interface ClientRecord { id: string; nom: string; prenom?: string; civilite?: string; adresse?: string; telephone?: string; email?: string; code_postal?: string; ville?: string }
 
+interface ChantierRecord { id: string; nom?: string; titre?: string; objet?: string }
+
 // ─── Constants ────────────────────────────────────────────────────────────
 
 const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'h', 'jour', 'forfait', 'lot', 'ensemble']
 const TVA_RATES = [0, 5.5, 10, 20]
+const DEFAULT_CONDITIONS_PAIEMENT =
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
 let nextId = 200
 
 function formatCurrency(n: number): string {
@@ -37,8 +41,11 @@ const inputCls = 'w-full h-11 rounded-xl border-2 border-gray-200 px-3 text-sm f
 export default function NouvelleFacturePage() {
   const router = useRouter()
   const { data: clientsRaw } = useClients()
-  const { entreprise } = useEntreprise()
+  const { data: chantiersRaw } = useChantiers()
+  // entreprise est récupérée pour cohérence avec le reste de l'app (pas utilisée directement ici)
+  useEntreprise()
   const clients = clientsRaw as unknown as ClientRecord[]
+  const chantiers = (chantiersRaw as unknown as ChantierRecord[]) || []
 
   // Dates
   const today = new Date().toISOString().slice(0, 10)
@@ -58,20 +65,54 @@ export default function NouvelleFacturePage() {
   const [clientSuggestions, setClientSuggestions] = useState<ClientRecord[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
 
-  // Objet
+  // Objet — autocomplete sur les chantiers existants
   const [objet, setObjet] = useState('')
+  const [chantierId, setChantierId] = useState<string | null>(null)
+  const [chantierSuggestions, setChantierSuggestions] = useState<ChantierRecord[]>([])
+  const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
 
   // Lignes
   const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0 }])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
 
-  // Conditions
-  const [conditions, setConditions] = useState('')
-  const [notes, setNotes] = useState('')
+  // Conditions de paiement (pré-remplies) + notes personnalisées (visibles client)
+  const [conditions, setConditions] = useState<string>(DEFAULT_CONDITIONS_PAIEMENT)
+  const [notesPerso, setNotesPerso] = useState('')
+
+  // Acompte
+  const [acompteActive, setAcompteActive] = useState(false)
+  const [acomptePourcent, setAcomptePourcent] = useState<number>(30)
+  const [acompteMontantTTC, setAcompteMontantTTC] = useState<number>(0)
+  const [acompteLabel, setAcompteLabel] = useState('')
 
   // UI
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Autocomplete chantier sur le champ "Objet"
+  const handleObjetChange = (value: string) => {
+    setObjet(value)
+    setChantierId(null) // dès qu'on tape, on délie du chantier précédent
+    if (value.length >= 1 && chantiers.length > 0) {
+      const q = value.toLowerCase().trim()
+      const filtered = chantiers.filter(c => {
+        const txt = `${c.nom || ''} ${c.titre || ''} ${c.objet || ''}`.toLowerCase()
+        return txt.includes(q)
+      }).slice(0, 6)
+      setChantierSuggestions(filtered)
+      setChantierDropdownOpen(filtered.length > 0)
+    } else {
+      setChantierSuggestions([])
+      setChantierDropdownOpen(false)
+    }
+  }
+  const selectChantier = (c: ChantierRecord) => {
+    const label = c.nom || c.titre || c.objet || ''
+    setObjet(label)
+    setChantierId(c.id)
+    setChantierSuggestions([])
+    setChantierDropdownOpen(false)
+  }
 
   // ── Client autocomplete ──
   const handleClientNomChange = (value: string) => {
@@ -118,14 +159,17 @@ export default function NouvelleFacturePage() {
   lines.forEach(l => { totalHT += l.qty * l.priceHT })
   const totalTVA = globalTvaRate > 0 ? totalHT * (globalTvaRate / 100) : 0
   const totalTTC = totalHT + totalTVA
+  const acompteTTCcalc = acompteActive
+    ? (acompteMontantTTC > 0 ? acompteMontantTTC : totalTTC * (acomptePourcent / 100))
+    : 0
+  const acompteHTcalc = acompteActive && totalTTC > 0 ? totalHT * (acompteTTCcalc / totalTTC) : 0
+  const netAPayer = Math.max(totalTTC - acompteTTCcalc, 0)
 
   // ── Save ──
   const handleSave = useCallback(async (statut: 'brouillon' | 'envoyee') => {
     setSaving(true)
     setError(null)
     try {
-      // Annee du numero = annee de la date de facture (coherent en cas d'antidatage).
-      // Fallback sur l'annee systeme si parsing impossible.
       const yearFromDate = (() => {
         const y = Number((dateFacture || '').slice(0, 4))
         return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear()
@@ -136,13 +180,18 @@ export default function NouvelleFacturePage() {
       const factureData: Record<string, unknown> = {
         numero,
         statut,
-        // NE PAS ajouter `date_facture` : la colonne n'existe pas dans la table `factures`,
-        // PostgREST renvoyait "Could not find the 'date_facture' column ... in the schema cache".
-        // La date d'emission/de facture est stockee dans `date_emission` uniquement.
         date_emission: dateFacture,
         date_echeance: dateEcheance,
         objet: objet || null,
-        notes: conditions || null,
+        chantier_id: chantierId,
+        conditions_paiement: (conditions && conditions.trim()) || DEFAULT_CONDITIONS_PAIEMENT,
+        notes_personnalisees: notesPerso || null,
+        // Legacy : on garde `notes` synchronisé avec les conditions pour la rétrocompat
+        notes: (conditions && conditions.trim()) || null,
+        acompte_pourcent: acompteActive ? acomptePourcent || null : null,
+        acompte_montant_ht: acompteActive ? acompteHTcalc || null : null,
+        acompte_montant_ttc: acompteActive ? acompteTTCcalc || null : null,
+        acompte_label: acompteActive ? (acompteLabel || null) : null,
         notes_client: clientDisplay
           ? `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`
           : null,
@@ -181,10 +230,8 @@ export default function NouvelleFacturePage() {
 
             if (existingClient) {
               factureData.client_id = existingClient.id
-              // Mettre à jour les infos du client existant
               await supabase.from('clients').update(clientData).eq('id', existingClient.id)
             } else {
-              // Créer le client automatiquement
               const { data: newClient } = await supabase
                 .from('clients')
                 .insert({ ...clientData, type: 'particulier', actif: true })
@@ -199,7 +246,6 @@ export default function NouvelleFacturePage() {
       const facture = await insertRow('factures', factureData)
       const factureId = (facture as Record<string, unknown>).id as string
 
-      // Calcul auto de la numerotation (1, 2, 3... pour prestations a plat)
       const lignesPourNumero = lines
         .filter(l => l.designation || l.priceHT !== 0)
         .map(l => ({ type: 'prestation' as const, _orig: l }))
@@ -226,7 +272,7 @@ export default function NouvelleFacturePage() {
       setError((err as Error).message)
       setSaving(false)
     }
-  }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateFacture, dateEcheance, objet, conditions, totalHT, totalTVA, totalTTC, globalTvaRate, lines, router])
+  }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateFacture, dateEcheance, objet, chantierId, conditions, notesPerso, acompteActive, acomptePourcent, acompteHTcalc, acompteTTCcalc, acompteLabel, totalHT, totalTVA, totalTTC, globalTvaRate, lines, router])
 
   return (
     <div className="min-h-screen">
@@ -254,7 +300,7 @@ export default function NouvelleFacturePage() {
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3"><p className="text-sm text-red-600 font-manrope">{error}</p></div>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Dates */}
+          {/* Dates + Objet */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <div>
               <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date de facture</label>
@@ -264,9 +310,32 @@ export default function NouvelleFacturePage() {
               <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;échéance</label>
               <input type="date" value={dateEcheance} onChange={e => setDateEcheance(e.target.value)} className={inputCls} />
             </div>
-            <div>
-              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Objet / Chantier</label>
-              <input type="text" value={objet} onChange={e => setObjet(e.target.value)} placeholder="Ex. : Salle de bain, Installation électrique..." className={inputCls} />
+            <div className="relative">
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">
+                Objet / Chantier
+                {chantierId && <span className="ml-2 text-[10px] font-syne font-bold text-[#1a6fb5] bg-[#e8f4fb] px-2 py-0.5 rounded uppercase tracking-wider">Lié au chantier</span>}
+              </label>
+              <input
+                type="text"
+                value={objet}
+                onChange={e => handleObjetChange(e.target.value)}
+                onBlur={() => setTimeout(() => { setChantierDropdownOpen(false); setChantierSuggestions([]) }, 200)}
+                placeholder="Ex. : Salle de bain, Installation électrique..."
+                className={inputCls}
+                autoComplete="off"
+              />
+              {chantierDropdownOpen && chantierSuggestions.length > 0 && (
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border-2 border-[#5ab4e0] shadow-2xl z-50 w-full max-h-60 overflow-y-auto">
+                  <div className="px-3 py-1.5 text-[10px] font-syne font-bold text-[#1a6fb5] uppercase tracking-wider border-b border-gray-100 bg-[#e8f4fb]">Chantiers existants</div>
+                  {chantierSuggestions.map(c => (
+                    <button key={c.id} type="button" onMouseDown={e => { e.preventDefault(); selectChantier(c) }}
+                      className="w-full text-left px-4 py-2.5 font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors">
+                      <span className="font-semibold text-[#1a1a2e] text-sm">{c.nom || c.titre || c.objet || 'Chantier'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] font-manrope text-gray-400 mt-1">Tapez pour rechercher un chantier existant, ou saisissez librement.</p>
             </div>
           </div>
 
@@ -314,8 +383,7 @@ export default function NouvelleFacturePage() {
 
         {/* Tableau des lignes */}
         <div className="bg-white rounded-xl border border-gray-200">
-
-          {/* ── Mobile : cartes par ligne (< sm) ── */}
+          {/* Mobile : cartes */}
           <div className="sm:hidden divide-y divide-gray-100">
             {lines.map(line => (
               <div key={line.id} className="p-3">
@@ -352,9 +420,9 @@ export default function NouvelleFacturePage() {
             ))}
           </div>
 
-          {/* ── Desktop : table classique (≥ sm) ── */}
+          {/* Desktop : table — bandeau navy (parité PDF/aperçu) */}
           <div className="hidden sm:block overflow-x-auto">
-            <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+            <div className="bg-[#0f1a3a] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
               <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
             </div>
             {lines.map(line => (
@@ -377,7 +445,6 @@ export default function NouvelleFacturePage() {
             ))}
           </div>
 
-          {/* Bouton d'ajout */}
           <div className="flex flex-wrap gap-2 p-4 border-t border-gray-100">
             <button onClick={addLine} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100">
               <Plus size={14} /> Ajouter une ligne
@@ -394,40 +461,95 @@ export default function NouvelleFacturePage() {
           </select>
         </div>
 
+        {/* Acompte versé */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <label className="block text-sm font-manrope font-semibold text-[#1a1a2e]">Acompte déjà versé</label>
+              <p className="text-[11px] font-manrope text-gray-400 mt-0.5">Si le client a déjà versé un acompte (souvent via un devis signé), il s&apos;affichera dans le récapitulatif (sous-total brut → acompte → reste à payer).</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAcompteActive(v => !v)}
+              className={`shrink-0 inline-flex items-center gap-2 h-9 px-3 rounded-xl border-2 text-xs font-syne font-bold uppercase tracking-wider transition-colors ${acompteActive ? 'bg-[#1a6fb5] text-white border-[#1a6fb5]' : 'bg-white text-gray-400 border-gray-200 hover:border-[#5ab4e0]'}`}
+            >
+              {acompteActive ? 'Activé' : 'Activer'}
+            </button>
+          </div>
+          {acompteActive && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+              <div>
+                <label className="block text-[11px] font-manrope font-medium text-gray-500 uppercase tracking-wider mb-1">Pourcentage (%)</label>
+                <input type="number" value={acomptePourcent} min={0} max={100} step={1}
+                  onChange={e => { setAcomptePourcent(Number(e.target.value)); setAcompteMontantTTC(0) }}
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope font-medium text-gray-500 uppercase tracking-wider mb-1">Ou montant TTC (€)</label>
+                <input type="number" value={acompteMontantTTC} min={0} step={0.01}
+                  onChange={e => setAcompteMontantTTC(Number(e.target.value))}
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope font-medium text-gray-500 uppercase tracking-wider mb-1">Libellé (optionnel)</label>
+                <input type="text" value={acompteLabel} onChange={e => setAcompteLabel(e.target.value)}
+                  placeholder="Ex. : versé le 02/05/2026"
+                  className={inputCls} />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Totaux */}
         <div className="flex justify-end">
           <div className="bg-white rounded-xl border border-gray-200 p-6 w-80">
-            <div className="flex justify-between py-2 text-sm font-manrope">
-              <span className="text-[#6b7280]">Total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span>
+            <div className="flex justify-between py-1.5 text-sm font-manrope">
+              <span className="text-[#5f6c80]">Sous-total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span>
             </div>
             {globalTvaRate > 0 && (
-              <div className="flex justify-between py-2 text-sm font-manrope">
-                <span className="text-[#6b7280]">TVA {globalTvaRate}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span>
+              <div className="flex justify-between py-1.5 text-sm font-manrope">
+                <span className="text-[#5f6c80]">TVA {globalTvaRate}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span>
               </div>
             )}
-            <div className="border-t mt-2 pt-2 flex justify-between py-2 text-sm font-manrope">
-              <span className="text-[#6b7280] font-bold">Total TTC</span><span className="font-bold">{formatCurrency(totalTTC)}</span>
+            <div className="border-t mt-2 pt-2 flex justify-between py-1.5 text-sm font-manrope">
+              <span className="text-[#0f1a3a] font-bold">Total TTC</span><span className="font-bold">{formatCurrency(totalTTC)}</span>
             </div>
-            <div className="bg-[#5ab4e0] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
+            {acompteActive && acompteTTCcalc > 0 && (
+              <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2">
+                <div className="flex justify-between text-sm font-manrope">
+                  <span className="text-[#15803d] font-bold">Acompte versé</span>
+                  <span className="text-[#15803d] font-bold">- {formatCurrency(acompteTTCcalc)}</span>
+                </div>
+              </div>
+            )}
+            <div className="bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
               <span className="font-syne font-bold text-sm">NET À PAYER</span>
-              <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
+              <span className="font-syne font-bold text-lg">{formatCurrency(netAPayer)}</span>
             </div>
           </div>
         </div>
 
-        {/* Conditions + Notes */}
+        {/* Conditions de paiement + Notes personnalisées */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <div>
-            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Conditions de paiement</label>
+            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">
+              Conditions de paiement
+              <span className="ml-2 text-[10px] font-manrope text-gray-400 font-normal">(pre-rempli, modifiable)</span>
+            </label>
             <textarea value={conditions} onChange={e => setConditions(e.target.value)} rows={2}
-              placeholder="Ex. : Paiement à 30 jours, virement bancaire..."
+              placeholder={DEFAULT_CONDITIONS_PAIEMENT}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
+            <p className="text-[11px] font-manrope text-gray-400 mt-1">Visible sur la facture (PDF + apercu).</p>
           </div>
           <div>
-            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes internes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-              placeholder="Notes visibles uniquement par vous"
+            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">
+              Notes personnalisees
+              <span className="ml-2 text-[10px] font-manrope text-gray-400 font-normal">(visibles par le client)</span>
+            </label>
+            <textarea value={notesPerso} onChange={e => setNotesPerso(e.target.value)} rows={3}
+              placeholder="Ex. : Travaux realises du lundi 13 au lundi 18 mai 2026. Merci pour votre confiance."
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
+            <p className="text-[11px] font-manrope text-gray-400 mt-1">Ce texte apparait sur la facture remise au client.</p>
           </div>
         </div>
 

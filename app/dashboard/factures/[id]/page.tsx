@@ -42,6 +42,7 @@ interface FactureRecord {
   montant_ttc?: number
   montant_paye?: number
   notes?: string
+  notes_personnalisees?: string
   objet?: string
   client_nom?: string
   client_adresse?: string
@@ -49,9 +50,16 @@ interface FactureRecord {
   client_email?: string
   notes_client?: string
   conditions_paiement?: string
+  acompte_pourcent?: number
+  acompte_montant_ht?: number
+  acompte_montant_ttc?: number
+  acompte_label?: string
   created_at: string
   updated_at?: string
 }
+
+const DEFAULT_CONDITIONS_PAIEMENT =
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
 
 interface ClientRecord {
   id: string
@@ -220,6 +228,22 @@ export default function FactureDetailPage() {
   const totalPaye = facture.montant_paye ?? 0
   const resteAPayer = totalTTC - totalPaye
   const paymentPercent = totalTTC > 0 ? Math.round((totalPaye / totalTTC) * 100) : 0
+  // Acompte versé (style Obat : sous-total brut, acompte, net à payer)
+  const acompteTTC =
+    facture.acompte_montant_ttc !== undefined && facture.acompte_montant_ttc !== null
+      ? facture.acompte_montant_ttc
+      : (facture.acompte_pourcent && facture.acompte_pourcent > 0
+        ? totalTTC * (facture.acompte_pourcent / 100)
+        : 0)
+  const hasAcompte = acompteTTC > 0
+  const netAPayerAffiche = hasAcompte ? Math.max(totalTTC - acompteTTC, 0) : totalTTC
+  // Conditions et notes
+  const conditionsAffichees = (facture.conditions_paiement && facture.conditions_paiement.trim())
+    || (facture.notes && facture.notes.trim())
+    || DEFAULT_CONDITIONS_PAIEMENT
+  const notesPersoAffichees = facture.notes_personnalisees && facture.notes_personnalisees.trim()
+    ? facture.notes_personnalisees
+    : ''
 
   const statutLabel = STATUT_LABELS[facture.statut] ?? facture.statut
   const statutStyle = STATUT_STYLES[facture.statut] ?? 'bg-gray-100 text-gray-600 border-gray-200'
@@ -267,7 +291,7 @@ export default function FactureDetailPage() {
           <button onClick={handleDownloadPdf} disabled={downloading} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors disabled:opacity-50">
             <Download size={14} /> {downloading ? 'Téléchargement...' : 'Télécharger PDF'}
           </button>
-          <button onClick={() => setSendModalOpen(true)} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-sm font-manrope transition-colors">
+          <button onClick={() => setSendModalOpen(true)} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-[#1a6fb5] hover:bg-[#2d8bc9] text-white text-sm font-manrope transition-colors">
             <Send size={14} /> Envoyer par email
           </button>
           <Link href={`/dashboard/factures/${facture.id}/modifier`} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors">
@@ -301,25 +325,25 @@ export default function FactureDetailPage() {
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-8 print-zone">
 
-            {/* HEADER — Logo absolu à gauche, FACTURE centré au milieu (identique au devis) */}
-            <div style={{position:'relative', marginBottom:10}}>
+            {/* HEADER — Logo généreux à gauche style Obat, FACTURE centré (parité PDF) */}
+            <div style={{position:'relative', marginBottom:10, minHeight: 90}}>
               {/* FACTURE + Numéro + Date — centré au milieu de la page */}
               <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>
-                <div style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>FACTURE</div>
+                <div style={{fontSize:38, fontWeight:900, color:'#1a6fb5', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>FACTURE</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:10, lineHeight:1}}>N° <strong>{facture.numero}</strong></div>
                 <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                  {formatDate(facture.date_emission || facture.created_at)}
-                  {facture.date_echeance && ` · Échéance ${formatDate(facture.date_echeance)}`}
+                  Date : {formatDate(facture.date_emission || facture.created_at)}
+                  {facture.date_echeance && ` | Échéance : ${formatDate(facture.date_echeance)}`}
                 </div>
               </div>
-              {/* Logo — positionné à gauche, hauteur = du haut de FACTURE au bas du numéro */}
+              {/* Logo — généreux, position absolue à gauche, hauteur agrandie pour mise en valeur (style Obat) */}
               {Boolean(entreprise?.logo_url) && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ position:'absolute', left:0, top:0, height:'100%', width:'auto', maxWidth: 180, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ position:'absolute', left:0, top:0, height:90, width:'auto', maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
               )}
             </div>
 
-            <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
+            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:14}} />
 
             {/* Cadres Artisan + Client — identiques au devis */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12, alignItems: 'stretch' }}>
@@ -366,19 +390,19 @@ export default function FactureDetailPage() {
 
             {/* (titre FACTURE déplacé dans le header au-dessus) */}
 
-            {/* Objet */}
-            {(facture.objet || facture.notes_client?.includes('|')) && (
-              <div style={{ marginBottom: 16, paddingLeft: 12, borderLeft: '3px solid #2563eb' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#6b7280', marginBottom: 2 }}>Objet</div>
-                <div style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 500 }}>{facture.objet || ''}</div>
+            {/* Objet — bandeau pleine largeur sky pâle, accent gauche bleu (parité PDF) */}
+            {facture.objet && (
+              <div style={{ marginBottom: 14, background: '#e8f4fb', borderLeft: '4px solid #5ab4e0', borderRadius: 6, padding: '8px 14px', display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#2d8bc9', textTransform: 'uppercase', letterSpacing: 1.2 }}>OBJET :</div>
+                <div style={{ fontSize: 13, color: '#0f1a3a', fontWeight: 700 }}>{facture.objet}</div>
               </div>
             )}
 
-            {/* TABLEAU */}
+            {/* TABLEAU — bandeau navy (parité PDF) */}
             {lignes.length > 0 && (
               <table className="w-full mb-3 print-table">
                 <thead>
-                  <tr className="bg-[#2563eb] text-white">
+                  <tr className="bg-[#0f1a3a] text-white">
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase border-r border-white/30">Désignation</th>
                     <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Qté</th>
@@ -455,41 +479,77 @@ export default function FactureDetailPage() {
               </table>
             )}
 
-            {/* TOTAUX */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 mt-8">
-              <div>
-                {(facture.conditions_paiement || facture.notes) && (
+            {/* TOTAUX (parité PDF) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6 mt-6">
+              {/* Colonne gauche : conditions de paiement + notes personnalisées + mentions */}
+              <div className="space-y-3">
+                <div>
+                  <h4 className="font-manrope font-bold text-sm text-[#1a6fb5] mb-1.5">Conditions de paiement</h4>
+                  <p className="text-sm font-manrope text-[#5f6c80] leading-relaxed whitespace-pre-wrap">{conditionsAffichees}</p>
+                </div>
+                {Boolean(notesPersoAffichees) && (
                   <div>
-                    <h4 className="font-manrope font-semibold text-sm text-[#2563eb] mb-2">Conditions de paiement</h4>
-                    <p className="text-sm font-manrope text-[#6b7280] leading-relaxed whitespace-pre-wrap">{facture.conditions_paiement || facture.notes}</p>
+                    <h4 className="font-manrope font-bold text-sm text-[#1a6fb5] mb-1.5">Notes</h4>
+                    <p className="text-sm font-manrope text-[#0f1a3a] leading-relaxed whitespace-pre-wrap">{notesPersoAffichees}</p>
+                  </div>
+                )}
+                {/* Mentions légales standardisées (parité PDF) */}
+                <div className="pt-2 text-[11px] font-manrope text-[#9ca3af] leading-relaxed">
+                  <p>Pénalités de retard : 3x le taux d&apos;intérêt légal en vigueur (art. L.441-10 C. com.).</p>
+                  {Boolean(client?.client_type === 'professionnel') && (
+                    <p>Indemnité forfaitaire pour frais de recouvrement : 40 € (art. D.441-5 C. com.).</p>
+                  )}
+                  <p>Pas d&apos;escompte pour paiement anticipé.</p>
+                </div>
+              </div>
+
+              {/* Colonne droite : récap totaux + acompte + NET À PAYER */}
+              <div>
+                <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                  <div className="px-3 py-1.5 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-100">Récapitulatif</div>
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope bg-gray-50/50">
+                    <span className="text-[#5f6c80]">Sous-total HT</span>
+                    <span className="text-[#0f1a3a] font-bold">{fmt(totalHT)}</span>
+                  </div>
+                  {Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
+                    <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-100">
+                      <span className="text-[#5f6c80]">TVA {rate}%</span>
+                      <span className="text-[#0f1a3a]">{fmt(group.tva)}</span>
+                    </div>
+                  ))}
+                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-100 bg-gray-50/50">
+                    <span className="text-[#0f1a3a] font-bold">Total TTC</span>
+                    <span className="text-[#0f1a3a] font-bold">{fmt(totalTTC)}</span>
+                  </div>
+                </div>
+
+                {/* NET À PAYER — netBlue cohérent PDF */}
+                <div className="bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
+                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
+                  <span className="font-syne font-bold text-lg">{fmt(netAPayerAffiche)}</span>
+                </div>
+
+                {/* Bloc Acompte (style Obat : sous-total brut → acompte → reste) */}
+                {hasAcompte && (
+                  <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2 space-y-1">
+                    <div className="flex justify-between text-sm font-manrope">
+                      <span className="text-[#15803d] font-bold">
+                        Acompte versé{facture.acompte_pourcent ? ` (${facture.acompte_pourcent}%)` : ''}
+                      </span>
+                      <span className="text-[#15803d] font-bold">- {fmt(acompteTTC)}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-manrope text-[#5f6c80]">
+                      <span>Reste à payer</span>
+                      <span className="text-[#0f1a3a] font-bold text-sm">{fmt(netAPayerAffiche)}</span>
+                    </div>
                   </div>
                 )}
               </div>
-              <div>
-                <div className="flex justify-between py-2 text-sm font-manrope">
-                  <span className="text-[#6b7280]">Total HT</span>
-                  <span className="text-[#1a1a2e] font-medium">{fmt(totalHT)}</span>
-                </div>
-                {Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
-                  <div key={rate} className="flex justify-between py-1.5 text-sm font-manrope">
-                    <span className="text-[#6b7280]">TVA {rate}%</span>
-                    <span className="text-[#1a1a2e] font-medium">{fmt(group.tva)}</span>
-                  </div>
-                ))}
-                <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between py-2 text-sm font-manrope">
-                  <span className="text-[#1a1a2e] font-bold">Total TTC</span>
-                  <span className="text-[#1a1a2e] font-bold">{fmt(totalTTC)}</span>
-                </div>
-                <div className="bg-[#2563eb] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
-                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
-                  <span className="font-syne font-bold text-lg">{fmt(totalTTC)}</span>
-                </div>
-              </div>
             </div>
 
-            {/* MENTIONS LÉGALES — générées automatiquement selon le statut */}
+            {/* MENTIONS LÉGALES entreprise */}
             <div style={{ marginTop: 12, paddingTop: 8, borderTop: '0.5px solid #e5e7eb' }}>
-              <p style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Mentions légales</p>
+              <p style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Mentions légales</p>
               <div style={{ fontSize: 9, color: '#9ca3af', lineHeight: 1.6 }}>
                 {Boolean(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
                   <p>
@@ -499,7 +559,7 @@ export default function FactureDetailPage() {
                   </p>
                 )}
                 {Boolean(entreprise?.franchise_tva) && (
-                  <p style={{ fontWeight: 600 }}>TVA non applicable — art. 293 B du CGI.</p>
+                  <p style={{ fontWeight: 600 }}>TVA non applicable, art. 293 B du Code Général des Impôts.</p>
                 )}
                 {(entreprise?.forme_juridique === 'EI' || entreprise?.forme_juridique === 'Micro-entreprise') && (
                   <p>{String(entreprise?.nom || '')} — {entreprise?.forme_juridique === 'Micro-entreprise' ? 'Entrepreneur individuel (Micro-entreprise)' : 'Entrepreneur individuel (EI)'}</p>
@@ -510,12 +570,44 @@ export default function FactureDetailPage() {
                 {Boolean(entreprise?.rcs_rm) && <p>{String(entreprise?.rcs_rm)}</p>}
                 {Boolean(entreprise?.qualification_pro) && <p>Qualification : {String(entreprise?.qualification_pro)}</p>}
                 {Boolean(entreprise?.mediateur) && <p>Médiateur : {String(entreprise?.mediateur)}</p>}
+                <p style={{ fontStyle: 'italic' }}>Facture émise conformément aux articles L441-3 et suivants du Code de commerce.</p>
                 {Boolean(entreprise?.mentions_legales_custom) && <p>{String(entreprise?.mentions_legales_custom)}</p>}
               </div>
             </div>
 
+            {/* ────────────────────────────────────────────────── */}
+            {/* BLOC IBAN/BIC — EN BAS, pleine largeur (parité PDF) */}
+            {/* ────────────────────────────────────────────────── */}
+            {Boolean(entreprise?.iban && String(entreprise?.iban).trim()) && (
+              <div style={{
+                marginTop: 14,
+                background: '#e8f4fb',
+                border: '1px solid #5ab4e0',
+                borderLeft: '4px solid #5ab4e0',
+                borderRadius: 8,
+                padding: '10px 14px',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#1a6fb5', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>POUR RÉGLER PAR VIREMENT</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 13, color: '#0f1a3a', fontWeight: 700, letterSpacing: 0.5 }}>
+                      IBAN : {String(entreprise?.iban || '').replace(/\s+/g, '').toUpperCase().match(/.{1,4}/g)?.join(' ')}
+                    </div>
+                    {Boolean(entreprise?.bic && String(entreprise?.bic).trim()) && (
+                      <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12, color: '#0f1a3a', fontWeight: 700, marginTop: 2 }}>
+                        BIC : {String(entreprise?.bic || '').trim().toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#5f6c80' }}>
+                    Bénéficiaire : {String(entreprise?.nom || '')}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* FOOTER COORDONNÉES */}
-            <div style={{ marginTop: 16, paddingTop: 10, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.7 }}>
+            <div style={{ marginTop: 14, paddingTop: 10, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.7 }}>
               {String(entreprise?.nom || '')} — {String(entreprise?.adresse || '')}, {String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}
               {Boolean(entreprise?.siret) && ` — SIRET : ${String(entreprise?.siret || '')}`}
               {Boolean(entreprise?.email) && ` — Email : ${String(entreprise?.email || '')}`}

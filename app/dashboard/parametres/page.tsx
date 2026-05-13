@@ -924,7 +924,7 @@ function LogoUploadSection({
         // Seuls les pixels CONNECTÉS au bord et proches de la couleur de fond
         // seront supprimés. Les détails intérieurs du logo sont préservés.
         // ══════════════════════════════════════════════════════════
-        const threshold = 55  // tolérance de couleur pour "c'est du fond"
+        const threshold = 75  // tolérance de couleur pour "c'est du fond" (V2 — plus agressive pour gérer les fonds blancs cassés type JPEG)
         const visited = new Uint8Array(w * h) // 0 = pas visité, 1 = visité
         const toRemove = new Uint8Array(w * h) // 1 = pixel à rendre transparent
 
@@ -991,7 +991,7 @@ function LogoUploadSection({
         // Les pixels voisins des marqués → semi-transparents (antialiasing)
         // ══════════════════════════════════════════════════════════
         // D'abord, calculer la distance au fond pour le lissage
-        const softThreshold = 75 // seuil étendu pour le lissage progressif
+        const softThreshold = 100 // seuil étendu pour le lissage progressif (V2 — meilleur antialiasing sur fonds variables)
         for (let i = 0; i < w * h; i++) {
           if (toRemove[i]) {
             data[i * 4 + 3] = 0 // complètement transparent
@@ -1714,8 +1714,7 @@ export default function ParametresPage() {
         {activeSection === 'signature' && entreprise && <SignatureSection entreprise={entreprise} update={update} />}
         {activeSection === 'apparence' && <ApparenceSection />}
         {activeSection === 'notifications' && <NotificationsSection />}
-        {activeSection === 'compte' && <CompteSection userEmail={user?.email ?? ''} />}
-        {/* Section "Abonnement" deplacee vers la page dediee */}
+        {activeSection === 'compte' && <CompteSection userEmail={user?.email || ''} />}
       </div>
     </div>
   )

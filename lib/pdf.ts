@@ -146,7 +146,17 @@ export interface FactureData {
   montant_ttc: number
   lignes: Ligne[]
   entreprise: Entreprise
+  /** @deprecated utiliser `conditions_paiement` (UI dédiée) + `notes_personnalisees` (notes visibles client) */
   notes?: string
+  /** Conditions de règlement visibles sur le PDF. Pré-rempli par défaut si vide. */
+  conditions_paiement?: string
+  /** Notes libres visibles client (ex: "Travaux du 11 au 13 mai 2026"). Remplace l'ancien "notes internes". */
+  notes_personnalisees?: string
+  /** Acompte déjà versé — montants HT/TTC et libellé optionnel. */
+  acompte_pourcent?: number
+  acompte_montant_ht?: number
+  acompte_montant_ttc?: number
+  acompte_label?: string
   // Factures de situation
   type?: 'standard' | 'acompte' | 'situation' | 'avoir'
   numero_situation?: number
@@ -158,6 +168,12 @@ export interface FactureData {
   reste_a_facturer_ht?: number
   reste_a_facturer_ttc?: number
 }
+
+// -------------------------------------------------------------------
+// Conditions de paiement par défaut (si vide)
+// -------------------------------------------------------------------
+const DEFAULT_CONDITIONS_PAIEMENT =
+  'Méthodes de paiement acceptées : Virement bancaire, Chèque, Espèces (≤ 1 000 €).'
 
 // -------------------------------------------------------------------
 // TVA mentions automatiques
@@ -372,19 +388,48 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
   const centerX = pageW / 2
   const titleTopY = startY
 
-  // Titre centré
-  doc.setFontSize(22)
+  // === Logo plus généreux — style Obat ===
+  // hauteur 22mm (avant 14), largeur max 58mm
+  // Position : aligné verticalement au centre du bloc titre+numero
+  const LOGO_H = 22
+  const LOGO_MAX_W = 58
+  let logoDrawn = false
+  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
+    try {
+      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
+      const imgProps = doc.getImageProperties(ent.logo_url)
+      const ratio = imgProps.width / imgProps.height
+      let logoW = LOGO_H * ratio
+      if (logoW > LOGO_MAX_W) {
+        logoW = LOGO_MAX_W
+      }
+      // Aligner verticalement le logo avec le titre (centré sur LOGO_H)
+      const logoTopY = titleTopY - 1
+      doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, LOGO_H)
+      logoDrawn = true
+    } catch { /* logo invalide, ignoré */ }
+  }
+  if (!logoDrawn && ent.nom) {
+    // Pas de logo : nom entreprise stylisé à gauche
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    setText(doc, C.netBlue)
+    doc.text(ent.nom, M, titleTopY + 10)
+  }
+
+  // === Titre centré ===
+  doc.setFontSize(24)
   doc.setFont('helvetica', 'bold')
   setText(doc, C.netBlue)
-  doc.text(opts.title, centerX, titleTopY + 7, { align: 'center' })
+  doc.text(opts.title, centerX, titleTopY + 8, { align: 'center' })
 
   // N° doc
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
-  doc.text(`N° ${opts.numero}`, centerX, titleTopY + 13, { align: 'center' })
+  doc.text(`N° ${opts.numero}`, centerX, titleTopY + 14, { align: 'center' })
 
-  let y = titleTopY + 16
+  let y = titleTopY + 18
 
   // Sous-titre éventuel (situation)
   if (opts.subtitle) {
@@ -402,34 +447,17 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
     y += 4
   }
 
-  // Logo à gauche, aligné en haut
-  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
-    try {
-      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      const logoTopY = titleTopY + 1
-      const logoH = 14
-      const imgProps = doc.getImageProperties(ent.logo_url)
-      const ratio = imgProps.width / imgProps.height
-      let logoW = logoH * ratio
-      if (logoW > 45) logoW = 45
-      doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, logoH)
-    } catch { /* logo invalide, ignoré */ }
-  } else if (ent.nom) {
-    // Pas de logo : "Nexartis" stylisé / nom entreprise
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'bold')
-    setText(doc, C.orange)
-    doc.text(ent.nom, M, titleTopY + 9)
-  }
+  // S'assurer que le header descend au moins en dessous du logo
+  const minYAfterLogo = titleTopY + LOGO_H + 1
+  if (y < minYAfterLogo) y = minYAfterLogo
 
   // Trait sky 0.7mm sous le header
-  y += 1
   setFill(doc, C.sky)
   doc.rect(M, y, pageW - 2 * M, 0.7, 'F')
   y += 4
 
   // Ligne dates
-  doc.setFontSize(8)
+  doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
   doc.text(opts.dateLine, centerX, y, { align: 'center' })
@@ -1088,6 +1116,23 @@ export function generateFacturePdf(data: FactureData): string {
   const lignes = normalizeLignes(data.lignes)
   const isSituation = data.type === 'situation'
 
+  // ── 0. Calculs préliminaires (acompte versé) ──────────────────
+  const hasAcompte = !!(
+    (data.acompte_montant_ttc !== undefined && data.acompte_montant_ttc > 0) ||
+    (data.acompte_pourcent !== undefined && data.acompte_pourcent > 0)
+  )
+  const acompteTTC = hasAcompte
+    ? (data.acompte_montant_ttc !== undefined
+      ? data.acompte_montant_ttc
+      : data.montant_ttc * ((data.acompte_pourcent as number) / 100))
+    : 0
+  const acompteHT = hasAcompte
+    ? (data.acompte_montant_ht !== undefined
+      ? data.acompte_montant_ht
+      : data.montant_ht * (acompteTTC / Math.max(data.montant_ttc, 1)))
+    : 0
+  const netAPayerTTC = Math.max(data.montant_ttc - acompteTTC, 0)
+
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_echeance) dateParts.push(`Échéance : ${fmtDate(data.date_echeance)}`)
@@ -1146,63 +1191,74 @@ export function generateFacturePdf(data: FactureData): string {
     y = drawHierTable(doc, lignes, y)
   }
 
+  // ── Réservation d'espace pour bas de page ──────────────────────
+  // On doit prévoir : totaux (~35) + acompte (+12) + conditions+pénalités (~15) + IBAN tout en bas (22)
   const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
-  const NEEDED_BOTTOM = hasReste ? 65 : 52
+  const hasIban = !!(ent.iban && ent.iban.trim())
+  let NEEDED_BOTTOM = 55
+  if (hasAcompte) NEEDED_BOTTOM += 14
+  if (hasReste) NEEDED_BOTTOM += 14
+  if (hasIban) NEEDED_BOTTOM += 26
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
   y += 8 // marge respiration entre tableau et totaux
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
-  drawTotals(doc, {
+
+  // ── BLOC TOTAUX (droite) avec acompte si présent ──
+  const rightEndY = drawTotals(doc, {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
+    netLabel: 'NET À PAYER',
+    netAmount: hasAcompte ? netAPayerTTC : undefined,
+    acomptePct: hasAcompte
+      ? (data.acompte_pourcent ?? Math.round((acompteTTC / Math.max(data.montant_ttc, 1)) * 100))
+      : undefined,
+    acompteMontant: hasAcompte ? acompteTTC : undefined,
+    resteMontant: hasAcompte ? netAPayerTTC : undefined,
     resteAFacturerHT: hasReste ? data.reste_a_facturer_ht : undefined,
     resteAFacturerTTC: hasReste ? data.reste_a_facturer_ttc : undefined,
   }, y)
 
+  // ── COLONNE GAUCHE : conditions + notes perso + mentions ──
   let leftY = totalsStartY
   const M = 14
   const leftMaxW = 88
 
-  if (data.notes) {
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
-    doc.text('Conditions de paiement', M, leftY); leftY += 4
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-    const split = doc.splitTextToSize(data.notes, leftMaxW)
-    doc.text(split, M, leftY); leftY += split.length * 3.2 + 3
+  // Conditions de paiement (pré-remplies si absent)
+  const conditions = (data.conditions_paiement && data.conditions_paiement.trim())
+    || (data.notes && data.notes.trim()) // legacy fallback
+    || DEFAULT_CONDITIONS_PAIEMENT
+
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+  doc.text('Conditions de paiement', M, leftY); leftY += 4
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+  const splitCond = doc.splitTextToSize(conditions, leftMaxW)
+  doc.text(splitCond, M, leftY); leftY += splitCond.length * 3.2 + 2
+
+  // Notes personnalisées (visibles client — ex: "Travaux du 11 au 13 mai")
+  if (data.notes_personnalisees && data.notes_personnalisees.trim()) {
+    leftY += 1.5
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+    doc.text('Notes', M, leftY); leftY += 4
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.navy)
+    const splitNotes = doc.splitTextToSize(data.notes_personnalisees, leftMaxW)
+    doc.text(splitNotes, M, leftY); leftY += splitNotes.length * 3.2 + 2
   }
 
+  // Mentions légales standardisées
+  leftY += 1
   doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-  doc.text("Pénalités de retard : 3x le taux d'intérêt légal en vigueur.", M, leftY); leftY += 3
+  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur (art. L.441-10 C. com.).', M, leftY, { maxWidth: leftMaxW })
+  leftY += 5.5
   if (data.clientType === 'professionnel') {
-    doc.text('Indemnité forfaitaire recouvrement : 40 €.', M, leftY); leftY += 3
+    doc.text('Indemnité forfaitaire pour frais de recouvrement : 40 € (art. D.441-5 C. com.).', M, leftY, { maxWidth: leftMaxW })
+    leftY += 5.5
   }
-  doc.text('Escompte pour paiement anticipé : néant.', M, leftY); leftY += 4
+  doc.text('Pas d\'escompte pour paiement anticipé.', M, leftY); leftY += 4
 
-  if (ent.iban && ent.iban.trim()) {
-    const ribW = leftMaxW
-    const ribH = 18
-    setFill(doc, [248, 250, 252])
-    setDraw(doc, [200, 200, 200]); doc.setLineWidth(0.3)
-    doc.roundedRect(M, leftY, ribW, ribH, 1.5, 1.5, 'FD')
-
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
-    doc.text('POUR RÉGLER PAR VIREMENT', M + 3, leftY + 4.5)
-
-    const ibanClean = ent.iban.replace(/\s+/g, '').toUpperCase()
-    const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
-    doc.setFontSize(8); doc.setFont('courier', 'bold'); setText(doc, C.navy)
-    doc.text(`IBAN : ${ibanFormatted}`, M + 3, leftY + 9)
-    if (ent.bic && ent.bic.trim()) {
-      doc.setFontSize(7.5)
-      doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 3, leftY + 13)
-    }
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); setText(doc, C.muted)
-    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 3, leftY + 16.5)
-    leftY += ribH + 3
-  }
-
+  // Mentions TVA (293B auto ou 10%/5.5%)
   const tvaMentions = getTvaMentions(lignes)
   if (tvaMentions.length > 0) {
     doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
@@ -1211,11 +1267,52 @@ export function generateFacturePdf(data: FactureData): string {
       doc.text(split, M, leftY); leftY += split.length * 2.6 + 1.5
     }
   }
+
+  // Article L441-3
   doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
   doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
+  leftY += 4
 
+  // Ventilation TVA si plusieurs taux (sous totaux à droite)
   if (Object.keys(tvaGroups).length > 1) {
-    drawTvaBreakdown(doc, lignes, totalsStartY)
+    drawTvaBreakdown(doc, lignes, rightEndY + 1)
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // BLOC IBAN/BIC — EN BAS, pleine largeur, après tout le reste
+  // ─────────────────────────────────────────────────────────────
+  if (hasIban) {
+    const pageW = 210
+    const fullW = pageW - 2 * M
+    const ribH = 19
+
+    const candidateBottom = 297 - 14 - 4
+    let ribY = Math.max(leftY + 2, rightEndY + 4)
+    if (ribY + ribH < candidateBottom - 2) {
+      ribY = candidateBottom - ribH - 1
+    }
+
+    setFill(doc, C.skyVeryPale)
+    setDraw(doc, C.sky); doc.setLineWidth(0.3)
+    doc.roundedRect(M, ribY, fullW, ribH, 2, 2, 'FD')
+    setFill(doc, C.sky)
+    doc.rect(M, ribY, 1.6, ribH, 'F')
+
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+    doc.text('POUR RÉGLER PAR VIREMENT', M + 5, ribY + 5)
+
+    const ibanClean = (ent.iban as string).replace(/\s+/g, '').toUpperCase()
+    const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
+
+    doc.setFontSize(9); doc.setFont('courier', 'bold'); setText(doc, C.navy)
+    doc.text(`IBAN : ${ibanFormatted}`, M + 5, ribY + 10)
+
+    if (ent.bic && ent.bic.trim()) {
+      doc.setFontSize(8.5); doc.setFont('courier', 'bold'); setText(doc, C.navy)
+      doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 5, ribY + 14.5)
+    }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); setText(doc, C.muted)
+    doc.text(`Bénéficiaire : ${ent.nom || ''}`, pageW - M - 5, ribY + 14.5, { align: 'right' })
   }
 
   const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'

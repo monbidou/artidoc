@@ -176,7 +176,7 @@ const printStyles = `
 
   /* ── Forcer les backgrounds à l'impression (NET À PAYER bleu, etc.) ── */
   .print-zone { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-  .print-net-payer { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; background: #2563eb !important; color: white !important; }
+  .print-net-payer { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; background: #1a6fb5 !important; color: white !important; }
 
   /* ── Logo print : hauteur alignée au bloc titre, largeur auto ── */
   .print-logo-img { height: 100% !important; width: auto !important; max-width: 120px !important; object-fit: contain !important; }
@@ -459,7 +459,7 @@ export default function DevisDetailPage() {
             <div className="devis-header-block" style={{position:'relative', marginBottom:10}}>
               {/* DEVIS + Numéro — centré absolument au milieu de la page, définit la hauteur du bloc */}
               <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>
-                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>DEVIS</div>
+                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#1a6fb5', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>DEVIS</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:10, lineHeight:1}}>N° <strong>{devis.numero}</strong></div>
               </div>
               {/* Logo — positionné à gauche, hauteur = du haut de DEVIS au bas du numéro, largeur proportionnelle */}
@@ -469,7 +469,7 @@ export default function DevisDetailPage() {
             </div>
 
             {/* Ligne dégradé */}
-            <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
+            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:14}} />
 
             {/* Dates — sous le trait bleu (pas de date de début travaux côté client :
                 non pertinent, peut devenir obsolète si le client met du temps à répondre) */}
@@ -520,8 +520,8 @@ export default function DevisDetailPage() {
 
             {/* ═══ OBJET ═══ */}
             {devis.objet && (
-              <div className="mb-3 p-2 bg-[#eff6ff] rounded-lg border-l-[3px] border-[#2563eb]">
-                <span className="text-[10px] font-manrope font-bold text-[#2563eb] uppercase tracking-wider">Objet : </span>
+              <div className="mb-3 p-2 bg-[#eff6ff] rounded-lg border-l-[3px] border-[#1a6fb5]">
+                <span className="text-[10px] font-manrope font-bold text-[#1a6fb5] uppercase tracking-wider">Objet : </span>
                 <span className="text-[11px] font-manrope text-[#374151]">{devis.objet}</span>
               </div>
             )}
@@ -530,7 +530,7 @@ export default function DevisDetailPage() {
             {lignes.length > 0 && (
               <table className="w-full mb-3 print-table">
                 <thead>
-                  <tr className="bg-[#2563eb] text-white">
+                  <tr className="bg-[#0f1a3a] text-white">
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase border-r border-white/30">Désignation</th>
                     <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14 border-r border-white/30">Qté</th>
@@ -685,8 +685,8 @@ export default function DevisDetailPage() {
                   return (
                     <>
                       <div className="flex justify-between py-0.5 text-xs font-manrope border-t mt-0.5 pt-1">
-                        <span className="text-[#2563eb] font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
-                        <span className="text-[#2563eb] font-semibold">{formatCurrency(acompteMnt)}</span>
+                        <span className="text-[#1a6fb5] font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
+                        <span className="text-[#1a6fb5] font-semibold">{formatCurrency(acompteMnt)}</span>
                       </div>
                       <div className="flex justify-between py-0.5 text-xs font-manrope">
                         <span className="text-[#6b7280]">Reste à facturer</span>
@@ -695,7 +695,7 @@ export default function DevisDetailPage() {
                     </>
                   )
                 })()}
-                <div className="print-net-payer bg-[#2563eb] text-white rounded-lg p-2 mt-1.5 flex justify-between items-center">
+                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-2 mt-1.5 flex justify-between items-center">
                   <span className="font-syne font-bold text-xs">NET À PAYER</span>
                   <span className="font-syne font-bold text-base">{formatCurrency(totalTTC)}</span>
                 </div>

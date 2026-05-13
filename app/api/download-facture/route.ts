@@ -82,7 +82,17 @@ export async function POST(req: NextRequest) {
         numero: (l.numero as string | undefined),
       })),
       entreprise: entreprise || {},
-      notes: facture.notes,
+      // Conditions visibles client (sera pré-rempli côté PDF si vide)
+      conditions_paiement: facture.conditions_paiement || undefined,
+      // Notes personnalisées (visibles client) — remplace l'usage de "notes internes"
+      notes_personnalisees: facture.notes_personnalisees || undefined,
+      // Acompte versé
+      acompte_pourcent: facture.acompte_pourcent ?? undefined,
+      acompte_montant_ht: facture.acompte_montant_ht ?? undefined,
+      acompte_montant_ttc: facture.acompte_montant_ttc ?? undefined,
+      acompte_label: facture.acompte_label || undefined,
+      // Legacy : ancien champ `notes` conservé pour rétrocompat
+      notes: facture.notes || undefined,
     })
 
     // Return the base64 PDF

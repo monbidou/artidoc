@@ -449,7 +449,10 @@ function NouveauDevisPage() {
         objet: chantierDesc || null,
         description: chantierDesc || null,
         conditions_paiement: conditionsStr,
-        notes_internes: notes || null,
+        // V2 : le champ libre est désormais des "notes personnalisées" (visibles client),
+        // pour rester cohérent avec la facture (parité devis/facture).
+        notes_personnalisees: notes || null,
+        notes_internes: null, // déprécié — on n'écrit plus dans la colonne legacy
         notes_client: `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`.trim() || null,
         acompte_pourcent: acomptePct > 0 ? acomptePct : null,
         montant_ht: totalHT,
@@ -1232,7 +1235,7 @@ function NouveauDevisPage() {
             </div>
           </div>
           <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Conditions personnalisées (optionnel)</label><textarea value={conditionsLibres} onChange={e => setConditionsLibres(e.target.value)} rows={2} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes internes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes visibles uniquement par vous" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
+          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes personnalisées <span className="text-[10px] text-gray-400 font-normal">(visibles par le client)</span></label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Ex. : Travaux du lundi 13 au lundi 18 mai 2026. Merci pour votre confiance." className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
         </div>
 
 
