@@ -7,6 +7,8 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { useClients, useEntreprise, useChantiers, insertRow } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
+import LineCard from '@/components/mobile/LineCard'
+import LineSheet, { type SheetLine } from '@/components/mobile/LineSheet'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -76,6 +78,56 @@ export default function NouvelleFacturePage() {
   // Lignes
   const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, type: 'line' }])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
+
+  // ── Bottom sheet mobile (saisie/édition d'une ligne) ──
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetLine, setSheetLine] = useState<LineItem | null>(null)
+  const [sheetDefaultType, setSheetDefaultType] = useState<'line' | 'section' | 'subsection' | 'text'>('line')
+
+  const openCreateSheet = (type: 'line' | 'section' | 'subsection' | 'text' = 'line') => {
+    setSheetLine(null)
+    setSheetDefaultType(type)
+    setSheetOpen(true)
+  }
+  const openEditSheet = (line: LineItem) => {
+    setSheetLine(line)
+    setSheetDefaultType(line.type)
+    setSheetOpen(true)
+  }
+
+  // Sauvegarde depuis le sheet : update si on édite, push si nouvelle ligne
+  const handleSheetSave = (payload: SheetLine) => {
+    if (sheetLine) {
+      // Édition d'une ligne existante
+      setLines(prev => prev.map(l => l.id === sheetLine.id ? {
+        ...l,
+        designation: payload.designation,
+        qty: payload.qty,
+        unit: payload.unit || l.unit,
+        priceHT: payload.priceHT,
+        type: payload.type,
+      } : l))
+    } else {
+      // Création
+      setLines(prev => [...prev, {
+        id: nextId++,
+        designation: payload.designation,
+        qty: payload.qty,
+        unit: payload.unit || 'U',
+        priceHT: payload.priceHT,
+        type: payload.type,
+      }])
+    }
+  }
+  // Valider + enchaîner : on enregistre puis on rouvre un sheet vide
+  const handleSheetSaveAndNew = (payload: SheetLine) => {
+    handleSheetSave(payload)
+    setSheetLine(null)
+    setSheetDefaultType('line')
+    // Astuce : on garde sheetOpen=true, mais on relance le mount via key
+    setSheetOpen(false)
+    setTimeout(() => setSheetOpen(true), 50)
+  }
   // V6 — Si l'utilisateur change manuellement la TVA, on ne ré-impose plus 0 automatiquement
   const [tvaUserOverride, setTvaUserOverride] = useState(false)
 
@@ -429,41 +481,42 @@ export default function NouvelleFacturePage() {
 
         {/* Tableau des lignes */}
         <div className="bg-white rounded-xl border border-gray-200">
-          {/* Mobile : cartes */}
-          <div className="sm:hidden divide-y divide-gray-100">
-            {lines.map(line => (
-              <div key={line.id} className="p-3">
-                <div className="flex gap-2 mb-2">
-                  <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
-                    className="flex-1 text-sm font-manrope border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#5ab4e0] bg-white h-10" placeholder="Désignation..." />
-                  <button onClick={() => removeLine(line.id)} className="flex-shrink-0 p-2 text-gray-300 hover:text-red-500 transition-colors self-start"><Trash2 size={16} /></button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Qté</label>
-                    <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}
-                      className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-center bg-white" min={0} />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Unité</label>
-                    <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)}
-                      className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
-                      {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Prix HT</label>
-                    <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))}
-                      className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-right bg-white" min={0} step={0.01} />
-                  </div>
-                </div>
-                {line.priceHT > 0 && (
-                  <div className="text-right text-sm font-manrope font-bold text-[#1a1a2e] mt-2">
-                    Total : {formatCurrency(line.qty * line.priceHT)}
-                  </div>
-                )}
-              </div>
+          {/* ─── Mobile : cards + bottom sheet (V2 maquette validée) ─── */}
+          <div className="sm:hidden p-3 space-y-2">
+            {lines.map((line, idx) => (
+              <LineCard
+                key={line.id}
+                line={line}
+                subtotal={subtotalAt(idx)}
+                onTap={() => openEditSheet(line)}
+                onDelete={() => removeLine(line.id)}
+                formatCurrency={formatCurrency}
+              />
             ))}
+            {/* Barre d'ajout : 3 boutons sous la liste */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => openCreateSheet('line')}
+                className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-[#e8f4fb] border border-[#5ab4e0]/60 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#1a6fb5] active:scale-95 transition-all"
+              >
+                <Plus size={16} /> Ligne
+              </button>
+              <button
+                type="button"
+                onClick={() => openCreateSheet('section')}
+                className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-white border border-gray-200 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#0f1a3a] active:scale-95 transition-all"
+              >
+                <Plus size={16} /> Section
+              </button>
+              <button
+                type="button"
+                onClick={() => openCreateSheet('subsection')}
+                className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-white border border-gray-200 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#0f1a3a] active:scale-95 transition-all"
+              >
+                <Plus size={16} /> Sous-section
+              </button>
+            </div>
           </div>
 
           {/* Desktop : table — bandeau navy (parité PDF/aperçu) */}
@@ -660,6 +713,17 @@ export default function NouvelleFacturePage() {
           </button>
         </div>
       </div>
+
+      {/* ─── Bottom sheet mobile (saisie/édition ligne) ─── */}
+      <LineSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        line={sheetLine as SheetLine | null}
+        onSave={handleSheetSave}
+        onSaveAndNew={handleSheetSaveAndNew}
+        defaultType={sheetDefaultType}
+        unitOptions={UNIT_SUGGESTIONS}
+      />
     </div>
   )
 }
