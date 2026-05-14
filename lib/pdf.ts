@@ -448,22 +448,22 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
     y += 4
   }
 
-  // S'assurer que le header descend au moins en dessous du logo
-  const minYAfterLogo = titleTopY + LOGO_H + 1
-  if (y < minYAfterLogo) y = minYAfterLogo
-
-  // Trait sky 0.7mm sous le header
-  setFill(doc, C.sky)
-  doc.rect(M, y, pageW - 2 * M, 0.7, 'F')
-  y += 4
-
-  // Ligne dates
+  // V5 : Ligne dates AU-DESSUS du trait bleu, juste sous le numéro
   doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
   doc.text(opts.dateLine, centerX, y, { align: 'center' })
-  // V4 : marge plus généreuse entre dates et cadres artisan/client (parité haut/bas)
-  y += 7
+  y += 4.5
+
+  // S'assurer que le header descend au moins en dessous du logo
+  const minYAfterLogo = titleTopY + LOGO_H + 1
+  if (y < minYAfterLogo) y = minYAfterLogo
+
+  // Trait sky 0.7mm — séparateur fin du header
+  setFill(doc, C.sky)
+  doc.rect(M, y, pageW - 2 * M, 0.7, 'F')
+  // V5 : marge trait↔cadres = 8mm (identique à cadres↔tableau = 8mm dans drawIdentityBoxes)
+  y += 8
 
   return y
 }
@@ -550,8 +550,8 @@ function drawIdentityBoxes(
     cy += 1.6
   }
 
-  // V4 : marge plus généreuse cadres ↔ objet/tableau (parité avec marge dates↔cadres)
-  return y + boxH + 7
+  // V5 : marge cadres ↔ objet/tableau = 8mm (identique à trait↔cadres pour symétrie parfaite)
+  return y + boxH + 8
 }
 
 // -------------------------------------------------------------------
@@ -1309,5 +1309,8 @@ export function generateFacturePdf(data: FactureData): string {
   const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
   drawMiniHeaderAllPagesAfterFirst(doc, miniTitle, data.numero)
   drawFooterAllPages(doc, ent, data.numero)
+  return doc.output('datauristring').split(',')[1]
+}
+AllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
 }

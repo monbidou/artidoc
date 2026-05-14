@@ -468,18 +468,17 @@ export default function DevisDetailPage() {
               )}
             </div>
 
-            {/* Ligne dégradé */}
-            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:22}} />
-
-            {/* Dates — sous le trait bleu (pas de date de début travaux côté client :
-                non pertinent, peut devenir obsolète si le client met du temps à répondre) */}
-            <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'16px', marginBottom:14, padding:'6px 0'}}>
-              <span style={{fontSize:11, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
-              {devis.date_validite && <span style={{fontSize:11, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
-              {devis.duree_estimee && <span style={{fontSize:11, color:'#374151'}}>Durée estimée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
+            {/* V5 — Dates AU-DESSUS du trait bleu, juste sous le numéro */}
+            <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'16px', marginTop: -4, marginBottom:12, padding:'4px 0'}}>
+              <span style={{fontSize:12, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
+              {devis.date_validite && <span style={{fontSize:12, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
+              {devis.duree_estimee && <span style={{fontSize:12, color:'#374151'}}>Durée estimée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
             </div>
 
-            {/* 2 CADRES : artisan gauche, client droite — marges symétriques V4 (trait↔cadre ≈ cadre↔tableau) */}
+            {/* Trait bleu — séparateur fin du header */}
+            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:22}} />
+
+            {/* 2 CADRES : artisan gauche, client droite — marges symétriques V5 (trait↔cadre = cadre↔tableau = 22) */}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:22, alignItems:'stretch'}}>
               {/* Cadre artisan */}
               <div className="print-info-box" style={{background:'#cde4f5', border:'2px solid #5ab4e0', borderLeft:'5px solid #5ab4e0', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
