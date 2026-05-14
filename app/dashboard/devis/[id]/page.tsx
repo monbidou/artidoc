@@ -469,7 +469,7 @@ export default function DevisDetailPage() {
             </div>
 
             {/* Ligne dégradé */}
-            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:14}} />
+            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:22}} />
 
             {/* Dates — sous le trait bleu (pas de date de début travaux côté client :
                 non pertinent, peut devenir obsolète si le client met du temps à répondre) */}
@@ -479,10 +479,10 @@ export default function DevisDetailPage() {
               {devis.duree_estimee && <span style={{fontSize:11, color:'#374151'}}>Durée estimée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
             </div>
 
-            {/* 2 CADRES : artisan gauche, client droite */}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12, alignItems:'stretch'}}>
+            {/* 2 CADRES : artisan gauche, client droite — marges symétriques V4 (trait↔cadre ≈ cadre↔tableau) */}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:22, alignItems:'stretch'}}>
               {/* Cadre artisan */}
-              <div className="print-info-box" style={{background:'#cde4f5', border:'1px solid #5ab4e0', borderLeft:'4px solid #5ab4e0', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+              <div className="print-info-box" style={{background:'#cde4f5', border:'2px solid #5ab4e0', borderLeft:'5px solid #5ab4e0', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#1a6fb5', marginBottom:6}}>Artisan</div>
                 <div style={{fontSize:12, fontWeight:700, color:'#111', marginBottom:3}}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
                 <div className="print-info-lines" style={{fontSize:11, color:'#6b7280', lineHeight:1.7}}>
@@ -493,7 +493,7 @@ export default function DevisDetailPage() {
                 </div>
               </div>
               {/* Cadre client */}
-              <div className="print-info-box" style={{background:'#c9efd5', border:'1px solid #22c55e', borderLeft:'4px solid #22c55e', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+              <div className="print-info-box" style={{background:'#c9efd5', border:'2px solid #22c55e', borderLeft:'5px solid #22c55e', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#15803d', marginBottom:6}}>Client</div>
                 <div className="print-info-lines" style={{lineHeight:1.7}}>
                   {devis.notes_client ? (() => {
@@ -518,17 +518,17 @@ export default function DevisDetailPage() {
               </div>
             </div>
 
-            {/* ═══ OBJET ═══ */}
+            {/* ═══ OBJET — parité facture, bandeau pleine largeur sky pâle, accent gauche bleu ═══ */}
             {devis.objet && (
-              <div className="mb-3 p-2 bg-[#eff6ff] rounded-lg border-l-[3px] border-[#1a6fb5]">
-                <span className="text-[10px] font-manrope font-bold text-[#1a6fb5] uppercase tracking-wider">Objet : </span>
-                <span className="text-[11px] font-manrope text-[#374151]">{devis.objet}</span>
+              <div style={{ marginTop: 14, marginBottom: 18, background: '#e8f4fb', border: '1.5px solid #5ab4e0', borderLeft: '5px solid #5ab4e0', borderRadius: 6, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#2d8bc9', textTransform: 'uppercase', letterSpacing: 1.2 }}>OBJET :</div>
+                <div style={{ fontSize: 13, color: '#0f1a3a', fontWeight: 700 }}>{devis.objet}</div>
               </div>
             )}
 
-            {/* ═══ TABLEAU — taille harmonisée avec le reste ═══ */}
+            {/* ═══ TABLEAU — plus de marge au-dessus pour aérer (V4) ═══ */}
             {lignes.length > 0 && (
-              <table className="w-full mb-3 print-table">
+              <table className="w-full mb-8 print-table">
                 <thead>
                   <tr className="bg-[#0f1a3a] text-white">
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
@@ -662,46 +662,38 @@ export default function DevisDetailPage() {
                   </div>
                 )}
               </div>
-              {/* Droite : récap totaux avec fond grisé (parité facture style Obat) */}
+              {/* Droite : récap (avec acompte intégré) + NET À PAYER en dernier — parité stricte facture */}
               <div>
-                <div className="rounded-lg border border-gray-200 bg-[#f9fafb] overflow-hidden">
-                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-200">Récapitulatif</div>
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope">
+                <div className="rounded-lg border-2 border-gray-300 bg-gray-100 overflow-hidden shadow-sm">
+                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-300 bg-gray-200/60">Récapitulatif</div>
+                  <div className="px-3 py-2.5 flex justify-between text-sm font-manrope">
                     <span className="text-[#5f6c80]">Sous-total HT</span>
                     <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalHT)}</span>
                   </div>
                   {Object.entries(tvaGroups)
                     .sort(([a], [b]) => Number(a) - Number(b))
                     .map(([rate, group]) => (
-                      <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                      <div key={rate} className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                         <span className="text-[#5f6c80]">TVA {rate}%</span>
                         <span className="text-[#0f1a3a]">{formatCurrency(group.tva)}</span>
                       </div>
                     ))}
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                  <div className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                     <span className="text-[#0f1a3a] font-bold">Total TTC</span>
                     <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalTTC)}</span>
                   </div>
+                  {Boolean(devis.acompte_pourcent && devis.acompte_pourcent > 0) && (
+                    <div className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
+                      <span className="text-[#15803d] font-bold">Acompte à verser ({devis.acompte_pourcent}%)</span>
+                      <span className="text-[#15803d] font-bold">{formatCurrency(totalTTC * ((devis.acompte_pourcent || 0) / 100))}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
+                {/* NET À PAYER — toujours la dernière ligne, la plus importante */}
+                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center shadow-md">
                   <span className="font-syne font-bold text-sm">NET À PAYER</span>
                   <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
                 </div>
-                {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (() => {
-                  const acompteMnt = totalTTC * (devis.acompte_pourcent / 100)
-                  return (
-                    <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2 space-y-1">
-                      <div className="flex justify-between text-sm font-manrope">
-                        <span className="text-[#15803d] font-bold">Acompte à verser ({devis.acompte_pourcent}%)</span>
-                        <span className="text-[#15803d] font-bold">{formatCurrency(acompteMnt)}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] font-manrope text-[#5f6c80]">
-                        <span>Reste à facturer</span>
-                        <span className="text-[#0f1a3a] font-bold text-sm">{formatCurrency(totalTTC - acompteMnt)}</span>
-                      </div>
-                    </div>
-                  )
-                })()}
                 {/* ═══ SIGNATURES — sous NET À PAYER, 2 cadres identiques ═══ */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {/* Signature artisan */}
@@ -833,7 +825,6 @@ export default function DevisDetailPage() {
           devisId={devis.id}
           numeroDevis={devis.numero}
           clientEmail={client?.email ?? (devis.notes_client?.split(' | ').find((s: string) => s.includes('@')) ?? '')}
-          chantier={devis.objet || devis.description || ''}
           onSuccess={() => { setToastMsg('Email envoyé avec succès !'); setTimeout(() => setToastMsg(null), 3000) }}
         />
       )}

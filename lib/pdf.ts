@@ -462,7 +462,8 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
   doc.text(opts.dateLine, centerX, y, { align: 'center' })
-  y += 5
+  // V4 : marge plus généreuse entre dates et cadres artisan/client (parité haut/bas)
+  y += 7
 
   return y
 }
@@ -549,7 +550,8 @@ function drawIdentityBoxes(
     cy += 1.6
   }
 
-  return y + boxH + 4
+  // V4 : marge plus généreuse cadres ↔ objet/tableau (parité avec marge dates↔cadres)
+  return y + boxH + 7
 }
 
 // -------------------------------------------------------------------
@@ -560,24 +562,28 @@ function drawObjet(doc: jsPDF, objet: string, y: number): number {
   const M = 14
   const pageW = 210
   const w = pageW - 2 * M
-  const h = 8
+  const h = 9  // V4 : un poil plus haut pour la respiration
   setFill(doc, C.skyVeryPale)
   doc.roundedRect(M, y, w, h, 1.5, 1.5, 'F')
-  // Trait gauche 4px (≈1.4mm) — on le rectangle plein qui recouvre la zone
+  // Bordure visible
+  setDraw(doc, C.sky); doc.setLineWidth(0.4)
+  doc.roundedRect(M, y, w, h, 1.5, 1.5, 'S')
+  // Trait gauche épais 5px ≈ 1.8mm
   setFill(doc, C.sky)
-  doc.rect(M, y, 1.4, h, 'F')
+  doc.rect(M, y, 1.8, h, 'F')
 
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   setText(doc, C.netBlueAccent)
-  doc.text('OBJET :', M + 4, y + 5.2)
+  doc.text('OBJET :', M + 5, y + 5.6)
 
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   setText(doc, C.navyText)
-  doc.text(objet, M + 22, y + 5.2, { maxWidth: w - 24 })
+  doc.text(objet, M + 22, y + 5.6, { maxWidth: w - 24 })
 
-  return y + h + 3
+  // V4 : marge plus généreuse objet ↔ tableau
+  return y + h + 6
 }
 
 // -------------------------------------------------------------------
@@ -790,38 +796,50 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   const valueX = pageW - M - padX
   const labelX = rightX + padX
 
-  // ── BLOC A — RÉCAPITULATIF HT/TVA/TTC ──
-  const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
-  const headerH = 5       // hauteur du header "RÉCAPITULATIF" (un poil plus haut)
-  const rowH = 4.5        // hauteur de chaque ligne
-  const rowsCount = 2 + sortedRates.length // HT + TVA(s) + TTC
-  const blockAH = headerH + rowsCount * rowH + 1.5
+  // V4 : l'acompte devient une LIGNE du récap (entre Total TTC et NET À PAYER),
+  // pour que NET À PAYER reste la dernière ligne — la plus importante.
+  const hasAcompte = opts.acomptePct !== undefined && opts.acomptePct > 0
+    && opts.acompteMontant !== undefined && opts.resteMontant !== undefined
 
-  // Cadre extérieur — fond gris très clair #f9fafb, bordure visible
+  // ── BLOC A — RÉCAPITULATIF HT/TVA/TTC (+ acompte si présent) ──
+  const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
+  const headerH = 5
+  const rowH = 4.8         // un poil plus aéré
+  // 2 lignes fixes (HT + TTC) + TVA(s) + (acompte si présent)
+  const rowsCount = 2 + sortedRates.length + (hasAcompte ? 1 : 0)
+  const blockAH = headerH + rowsCount * rowH + 1.8
+
+  // Cadre extérieur — fond gris très clair, bordure visible
   setFill(doc, C.grayLightBg)
   setDraw(doc, C.border); doc.setLineWidth(0.4)
   doc.roundedRect(rightX, y, blockW, blockAH, 1.5, 1.5, 'FD')
 
-  // Header "RÉCAPITULATIF" — uppercase tracking-wider, ton muted
+  // Header "RÉCAPITULATIF"
   doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
   doc.text('RÉCAPITULATIF', labelX, y + 3.4, { charSpace: 0.4 })
 
   let rowY = y + headerH + 0.5
   let rowIdx = 0
 
-  // Helper : dessine une ligne — fond uniforme gris très clair, séparation par trait subtil
-  const drawRow = (label: string, value: string, isBold: boolean) => {
-    // Fond uniforme sur tout le bloc (déjà peint), pas d'alternance
-    // Bordure haute (sauf 1ère ligne)
+  // Helper : dessine une ligne — couleurs configurables pour l'acompte (vert)
+  const drawRow = (
+    label: string,
+    value: string,
+    isBold: boolean,
+    labelColor?: [number, number, number],
+    valueColor?: [number, number, number],
+  ) => {
     if (rowIdx > 0) {
       setDraw(doc, C.border); doc.setLineWidth(0.15)
       doc.line(rightX + 1.5, rowY, rightX + blockW - 1.5, rowY)
     }
     doc.setFontSize(8.5)
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); setText(doc, isBold ? C.navy : C.muted)
-    doc.text(label, labelX, rowY + rowH - 1.4)
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); setText(doc, C.navy)
-    doc.text(value, valueX, rowY + rowH - 1.4, { align: 'right' })
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+    setText(doc, labelColor ?? (isBold ? C.navy : C.muted))
+    doc.text(label, labelX, rowY + rowH - 1.6)
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+    setText(doc, valueColor ?? C.navy)
+    doc.text(value, valueX, rowY + rowH - 1.6, { align: 'right' })
     rowY += rowH
     rowIdx++
   }
@@ -834,50 +852,30 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   }
   // Total TTC
   drawRow('Total TTC', fmt(opts.ttc), true)
+  // Acompte versé (intégré au récap, en vert, avec signe -)
+  if (hasAcompte) {
+    const label = opts.acomptePct ? `Acompte versé (${opts.acomptePct}%)` : 'Acompte versé'
+    drawRow(label, `- ${fmt(opts.acompteMontant!)}`, true, C.greenDark, C.greenDark)
+  }
 
   y = y + blockAH + 3 // marge 3mm récap ↔ NET À PAYER
 
-  // ── BLOC B — NET À PAYER ──
+  // ── BLOC B — NET À PAYER (toujours en dernier — ligne la plus importante) ──
   const netH = 12
   setFill(doc, C.netBlue)
   doc.roundedRect(rightX, y, blockW, netH, 2, 2, 'F')
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); setText(doc, C.white)
   doc.text(opts.netLabel ?? 'NET À PAYER', rightX + 4, y + netH / 2 + 1.5)
   doc.setFontSize(12)
+  // Si acompte présent, netAmount = TTC - acompte (déjà calculé par l'appelant)
   doc.text(fmt(opts.netAmount ?? opts.ttc), pageW - M - 4, y + netH / 2 + 2, { align: 'right' })
   y += netH + 2
 
-  // ── BLOC C — Acompte (devis) OU Reste à facturer (situation) ──
-  const hasAcompte = opts.acomptePct !== undefined && opts.acomptePct > 0
-    && opts.acompteMontant !== undefined && opts.resteMontant !== undefined
+  // ── BLOC C — Reste à facturer (factures de situation uniquement) ──
   const hasReste = opts.resteAFacturerHT !== undefined || opts.resteAFacturerTTC !== undefined
 
-  if (hasAcompte) {
-    const accH = 13
-    // Fond vert pâle
-    setFill(doc, C.greenPale)
-    doc.roundedRect(rightX, y, blockW, accH, 1.5, 1.5, 'F')
-    // Barre gauche verte
-    setFill(doc, C.green)
-    doc.rect(rightX, y, 1.4, accH, 'F')
-
-    const lineGap = 5
-    const yLine1 = y + 5
-    const yLine2 = yLine1 + lineGap
-
-    // Ligne 1 : Acompte
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
-    doc.text(`Acompte (${opts.acomptePct}%)`, rightX + 4, yLine1)
-    doc.setFontSize(9)
-    doc.text(fmt(opts.acompteMontant!), pageW - M - padX, yLine1, { align: 'right' })
-
-    // Ligne 2 : Reste à facturer
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-    doc.text('Reste à facturer', rightX + 4, yLine2)
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
-    doc.text(fmt(opts.resteMontant!), pageW - M - padX, yLine2, { align: 'right' })
-
-    y += accH + 2
+  if (false) {
+    // hasAcompte est maintenant géré DANS le récap ci-dessus — bloc séparé supprimé
   } else if (hasReste) {
     const accH = 13
     setFill(doc, C.greenPale)
@@ -976,7 +974,7 @@ export function generateDevisPdf(data: DevisData): string {
   const NEEDED_BOTTOM = hasAcompte ? 85 : 72
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
-  y += 6 // marge respiration entre tableau et totaux
+  y += 10 // V4 : marge respiration tableau ↔ totaux (devis)
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
   const acompteTTC = hasAcompte ? data.montant_ttc * ((data.acompte_pourcent as number) / 100) : undefined
@@ -1198,7 +1196,7 @@ export function generateFacturePdf(data: FactureData): string {
   if (hasIban) NEEDED_BOTTOM += 26
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
-  y += 8 // marge respiration entre tableau et totaux
+  y += 10 // V4 : marge respiration tableau ↔ totaux (facture)
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
 

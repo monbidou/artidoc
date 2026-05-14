@@ -343,12 +343,12 @@ export default function FactureDetailPage() {
               )}
             </div>
 
-            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:14}} />
+            <div style={{height:3, background:'#5ab4e0', borderRadius:2, marginBottom:22}} />
 
             {/* Cadres Artisan + Client — identiques au devis */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12, alignItems: 'stretch' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 22, alignItems: 'stretch' }}>
               {/* Cadre artisan — fond bleu pale + bordure gauche bleue */}
-              <div style={{ background: '#cde4f5', border: '1px solid #5ab4e0', borderLeft: '4px solid #5ab4e0', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: '#cde4f5', border: '2px solid #5ab4e0', borderLeft: '5px solid #5ab4e0', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#1a6fb5', marginBottom: 6 }}>Artisan</div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#111', marginBottom: 3 }}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
                 <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.7 }}>
@@ -359,7 +359,7 @@ export default function FactureDetailPage() {
                 </div>
               </div>
               {/* Cadre client — fond vert pale + bordure gauche verte */}
-              <div style={{ background: '#c9efd5', border: '1px solid #22c55e', borderLeft: '4px solid #22c55e', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: '#c9efd5', border: '2px solid #22c55e', borderLeft: '5px solid #22c55e', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#15803d', marginBottom: 6 }}>Client</div>
                 <div style={{ lineHeight: 1.7 }}>
                   {facture.notes_client ? (() => {
@@ -392,7 +392,7 @@ export default function FactureDetailPage() {
 
             {/* Objet — bandeau pleine largeur sky pâle, accent gauche bleu (parité PDF) */}
             {facture.objet && (
-              <div style={{ marginBottom: 14, background: '#e8f4fb', borderLeft: '4px solid #5ab4e0', borderRadius: 6, padding: '8px 14px', display: 'flex', gap: 10, alignItems: 'baseline' }}>
+              <div style={{ marginTop: 14, marginBottom: 18, background: '#e8f4fb', border: '1.5px solid #5ab4e0', borderLeft: '5px solid #5ab4e0', borderRadius: 6, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'baseline' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#2d8bc9', textTransform: 'uppercase', letterSpacing: 1.2 }}>OBJET :</div>
                 <div style={{ fontSize: 13, color: '#0f1a3a', fontWeight: 700 }}>{facture.objet}</div>
               </div>
@@ -400,7 +400,7 @@ export default function FactureDetailPage() {
 
             {/* TABLEAU — bandeau navy (parité PDF) */}
             {lignes.length > 0 && (
-              <table className="w-full mb-3 print-table">
+              <table className="w-full mb-8 print-table">
                 <thead>
                   <tr className="bg-[#0f1a3a] text-white">
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8 border-r border-white/30">N°</th>
@@ -503,47 +503,39 @@ export default function FactureDetailPage() {
                 </div>
               </div>
 
-              {/* Colonne droite : récap totaux + acompte + NET À PAYER */}
+              {/* Colonne droite : récap (avec acompte intégré) + NET À PAYER en dernier */}
               <div>
-                <div className="rounded-lg border border-gray-200 bg-[#f9fafb] overflow-hidden">
-                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-200">Récapitulatif</div>
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope">
+                <div className="rounded-lg border-2 border-gray-300 bg-gray-100 overflow-hidden shadow-sm">
+                  <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-300 bg-gray-200/60">Récapitulatif</div>
+                  <div className="px-3 py-2.5 flex justify-between text-sm font-manrope">
                     <span className="text-[#5f6c80]">Sous-total HT</span>
                     <span className="text-[#0f1a3a] font-bold">{fmt(totalHT)}</span>
                   </div>
                   {Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
-                    <div key={rate} className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                    <div key={rate} className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                       <span className="text-[#5f6c80]">TVA {rate}%</span>
                       <span className="text-[#0f1a3a]">{fmt(group.tva)}</span>
                     </div>
                   ))}
-                  <div className="px-3 py-2 flex justify-between text-sm font-manrope border-t border-gray-200">
+                  <div className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                     <span className="text-[#0f1a3a] font-bold">Total TTC</span>
                     <span className="text-[#0f1a3a] font-bold">{fmt(totalTTC)}</span>
                   </div>
-                </div>
-
-                {/* NET À PAYER — netBlue cohérent PDF */}
-                <div className="bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
-                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
-                  <span className="font-syne font-bold text-lg">{fmt(netAPayerAffiche)}</span>
-                </div>
-
-                {/* Bloc Acompte (style Obat : sous-total brut → acompte → reste) */}
-                {hasAcompte && (
-                  <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2 space-y-1">
-                    <div className="flex justify-between text-sm font-manrope">
+                  {hasAcompte && (
+                    <div className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                       <span className="text-[#15803d] font-bold">
                         Acompte versé{facture.acompte_pourcent ? ` (${facture.acompte_pourcent}%)` : ''}
                       </span>
                       <span className="text-[#15803d] font-bold">- {fmt(acompteTTC)}</span>
                     </div>
-                    <div className="flex justify-between text-[11px] font-manrope text-[#5f6c80]">
-                      <span>Reste à payer</span>
-                      <span className="text-[#0f1a3a] font-bold text-sm">{fmt(netAPayerAffiche)}</span>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* NET À PAYER — toujours la dernière ligne, la plus importante */}
+                <div className="bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center shadow-md">
+                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
+                  <span className="font-syne font-bold text-lg">{fmt(netAPayerAffiche)}</span>
+                </div>
               </div>
             </div>
 

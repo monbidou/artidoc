@@ -16,6 +16,8 @@ interface LineItem {
   qty: number
   unit: string
   priceHT: number
+  // V4 — type pour gérer sections/sous-sections/commentaires (parité devis)
+  type: 'line' | 'section' | 'subsection' | 'text'
 }
 
 interface ClientRecord { id: string; nom: string; prenom?: string; civilite?: string; adresse?: string; telephone?: string; email?: string; code_postal?: string; ville?: string }
@@ -72,12 +74,16 @@ export default function NouvelleFacturePage() {
   const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
 
   // Lignes
-  const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0 }])
+  const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, type: 'line' }])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
 
   // Conditions de paiement (pré-remplies) + notes personnalisées (visibles client)
   const [conditions, setConditions] = useState<string>(DEFAULT_CONDITIONS_PAIEMENT)
   const [notesPerso, setNotesPerso] = useState('')
+
+  // V4 — Forfait global (parité devis) : remplace le calcul ligne par ligne par un montant HT libre
+  const [useForfait, setUseForfait] = useState(false)
+  const [forfaitHT, setForfaitHT] = useState(0)
 
   // Acompte
   const [acompteActive, setAcompteActive] = useState(false)
@@ -150,13 +156,30 @@ export default function NouvelleFacturePage() {
     setLines(prev => prev.map(l => l.id === id ? { ...l, [field]: value } : l))
   }
   function removeLine(id: number) { setLines(prev => prev.filter(l => l.id !== id)) }
-  function addLine() {
-    setLines(prev => [...prev, { id: nextId++, designation: '', qty: 1, unit: 'U', priceHT: 0 }])
+  function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
+    setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
+  }
+  // Calcule le sous-total d'une section ou sous-section (somme des prestations enfants)
+  function subtotalAt(idx: number): number {
+    const current = lines[idx]
+    if (!current || (current.type !== 'section' && current.type !== 'subsection')) return 0
+    let subtotal = 0
+    for (let j = idx + 1; j < lines.length; j++) {
+      const l = lines[j]
+      if (current.type === 'section' && l.type === 'section') break
+      if (current.type === 'subsection' && (l.type === 'section' || l.type === 'subsection')) break
+      if (l.type === 'line') subtotal += l.qty * l.priceHT
+    }
+    return subtotal
   }
 
   // ── Computations ──
   let totalHT = 0
-  lines.forEach(l => { totalHT += l.qty * l.priceHT })
+  if (useForfait) {
+    totalHT = forfaitHT
+  } else {
+    lines.forEach(l => { if (l.type === 'line') totalHT += l.qty * l.priceHT })
+  }
   const totalTVA = globalTvaRate > 0 ? totalHT * (globalTvaRate / 100) : 0
   const totalTTC = totalHT + totalTVA
   const acompteTTCcalc = acompteActive
@@ -246,23 +269,29 @@ export default function NouvelleFacturePage() {
       const facture = await insertRow('factures', factureData)
       const factureId = (facture as Record<string, unknown>).id as string
 
+      // V4 : on persiste type/niveau pour sections + sous-sections + lignes
       const lignesPourNumero = lines
-        .filter(l => l.designation || l.priceHT !== 0)
-        .map(l => ({ type: 'prestation' as const, _orig: l }))
+        .filter(l => l.designation || (l.type === 'line' && l.priceHT !== 0))
+        .map(l => ({
+          type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
+          _orig: l,
+        }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
       for (let i = 0; i < lignesAvecNumero.length; i++) {
         const item = lignesAvecNumero[i]
         const l = item._orig as typeof lines[0]
+        const dbType = l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation'
+        const niveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
         await insertRow('facture_lignes', {
           facture_id: factureId,
           designation: l.designation,
-          quantite: l.qty,
-          unite: l.unit,
-          prix_unitaire_ht: l.priceHT,
+          quantite: l.type === 'line' ? l.qty : 0,
+          unite: l.type === 'line' ? l.unit : '',
+          prix_unitaire_ht: l.type === 'line' ? l.priceHT : 0,
           taux_tva: globalTvaRate,
           ordre: i + 1,
-          type: 'prestation',
-          niveau: 3,
+          type: dbType,
+          niveau,
           numero: item.numero || null,
         })
       }
@@ -425,29 +454,64 @@ export default function NouvelleFacturePage() {
             <div className="bg-[#0f1a3a] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
               <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
             </div>
-            {lines.map(line => (
-              <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 border-b border-gray-100">
-                <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
-                  className="text-sm font-manrope border-0 outline-none bg-transparent px-1 h-9" placeholder="Désignation..." />
-                <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}
-                  className="text-sm text-center border-0 outline-none bg-transparent" min={0} />
-                <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)}
-                  className="text-sm text-center border-0 outline-none bg-transparent w-full">
-                  {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-                <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))}
-                  className="text-sm text-right border-0 outline-none bg-transparent" min={0} step={0.01} />
-                <span className="text-sm font-semibold text-right">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '—'}</span>
-                <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+            {lines.map((line, idx) => {
+              // Section : bandeau sky foncé pleine largeur
+              if (line.type === 'section') {
+                return (
+                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#a8d4ec] border-l-4 border-[#1a6fb5] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
+                      className="text-sm font-bold text-[#0f1a3a] uppercase border-0 outline-none bg-transparent px-1 h-9 placeholder-[#1a6fb5]/60" placeholder="Titre de la section..." />
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-xs font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                )
+              }
+              // Sous-section : bandeau sky pâle
+              if (line.type === 'subsection') {
+                return (
+                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#dceefa] border-l-4 border-[#5ab4e0] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
+                      className="text-sm font-semibold text-[#0f1a3a] border-0 outline-none bg-transparent px-1 h-9 placeholder-[#5ab4e0]/70" placeholder="Sous-section..." />
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-xs font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                )
+              }
+              // Ligne classique de prestation
+              return (
+                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 border-b border-gray-100">
+                  <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
+                    className="text-sm font-manrope border-0 outline-none bg-transparent px-1 h-9" placeholder="Désignation..." />
+                  <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}
+                    className="text-sm text-center border-0 outline-none bg-transparent" min={0} />
+                  <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)}
+                    className="text-sm text-center border-0 outline-none bg-transparent w-full">
+                    {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                  <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))}
+                    className="text-sm text-right border-0 outline-none bg-transparent" min={0} step={0.01} />
+                  <span className="text-sm font-semibold text-right">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '—'}</span>
+                  <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
 
           <div className="flex flex-wrap gap-2 p-4 border-t border-gray-100">
-            <button onClick={addLine} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100">
+            <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100">
               <Plus size={14} /> Ajouter une ligne
+            </button>
+            <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#dceefa] border border-[#5ab4e0]/30 rounded-lg hover:bg-[#cde4f5]">
+              <Plus size={14} /> Section
+            </button>
+            <button onClick={() => addLine('subsection')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#e8f4fb] border border-[#5ab4e0]/20 rounded-lg hover:bg-[#dceefa]">
+              <Plus size={14} /> Sous-section
             </button>
           </div>
         </div>
@@ -459,6 +523,21 @@ export default function NouvelleFacturePage() {
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white cursor-pointer">
             {TVA_RATES.map(r => <option key={r} value={r}>{r === 0 ? 'Sans TVA' : `${r}%`}</option>)}
           </select>
+        </div>
+
+        {/* V4 — Forfait global (parité devis) */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
+            <input type="checkbox" checked={useForfait} onChange={e => setUseForfait(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
+            Appliquer un prix forfaitaire global
+          </label>
+          {useForfait && (
+            <div className="flex items-center gap-2">
+              <input type="number" value={forfaitHT} onChange={e => setForfaitHT(Number(e.target.value))} className="w-32 h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-right" min={0} step={0.01} />
+              <span className="text-sm font-manrope text-[#6b7280]">€ HT</span>
+              <span className="text-[11px] font-manrope text-gray-400">(remplace le calcul ligne par ligne)</span>
+            </div>
+          )}
         </div>
 
         {/* Acompte versé — checkbox simple */}
@@ -514,11 +593,9 @@ export default function NouvelleFacturePage() {
               <span className="text-[#0f1a3a] font-bold">Total TTC</span><span className="font-bold">{formatCurrency(totalTTC)}</span>
             </div>
             {acompteActive && acompteTTCcalc > 0 && (
-              <div className="mt-2 rounded-lg bg-[#e6f7eb] border-l-4 border-[#22c55e] px-3 py-2">
-                <div className="flex justify-between text-sm font-manrope">
-                  <span className="text-[#15803d] font-bold">Acompte versé</span>
-                  <span className="text-[#15803d] font-bold">- {formatCurrency(acompteTTCcalc)}</span>
-                </div>
+              <div className="flex justify-between py-1.5 text-sm font-manrope border-t mt-0.5 pt-2">
+                <span className="text-[#15803d] font-bold">Acompte versé</span>
+                <span className="text-[#15803d] font-bold">- {formatCurrency(acompteTTCcalc)}</span>
               </div>
             )}
             <div className="bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center">
@@ -548,11 +625,10 @@ export default function NouvelleFacturePage() {
             <textarea value={notesPerso} onChange={e => setNotesPerso(e.target.value)} rows={3}
               placeholder="Écrire ici…"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
-            <p className="text-[11px] font-manrope text-gray-400 mt-1">Ce texte apparait sur la facture remise au client.</p>
           </div>
         </div>
 
-        {/* Boutons bas de page */}
+        {/* Boutons bas */}
         <div className="flex flex-wrap items-center gap-3 justify-end pb-8">
           <button onClick={() => handleSave('brouillon')} disabled={saving}
             className="h-12 px-6 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all disabled:opacity-50">
@@ -564,6 +640,9 @@ export default function NouvelleFacturePage() {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
     </div>
   )
 }
