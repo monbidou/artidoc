@@ -595,7 +595,7 @@ interface RowMeta {
   ligneIdx: number
 }
 
-function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
+function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number, bottomMargin = 22): number {
   const M = 14
   const pageW = 210
   const tableW = pageW - 2 * M
@@ -656,7 +656,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
     head: [['N°', 'DÉSIGNATION', 'QTÉ', 'UNITÉ', 'PRIX U. HT', 'TOTAL HT']],
     body,
     theme: 'plain',
-    margin: { left: M, right: M, top: 18, bottom: 22 },
+    margin: { left: M, right: M, top: 18, bottom: bottomMargin },
     tableWidth: tableW,
     showHead: 'everyPage',
     rowPageBreak: 'avoid',
@@ -1151,6 +1151,18 @@ export function generateFacturePdf(data: FactureData): string {
   y = drawIdentityBoxes(doc, ent, { clientNom: data.clientNom, clientAdresse: data.clientAdresse }, y)
   if (data.objet) y = drawObjet(doc, data.objet, y)
 
+  // ── V6 : pré-calcul de l'espace requis en bas pour totaux+conditions+IBAN ──
+  // Le bottomMargin du tableau est calé sur ce besoin réel pour éviter tout vide blanc :
+  // si la table ne tient pas, elle saute proprement de page ; si elle tient, les totaux suivent direct.
+  const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
+  const hasIban = !!(ent.iban && ent.iban.trim())
+  let NEEDED_BOTTOM = 55
+  if (hasAcompte) NEEDED_BOTTOM += 14
+  if (hasReste) NEEDED_BOTTOM += 14
+  if (hasIban) NEEDED_BOTTOM += 26
+  // +10mm de respiration entre fin tableau et début totaux
+  const tableBottomMargin = NEEDED_BOTTOM + 10
+
   if (isSituation) {
     const M = 14, pageW = 210
     const w = pageW - 2 * M
@@ -1175,7 +1187,7 @@ export function generateFacturePdf(data: FactureData): string {
       head: [['DÉSIGNATION', 'TOTAL HT']],
       body: [[`Situation N°${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
       theme: 'plain',
-      margin: { left: M, right: M },
+      margin: { left: M, right: M, bottom: tableBottomMargin },
       styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, textColor: C.navy, lineColor: C.border, lineWidth: 0.1 },
       headStyles: { fillColor: C.navy, textColor: C.white, fontStyle: 'bold', halign: 'center' },
       columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right', cellWidth: 32 } },
@@ -1183,18 +1195,11 @@ export function generateFacturePdf(data: FactureData): string {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     y = (doc as any).lastAutoTable.finalY + 4
   } else {
-    y = drawHierTable(doc, lignes, y)
+    y = drawHierTable(doc, lignes, y, tableBottomMargin)
   }
 
-  // ── Réservation d'espace pour bas de page ──────────────────────
-  // On doit prévoir : totaux (~35) + acompte (+12) + conditions+pénalités (~15) + IBAN tout en bas (22)
-  const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
-  const hasIban = !!(ent.iban && ent.iban.trim())
-  let NEEDED_BOTTOM = 55
-  if (hasAcompte) NEEDED_BOTTOM += 14
-  if (hasReste) NEEDED_BOTTOM += 14
-  if (hasIban) NEEDED_BOTTOM += 26
-  if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
+  // V6 : si malgré la marge réservée, la fin du tableau dépasse, sécurité :
+  if (y + NEEDED_BOTTOM > 290) { doc.addPage(); y = 20 }
 
   y += 10 // V4 : marge respiration tableau ↔ totaux (facture)
   const tvaGroups = computeTvaGroups(lignes)
@@ -1303,6 +1308,14 @@ export function generateFacturePdf(data: FactureData): string {
       doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 5, ribY + 14.5)
     }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); setText(doc, C.muted)
+    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
+  }
+
+  const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
+  drawMiniHeaderAllPagesAfterFirst(doc, miniTitle, data.numero)
+  drawFooterAllPages(doc, ent, data.numero)
+  return doc.output('datauristring').split(',')[1]
+}
     doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
   }
 

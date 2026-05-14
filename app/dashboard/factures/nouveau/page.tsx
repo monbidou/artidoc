@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
@@ -44,8 +44,8 @@ export default function NouvelleFacturePage() {
   const router = useRouter()
   const { data: clientsRaw } = useClients()
   const { data: chantiersRaw } = useChantiers()
-  // entreprise est récupérée pour cohérence avec le reste de l'app (pas utilisée directement ici)
-  useEntreprise()
+  // entreprise — utilisée pour auto-détection franchise TVA (micro / EI / auto-entrepreneur)
+  const { entreprise } = useEntreprise()
   const clients = clientsRaw as unknown as ClientRecord[]
   const chantiers = (chantiersRaw as unknown as ChantierRecord[]) || []
 
@@ -76,6 +76,23 @@ export default function NouvelleFacturePage() {
   // Lignes
   const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, type: 'line' }])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
+  // V6 — Si l'utilisateur change manuellement la TVA, on ne ré-impose plus 0 automatiquement
+  const [tvaUserOverride, setTvaUserOverride] = useState(false)
+
+  // V6 — Auto-détection franchise TVA (micro-entreprise / EI / auto-entrepreneur)
+  // Si la forme juridique implique la franchise OU si entreprise.franchise_tva === true,
+  // on force globalTvaRate à 0 (parité avec le devis). L'artisan peut malgré tout
+  // remettre 10% / 20% manuellement (cas dépassement seuil), auquel cas on respecte son choix.
+  useEffect(() => {
+    if (tvaUserOverride) return
+    if (!entreprise) return
+    const fj = ((entreprise as { forme_juridique?: string })?.forme_juridique || '').toLowerCase()
+    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle') || fj.includes('auto')
+    const franchise = (entreprise as { franchise_tva?: boolean })?.franchise_tva === true
+    if (estMicro || franchise) {
+      setGlobalTvaRate(0)
+    }
+  }, [entreprise, tvaUserOverride])
 
   // Conditions de paiement (pré-remplies) + notes personnalisées (visibles client)
   const [conditions, setConditions] = useState<string>(DEFAULT_CONDITIONS_PAIEMENT)
@@ -460,9 +477,9 @@ export default function NouvelleFacturePage() {
                 return (
                   <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#a8d4ec] border-l-4 border-[#1a6fb5] border-b border-gray-100">
                     <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
-                      className="text-sm font-bold text-[#0f1a3a] uppercase border-0 outline-none bg-transparent px-1 h-9 placeholder-[#1a6fb5]/60" placeholder="Titre de la section..." />
+                      className="text-sm font-bold text-[#0f1a3a] uppercase border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#1a6fb5]/60" placeholder="Nom de la section (ex : Demolition, Maconnerie...)" />
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-xs font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <span className="text-sm font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
                       <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </div>
@@ -473,9 +490,9 @@ export default function NouvelleFacturePage() {
                 return (
                   <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#dceefa] border-l-4 border-[#5ab4e0] border-b border-gray-100">
                     <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
-                      className="text-sm font-semibold text-[#0f1a3a] border-0 outline-none bg-transparent px-1 h-9 placeholder-[#5ab4e0]/70" placeholder="Sous-section..." />
+                      className="text-sm font-semibold text-[#0f1a3a] border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#5ab4e0]/70" placeholder="Nom de la sous-section (ex : Cuisine, Plomberie...)" />
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-xs font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <span className="text-sm font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
                       <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </div>
@@ -485,15 +502,15 @@ export default function NouvelleFacturePage() {
               return (
                 <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 border-b border-gray-100">
                   <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
-                    className="text-sm font-manrope border-0 outline-none bg-transparent px-1 h-9" placeholder="Désignation..." />
+                    className="text-sm font-manrope border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] px-2 h-9 mr-2" placeholder="Désignation..." />
                   <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}
-                    className="text-sm text-center border-0 outline-none bg-transparent" min={0} />
+                    className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mx-1" min={0} />
                   <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)}
-                    className="text-sm text-center border-0 outline-none bg-transparent w-full">
+                    className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mx-1 w-full">
                     {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                   <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))}
-                    className="text-sm text-right border-0 outline-none bg-transparent" min={0} step={0.01} />
+                    className="text-sm text-right border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 px-2 mx-1" min={0} step={0.01} />
                   <span className="text-sm font-semibold text-right">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '—'}</span>
                   <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500">
                     <Trash2 size={14} />
@@ -519,10 +536,13 @@ export default function NouvelleFacturePage() {
         {/* TVA */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
           <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Taux de TVA applicable :</label>
-          <select value={globalTvaRate} onChange={e => setGlobalTvaRate(Number(e.target.value))}
+          <select value={globalTvaRate} onChange={e => { setTvaUserOverride(true); setGlobalTvaRate(Number(e.target.value)) }}
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white cursor-pointer">
             {TVA_RATES.map(r => <option key={r} value={r}>{r === 0 ? 'Sans TVA' : `${r}%`}</option>)}
           </select>
+          {globalTvaRate === 0 && (
+            <span className="text-xs font-manrope text-[#6b7280] italic">TVA non applicable, art. 293 B du CGI</span>
+          )}
         </div>
 
         {/* V4 — Forfait global (parité devis) */}

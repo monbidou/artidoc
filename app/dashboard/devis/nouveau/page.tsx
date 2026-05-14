@@ -1018,17 +1018,17 @@ function NouveauDevisPage() {
                   <textarea
                     value={line.designation}
                     onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
-                    className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`}
+                    className={`text-sm font-manrope border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] px-2 py-1.5 mr-2 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`}
                     placeholder={line.type === 'section' ? 'Nom de la section (ex : Demolition, Maconnerie...)' : line.type === 'subsection' ? 'Nom de la sous-section (ex : Cuisine, Plomberie...)' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'}
                     rows={1}
                   />
                   {line.type === 'line' ? (
                     <>
-                      <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
-                      <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
+                      <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mt-0.5 mx-1" min={0} />
+                      <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mt-0.5 mx-1 w-full">
                         {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
-                      <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border-0 outline-none bg-transparent mt-1.5" min={0} step={0.01} />
+                      <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 px-2 mt-0.5 mx-1" min={0} step={0.01} />
                       <span className="text-sm font-semibold text-right mt-1.5">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '--'}</span>
                     </>
                   ) : (line.type === 'section' || line.type === 'subsection') ? (<><span /><span /><span /><span className="text-sm font-bold text-right mt-1.5 text-[#1a6fb5]">{formatCurrency(computeSubtotal(lines.indexOf(line)))}</span></>) : <><span /><span /><span /><span /></>}
