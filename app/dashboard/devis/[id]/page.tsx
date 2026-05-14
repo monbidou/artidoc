@@ -464,6 +464,7 @@ export default function DevisDetailPage() {
               </div>
               {/* Logo — généreux, position absolue à gauche, hauteur agrandie pour mise en valeur (parité facture style Obat) */}
               {Boolean(entreprise?.logo_url) && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={String(entreprise?.logo_url || '')} alt="Logo" className="print-logo-img" style={{ position:'absolute', left:0, top:0, height:90, width:'auto', maxWidth: 220, objectFit: 'contain', mixBlendMode: 'multiply' }} />
               )}
             </div>
@@ -824,6 +825,7 @@ export default function DevisDetailPage() {
           devisId={devis.id}
           numeroDevis={devis.numero}
           clientEmail={client?.email ?? (devis.notes_client?.split(' | ').find((s: string) => s.includes('@')) ?? '')}
+          chantier={devis.objet || devis.description || ''}
           onSuccess={() => { setToastMsg('Email envoyé avec succès !'); setTimeout(() => setToastMsg(null), 3000) }}
         />
       )}
