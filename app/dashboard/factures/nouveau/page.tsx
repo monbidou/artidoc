@@ -643,6 +643,3 @@ export default function NouvelleFacturePage() {
     </div>
   )
 }
-    </div>
-  )
-}
