@@ -1,8 +1,8 @@
-// -------------------------------------------------------------------
+﻿// -------------------------------------------------------------------
 // Server-side PDF generation for devis & factures
 // jsPDF + jspdf-autotable
-// Refonte v2 : hiérarchie 3 niveaux (sections / sous-sections / prestations),
-// nouvelle palette Nexartis, factures de situation, footer répété.
+// Refonte v2 : hiÃ©rarchie 3 niveaux (sections / sous-sections / prestations),
+// nouvelle palette Nexartis, factures de situation, footer rÃ©pÃ©tÃ©.
 // -------------------------------------------------------------------
 
 import { jsPDF } from 'jspdf'
@@ -12,8 +12,8 @@ import type { CellHookData, Styles } from 'jspdf-autotable'
 // -------------------------------------------------------------------
 // Palette Nexartis (RGB)
 // jsPDF ne supporte pas l'alpha sur setFillColor : on utilise les
-// équivalents solides calculés sur fond blanc pour les zones « avec
-// opacité » (cadres artisan/client, bandeau objet, etc.).
+// Ã©quivalents solides calculÃ©s sur fond blanc pour les zones Â« avec
+// opacitÃ© Â» (cadres artisan/client, bandeau objet, etc.).
 // -------------------------------------------------------------------
 
 const C = {
@@ -36,7 +36,7 @@ const C = {
   border: [230, 236, 242] as [number, number, number],     // #e6ecf2
   white: [255, 255, 255] as [number, number, number],
   black: [40, 40, 40] as [number, number, number],
-  grayLightBg: [249, 250, 251] as [number, number, number], // #f9fafb (fond récap totaux)
+  grayLightBg: [249, 250, 251] as [number, number, number], // #f9fafb (fond rÃ©cap totaux)
 }
 
 // -------------------------------------------------------------------
@@ -47,7 +47,7 @@ function fmt(n: number): string {
   return new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(n).replace(/ /g, ' ').replace(/ /g, ' ') + ' €'
+  }).format(n).replace(/â€¯/g, ' ').replace(/Â /g, ' ') + ' â‚¬'
 }
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
@@ -147,13 +147,13 @@ export interface FactureData {
   montant_ttc: number
   lignes: Ligne[]
   entreprise: Entreprise
-  /** @deprecated utiliser `conditions_paiement` (UI dédiée) + `notes_personnalisees` (notes visibles client) */
+  /** @deprecated utiliser `conditions_paiement` (UI dÃ©diÃ©e) + `notes_personnalisees` (notes visibles client) */
   notes?: string
-  /** Conditions de règlement visibles sur le PDF. Pré-rempli par défaut si vide. */
+  /** Conditions de rÃ¨glement visibles sur le PDF. PrÃ©-rempli par dÃ©faut si vide. */
   conditions_paiement?: string
   /** Notes libres visibles client (ex: "Travaux du 11 au 13 mai 2026"). Remplace l'ancien "notes internes". */
   notes_personnalisees?: string
-  /** Acompte déjà versé — montants HT/TTC et libellé optionnel. */
+  /** Acompte dÃ©jÃ  versÃ© â€” montants HT/TTC et libellÃ© optionnel. */
   acompte_pourcent?: number
   acompte_montant_ht?: number
   acompte_montant_ttc?: number
@@ -171,22 +171,22 @@ export interface FactureData {
 }
 
 // -------------------------------------------------------------------
-// Conditions de paiement par défaut (si vide)
+// Conditions de paiement par dÃ©faut (si vide)
 // -------------------------------------------------------------------
 const DEFAULT_CONDITIONS_PAIEMENT =
-  'Méthodes de paiement acceptées : Virement bancaire, Chèque.'
+  'MÃ©thodes de paiement acceptÃ©es : Virement bancaire, ChÃ¨que.'
 
 // -------------------------------------------------------------------
 // TVA mentions automatiques
 // -------------------------------------------------------------------
 
 const TVA_MENTION_10 =
-  'Je certifie, en qualité de preneur de la prestation, que les travaux réalisés concernent des locaux à usage d\'habitation achevés depuis plus de deux ans, qu\'ils n\'ont pas eu pour effet, sur une période de deux ans au plus, de concourir à la production d\'un immeuble neuf au sens du 2° du 2 du I de l\'article 257 du CGI, ni d\'entraîner une augmentation de la surface de plancher des locaux existants supérieure à 10 %, et, le cas échéant, qu\'ils ont la nature de travaux de rénovation.'
+  'Je certifie, en qualitÃ© de preneur de la prestation, que les travaux rÃ©alisÃ©s concernent des locaux Ã  usage d\'habitation achevÃ©s depuis plus de deux ans, qu\'ils n\'ont pas eu pour effet, sur une pÃ©riode de deux ans au plus, de concourir Ã  la production d\'un immeuble neuf au sens du 2Â° du 2 du I de l\'article 257 du CGI, ni d\'entraÃ®ner une augmentation de la surface de plancher des locaux existants supÃ©rieure Ã  10 %, et, le cas Ã©chÃ©ant, qu\'ils ont la nature de travaux de rÃ©novation.'
 
 const TVA_MENTION_5_5 =
-  'Je certifie que les travaux réalisés concernent des locaux à usage d\'habitation achevés depuis plus de deux ans et constituent des travaux de rénovation ou d\'amélioration de la qualité énergétique au sens de l\'article 18 bis de l\'annexe IV du CGI (isolation thermique, systèmes de chauffage performants, énergies renouvelables).'
+  'Je certifie que les travaux rÃ©alisÃ©s concernent des locaux Ã  usage d\'habitation achevÃ©s depuis plus de deux ans et constituent des travaux de rÃ©novation ou d\'amÃ©lioration de la qualitÃ© Ã©nergÃ©tique au sens de l\'article 18 bis de l\'annexe IV du CGI (isolation thermique, systÃ¨mes de chauffage performants, Ã©nergies renouvelables).'
 
-const TVA_MENTION_AE = 'TVA non applicable, article 293 B du Code Général des Impôts.'
+const TVA_MENTION_AE = 'TVA non applicable, article 293 B du Code GÃ©nÃ©ral des ImpÃ´ts.'
 
 function getTvaMentions(lignes: Ligne[]): string[] {
   const prest = lignes.filter(isPrestation)
@@ -220,7 +220,7 @@ function computeTvaBases(lignes: Ligne[]): Record<number, number> {
 }
 
 // -------------------------------------------------------------------
-// Hiérarchie : normalisation + sous-totaux
+// HiÃ©rarchie : normalisation + sous-totaux
 // -------------------------------------------------------------------
 
 function isPrestation(l: Ligne): boolean {
@@ -233,7 +233,7 @@ function isPrestation(l: Ligne): boolean {
 
 /**
  * Normalise les lignes : si aucune n'a de type/niveau (ancien format),
- * toutes deviennent des prestations niveau 3 avec numéro séquentiel.
+ * toutes deviennent des prestations niveau 3 avec numÃ©ro sÃ©quentiel.
  * Sinon, on remplit les niveau/type/numero manquants au mieux.
  */
 function normalizeLignes(input: Ligne[]): Ligne[] {
@@ -248,7 +248,7 @@ function normalizeLignes(input: Ligne[]): Ligne[] {
     }))
   }
 
-  // Format hiérarchique : on garde tel quel, en complétant les défauts
+  // Format hiÃ©rarchique : on garde tel quel, en complÃ©tant les dÃ©fauts
   return input.map((l, i) => {
     const niveau = (l.niveau ?? (l.type === 'section' ? 1 : l.type === 'sous_section' ? 2 : 3)) as 1 | 2 | 3
     const type = l.type ?? (niveau === 1 ? 'section' : niveau === 2 ? 'sous_section' : 'prestation')
@@ -265,11 +265,11 @@ function normalizeLignes(input: Ligne[]): Ligne[] {
  * Calcule les sous-totaux pour chaque section et sous-section.
  * Retourne un Map<id, total HT>.
  *
- * Règle :
+ * RÃ¨gle :
  * - Sous-section = somme des prestations dont parent_id = id de la sous-section
  * - Section = somme des sous-totaux de ses sous-sections + somme directe des
- *   prestations dont parent_id = id de la section (cas où il n'y a pas de
- *   sous-section intermédiaire)
+ *   prestations dont parent_id = id de la section (cas oÃ¹ il n'y a pas de
+ *   sous-section intermÃ©diaire)
  */
 export function computeSubtotals(lignes: Ligne[]): Map<string, number> {
   const map = new Map<string, number>()
@@ -285,7 +285,7 @@ export function computeSubtotals(lignes: Ligne[]): Map<string, number> {
   }
 
   // 2) Sous-totaux des sections (sous-sections enfants + prestations
-  //    rattachées directement à la section)
+  //    rattachÃ©es directement Ã  la section)
   for (const sec of lignes.filter(l => l.type === 'section' && l.id)) {
     const fromSubs = lignes
       .filter(l => l.parent_id === sec.id && l.type === 'sous_section')
@@ -300,7 +300,7 @@ export function computeSubtotals(lignes: Ligne[]): Map<string, number> {
 }
 
 // -------------------------------------------------------------------
-// Footer répété sur chaque page
+// Footer rÃ©pÃ©tÃ© sur chaque page
 // -------------------------------------------------------------------
 
 function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
@@ -330,28 +330,28 @@ function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
       ent.adresse ? `${ent.adresse}${ent.code_postal || ent.ville ? `, ${ent.code_postal || ''} ${ent.ville || ''}`.replace(/  +/g, ' ').trim() : ''}` : '',
       ent.siret ? `SIRET : ${ent.siret}` : '',
       ent.email ? `Email : ${ent.email}` : '',
-    ].filter(Boolean).join(' — ')
+    ].filter(Boolean).join(' â€” ')
     if (id) doc.text(id, pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
     y += 3.2
 
-    // Ligne 2 : tel + décennale
+    // Ligne 2 : tel + dÃ©cennale
     const line2Parts: string[] = []
-    if (ent.telephone) line2Parts.push(`Tél : ${ent.telephone}`)
+    if (ent.telephone) line2Parts.push(`TÃ©l : ${ent.telephone}`)
     if (ent.assurance_nom) {
-      line2Parts.push(`Garantie décennale ${ent.assurance_nom}${ent.decennale_numero ? ` (n° ${ent.decennale_numero})` : ''}`)
+      line2Parts.push(`Garantie dÃ©cennale ${ent.assurance_nom}${ent.decennale_numero ? ` (nÂ° ${ent.decennale_numero})` : ''}`)
     }
-    if (line2Parts.length) doc.text(line2Parts.join(' — '), pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
+    if (line2Parts.length) doc.text(line2Parts.join(' â€” '), pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
 
-    // Coin bas-droit : Page X sur Y + N°
+    // Coin bas-droit : Page X sur Y + NÂ°
     doc.setFontSize(7)
     setText(doc, C.muted)
-    doc.text(`Page ${i} sur ${total} — N° ${numero}`, pageW - M, pageH - 4, { align: 'right' })
+    doc.text(`Page ${i} sur ${total} â€” NÂ° ${numero}`, pageW - M, pageH - 4, { align: 'right' })
   }
 }
 
 // -------------------------------------------------------------------
-// Mini-header pour pages 2+ (titre + numéro + page X/Y, trait sky)
-// Doit être appelé APRÈS le rendu complet (toutes pages connues)
+// Mini-header pour pages 2+ (titre + numÃ©ro + page X/Y, trait sky)
+// Doit Ãªtre appelÃ© APRÃˆS le rendu complet (toutes pages connues)
 // -------------------------------------------------------------------
 
 function drawMiniHeaderAllPagesAfterFirst(doc: jsPDF, title: string, numero: string) {
@@ -362,9 +362,9 @@ function drawMiniHeaderAllPagesAfterFirst(doc: jsPDF, title: string, numero: str
 
   for (let i = 2; i <= total; i++) {
     doc.setPage(i)
-    // Texte centré "TITRE N° XXX — Page X/Y"
+    // Texte centrÃ© "TITRE NÂ° XXX â€” Page X/Y"
     doc.setFontSize(9); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
-    doc.text(`${title} N° ${numero} — Page ${i}/${total}`, pageW / 2, 10, { align: 'center' })
+    doc.text(`${title} NÂ° ${numero} â€” Page ${i}/${total}`, pageW / 2, 10, { align: 'center' })
     // Trait sky 0.3mm
     setDraw(doc, C.sky); doc.setLineWidth(0.3)
     doc.line(M, 13, pageW - M, 13)
@@ -372,15 +372,15 @@ function drawMiniHeaderAllPagesAfterFirst(doc: jsPDF, title: string, numero: str
 }
 
 // -------------------------------------------------------------------
-// Header (logo + titre + n° + dates) — partagé devis/facture
+// Header (logo + titre + nÂ° + dates) â€” partagÃ© devis/facture
 // -------------------------------------------------------------------
 
 interface HeaderOpts {
   title: string          // "DEVIS" ou "FACTURE" ou "FACTURE DE SITUATION"
   numero: string
-  subtitle?: string      // ex "Situation N° 2"
-  refLine?: string       // ex "Sur devis N° D-2025-001 du 01/01/2025"
-  dateLine: string       // ligne dates centrée
+  subtitle?: string      // ex "Situation NÂ° 2"
+  refLine?: string       // ex "Sur devis NÂ° D-2025-001 du 01/01/2025"
+  dateLine: string       // ligne dates centrÃ©e
 }
 
 function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: number): number {
@@ -389,9 +389,9 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
   const centerX = pageW / 2
   const titleTopY = startY
 
-  // === Logo plus généreux — style Obat ===
+  // === Logo plus gÃ©nÃ©reux â€” style Obat ===
   // hauteur 22mm (avant 14), largeur max 58mm
-  // Position : aligné verticalement au centre du bloc titre+numero
+  // Position : alignÃ© verticalement au centre du bloc titre+numero
   const LOGO_H = 22
   const LOGO_MAX_W = 58
   let logoDrawn = false
@@ -404,35 +404,35 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
       if (logoW > LOGO_MAX_W) {
         logoW = LOGO_MAX_W
       }
-      // Aligner verticalement le logo avec le titre (centré sur LOGO_H)
+      // Aligner verticalement le logo avec le titre (centrÃ© sur LOGO_H)
       const logoTopY = titleTopY - 1
       doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, LOGO_H)
       logoDrawn = true
-    } catch { /* logo invalide, ignoré */ }
+    } catch { /* logo invalide, ignorÃ© */ }
   }
   if (!logoDrawn && ent.nom) {
-    // Pas de logo : nom entreprise stylisé à gauche
+    // Pas de logo : nom entreprise stylisÃ© Ã  gauche
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
     setText(doc, C.netBlue)
     doc.text(ent.nom, M, titleTopY + 10)
   }
 
-  // === Titre centré ===
+  // === Titre centrÃ© ===
   doc.setFontSize(24)
   doc.setFont('helvetica', 'bold')
   setText(doc, C.netBlue)
   doc.text(opts.title, centerX, titleTopY + 8, { align: 'center' })
 
-  // N° doc
+  // NÂ° doc
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
-  doc.text(`N° ${opts.numero}`, centerX, titleTopY + 14, { align: 'center' })
+  doc.text(`NÂ° ${opts.numero}`, centerX, titleTopY + 14, { align: 'center' })
 
   let y = titleTopY + 18
 
-  // Sous-titre éventuel (situation)
+  // Sous-titre Ã©ventuel (situation)
   if (opts.subtitle) {
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
@@ -448,7 +448,7 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
     y += 4
   }
 
-  // V5 : Ligne dates AU-DESSUS du trait bleu, juste sous le numéro
+  // V5 : Ligne dates AU-DESSUS du trait bleu, juste sous le numÃ©ro
   doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
   setText(doc, C.muted)
@@ -459,10 +459,10 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
   const minYAfterLogo = titleTopY + LOGO_H + 1
   if (y < minYAfterLogo) y = minYAfterLogo
 
-  // Trait sky 0.7mm — séparateur fin du header
+  // Trait sky 0.7mm â€” sÃ©parateur fin du header
   setFill(doc, C.sky)
   doc.rect(M, y, pageW - 2 * M, 0.7, 'F')
-  // V5 : marge trait↔cadres = 8mm (identique à cadres↔tableau = 8mm dans drawIdentityBoxes)
+  // V5 : marge traitâ†”cadres = 8mm (identique Ã  cadresâ†”tableau = 8mm dans drawIdentityBoxes)
   y += 8
 
   return y
@@ -493,7 +493,7 @@ function drawIdentityBoxes(
   if (ent.adresse) artisanLines.push({ text: ent.adresse, size: 8.5, color: C.muted })
   if (ent.code_postal || ent.ville) artisanLines.push({ text: `${ent.code_postal || ''} ${ent.ville || ''}`.trim(), size: 8.5, color: C.muted })
   if (ent.siret) artisanLines.push({ text: `SIRET : ${ent.siret}`, size: 8.5, color: C.muted })
-  if (ent.telephone) artisanLines.push({ text: `Tél : ${ent.telephone}`, size: 8.5, color: C.muted })
+  if (ent.telephone) artisanLines.push({ text: `TÃ©l : ${ent.telephone}`, size: 8.5, color: C.muted })
 
   // --- Mesure contenu CLIENT ---
   const clientLines: { text: string; size: number; bold?: boolean; color: [number, number, number] }[] = []
@@ -517,7 +517,7 @@ function drawIdentityBoxes(
   setDraw(doc, C.sky)
   doc.setLineWidth(0.6)
   doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'S')
-  // Bordure gauche épaisse 4px ≈ 1.4mm
+  // Bordure gauche Ã©paisse 4px â‰ˆ 1.4mm
   setFill(doc, C.sky)
   doc.rect(lx, y, 1.4, boxH, 'F')
 
@@ -550,7 +550,7 @@ function drawIdentityBoxes(
     cy += 1.6
   }
 
-  // V5 : marge cadres ↔ objet/tableau = 8mm (identique à trait↔cadres pour symétrie parfaite)
+  // V5 : marge cadres â†” objet/tableau = 8mm (identique Ã  traitâ†”cadres pour symÃ©trie parfaite)
   return y + boxH + 8
 }
 
@@ -568,7 +568,7 @@ function drawObjet(doc: jsPDF, objet: string, y: number): number {
   // Bordure visible
   setDraw(doc, C.sky); doc.setLineWidth(0.4)
   doc.roundedRect(M, y, w, h, 1.5, 1.5, 'S')
-  // Trait gauche épais 5px ≈ 1.8mm
+  // Trait gauche Ã©pais 5px â‰ˆ 1.8mm
   setFill(doc, C.sky)
   doc.rect(M, y, 1.8, h, 'F')
 
@@ -582,12 +582,12 @@ function drawObjet(doc: jsPDF, objet: string, y: number): number {
   setText(doc, C.navyText)
   doc.text(objet, M + 22, y + 5.6, { maxWidth: w - 24 })
 
-  // V4 : marge plus généreuse objet ↔ tableau
+  // V4 : marge plus gÃ©nÃ©reuse objet â†” tableau
   return y + h + 6
 }
 
 // -------------------------------------------------------------------
-// Tableau hiérarchique (sections / sous-sections / prestations)
+// Tableau hiÃ©rarchique (sections / sous-sections / prestations)
 // -------------------------------------------------------------------
 
 interface RowMeta {
@@ -602,7 +602,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number, bottomMargin
 
   const subtotals = computeSubtotals(lignes)
 
-  // Construction des lignes du tableau dans l'ordre des `lignes` reçues
+  // Construction des lignes du tableau dans l'ordre des `lignes` reÃ§ues
   const body: (string | { content: string; styles?: Partial<Styles> })[][] = []
   const meta: RowMeta[] = []
 
@@ -653,7 +653,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number, bottomMargin
 
   autoTable(doc, {
     startY,
-    head: [['N°', 'DÉSIGNATION', 'QTÉ', 'UNITÉ', 'PRIX U. HT', 'TOTAL HT']],
+    head: [['NÂ°', 'DÃ‰SIGNATION', 'QTÃ‰', 'UNITÃ‰', 'PRIX U. HT', 'TOTAL HT']],
     body,
     theme: 'plain',
     margin: { left: M, right: M, top: 18, bottom: bottomMargin },
@@ -769,7 +769,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number, bottomMargin
 }
 
 // -------------------------------------------------------------------
-// Bloc totaux + NET A PAYER (à droite) — refonte v3 : 3 blocs encadrés
+// Bloc totaux + NET A PAYER (Ã  droite) â€” refonte v3 : 3 blocs encadrÃ©s
 // -------------------------------------------------------------------
 
 interface TotalsOpts {
@@ -778,11 +778,11 @@ interface TotalsOpts {
   tvaGroups: Record<number, number>
   netLabel?: string
   netAmount?: number
-  // Bloc C — Acompte (devis uniquement)
+  // Bloc C â€” Acompte (devis uniquement)
   acomptePct?: number
   acompteMontant?: number
   resteMontant?: number
-  // Bloc C alternatif — Reste à facturer (factures de situation)
+  // Bloc C alternatif â€” Reste Ã  facturer (factures de situation)
   resteAFacturerHT?: number
   resteAFacturerTTC?: number
 }
@@ -796,32 +796,32 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   const valueX = pageW - M - padX
   const labelX = rightX + padX
 
-  // V4 : l'acompte devient une LIGNE du récap (entre Total TTC et NET À PAYER),
-  // pour que NET À PAYER reste la dernière ligne — la plus importante.
+  // V4 : l'acompte devient une LIGNE du rÃ©cap (entre Total TTC et NET Ã€ PAYER),
+  // pour que NET Ã€ PAYER reste la derniÃ¨re ligne â€” la plus importante.
   const hasAcompte = opts.acomptePct !== undefined && opts.acomptePct > 0
     && opts.acompteMontant !== undefined && opts.resteMontant !== undefined
 
-  // ── BLOC A — RÉCAPITULATIF HT/TVA/TTC (+ acompte si présent) ──
+  // â”€â”€ BLOC A â€” RÃ‰CAPITULATIF HT/TVA/TTC (+ acompte si prÃ©sent) â”€â”€
   const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
   const headerH = 5
-  const rowH = 4.8         // un poil plus aéré
-  // 2 lignes fixes (HT + TTC) + TVA(s) + (acompte si présent)
+  const rowH = 4.8         // un poil plus aÃ©rÃ©
+  // 2 lignes fixes (HT + TTC) + TVA(s) + (acompte si prÃ©sent)
   const rowsCount = 2 + sortedRates.length + (hasAcompte ? 1 : 0)
   const blockAH = headerH + rowsCount * rowH + 1.8
 
-  // Cadre extérieur — fond gris très clair, bordure visible
+  // Cadre extÃ©rieur â€” fond gris trÃ¨s clair, bordure visible
   setFill(doc, C.grayLightBg)
   setDraw(doc, C.border); doc.setLineWidth(0.4)
   doc.roundedRect(rightX, y, blockW, blockAH, 1.5, 1.5, 'FD')
 
-  // Header "RÉCAPITULATIF"
+  // Header "RÃ‰CAPITULATIF"
   doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
-  doc.text('RÉCAPITULATIF', labelX, y + 3.4, { charSpace: 0.4 })
+  doc.text('RÃ‰CAPITULATIF', labelX, y + 3.4, { charSpace: 0.4 })
 
   let rowY = y + headerH + 0.5
   let rowIdx = 0
 
-  // Helper : dessine une ligne — couleurs configurables pour l'acompte (vert)
+  // Helper : dessine une ligne â€” couleurs configurables pour l'acompte (vert)
   const drawRow = (
     label: string,
     value: string,
@@ -852,30 +852,30 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   }
   // Total TTC
   drawRow('Total TTC', fmt(opts.ttc), true)
-  // Acompte versé (intégré au récap, en vert, avec signe -)
+  // Acompte versÃ© (intÃ©grÃ© au rÃ©cap, en vert, avec signe -)
   if (hasAcompte) {
-    const label = opts.acomptePct ? `Acompte versé (${opts.acomptePct}%)` : 'Acompte versé'
+    const label = opts.acomptePct ? `Acompte versÃ© (${opts.acomptePct}%)` : 'Acompte versÃ©'
     drawRow(label, `- ${fmt(opts.acompteMontant!)}`, true, C.greenDark, C.greenDark)
   }
 
-  y = y + blockAH + 3 // marge 3mm récap ↔ NET À PAYER
+  y = y + blockAH + 3 // marge 3mm rÃ©cap â†” NET Ã€ PAYER
 
-  // ── BLOC B — NET À PAYER (toujours en dernier — ligne la plus importante) ──
+  // â”€â”€ BLOC B â€” NET Ã€ PAYER (toujours en dernier â€” ligne la plus importante) â”€â”€
   const netH = 12
   setFill(doc, C.netBlue)
   doc.roundedRect(rightX, y, blockW, netH, 2, 2, 'F')
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); setText(doc, C.white)
-  doc.text(opts.netLabel ?? 'NET À PAYER', rightX + 4, y + netH / 2 + 1.5)
+  doc.text(opts.netLabel ?? 'NET Ã€ PAYER', rightX + 4, y + netH / 2 + 1.5)
   doc.setFontSize(12)
-  // Si acompte présent, netAmount = TTC - acompte (déjà calculé par l'appelant)
+  // Si acompte prÃ©sent, netAmount = TTC - acompte (dÃ©jÃ  calculÃ© par l'appelant)
   doc.text(fmt(opts.netAmount ?? opts.ttc), pageW - M - 4, y + netH / 2 + 2, { align: 'right' })
   y += netH + 2
 
-  // ── BLOC C — Reste à facturer (factures de situation uniquement) ──
+  // â”€â”€ BLOC C â€” Reste Ã  facturer (factures de situation uniquement) â”€â”€
   const hasReste = opts.resteAFacturerHT !== undefined || opts.resteAFacturerTTC !== undefined
 
   if (false) {
-    // hasAcompte est maintenant géré DANS le récap ci-dessus — bloc séparé supprimé
+    // hasAcompte est maintenant gÃ©rÃ© DANS le rÃ©cap ci-dessus â€” bloc sÃ©parÃ© supprimÃ©
   } else if (hasReste) {
     const accH = 13
     setFill(doc, C.greenPale)
@@ -889,13 +889,13 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
 
     if (opts.resteAFacturerHT !== undefined) {
       doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-      doc.text('Reste à facturer HT', rightX + 4, yLine1)
+      doc.text('Reste Ã  facturer HT', rightX + 4, yLine1)
       doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
       doc.text(fmt(opts.resteAFacturerHT), pageW - M - padX, yLine1, { align: 'right' })
     }
     if (opts.resteAFacturerTTC !== undefined) {
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
-      doc.text('Reste à facturer TTC', rightX + 4, yLine2)
+      doc.text('Reste Ã  facturer TTC', rightX + 4, yLine2)
       doc.text(fmt(opts.resteAFacturerTTC), pageW - M - padX, yLine2, { align: 'right' })
     }
 
@@ -906,7 +906,7 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
 }
 
 // -------------------------------------------------------------------
-// Ventilation TVA (tableau simple aligné à droite)
+// Ventilation TVA (tableau simple alignÃ© Ã  droite)
 // -------------------------------------------------------------------
 
 function drawTvaBreakdown(doc: jsPDF, lignes: Ligne[], y: number): number {
@@ -947,11 +947,11 @@ export function generateDevisPdf(data: DevisData): string {
   const ent = data.entreprise
   const lignes = normalizeLignes(data.lignes)
 
-  // ── HEADER ──
+  // â”€â”€ HEADER â”€â”€
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_validite) dateParts.push(`Valide jusqu'au : ${fmtDate(data.date_validite)}`)
-  if (data.duree_travaux) dateParts.push(`Durée estimée : ${data.duree_travaux}`)
+  if (data.duree_travaux) dateParts.push(`DurÃ©e estimÃ©e : ${data.duree_travaux}`)
 
   let y = drawHeader(doc, ent, {
     title: 'DEVIS',
@@ -959,22 +959,22 @@ export function generateDevisPdf(data: DevisData): string {
     dateLine: dateParts.join(' | '),
   }, 12)
 
-  // ── CADRES ARTISAN + CLIENT ──
+  // â”€â”€ CADRES ARTISAN + CLIENT â”€â”€
   y = drawIdentityBoxes(doc, ent, { clientNom: data.clientNom, clientAdresse: data.clientAdresse }, y)
 
-  // ── OBJET ──
+  // â”€â”€ OBJET â”€â”€
   if (data.objet) y = drawObjet(doc, data.objet, y)
 
-  // ── TABLE HIÉRARCHIQUE ──
+  // â”€â”€ TABLE HIÃ‰RARCHIQUE â”€â”€
   y = drawHierTable(doc, lignes, y)
 
-  // ── TOTAUX (à droite) ──
-  // Hauteur estimée : récap (~30mm) + NET (11+2) + acompte éventuel (15) + signatures (~32) ≈ 95mm
+  // â”€â”€ TOTAUX (Ã  droite) â”€â”€
+  // Hauteur estimÃ©e : rÃ©cap (~30mm) + NET (11+2) + acompte Ã©ventuel (15) + signatures (~32) â‰ˆ 95mm
   const hasAcompte = !!(data.acompte_pourcent && data.acompte_pourcent > 0)
   const NEEDED_BOTTOM = hasAcompte ? 85 : 72
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
-  y += 10 // V4 : marge respiration tableau ↔ totaux (devis)
+  y += 10 // V4 : marge respiration tableau â†” totaux (devis)
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
   const acompteTTC = hasAcompte ? data.montant_ttc * ((data.acompte_pourcent as number) / 100) : undefined
@@ -989,12 +989,12 @@ export function generateDevisPdf(data: DevisData): string {
     resteMontant: resteTTC,
   }, y)
 
-  // ── VENTILATION TVA (sous totaux à droite, si plusieurs taux) ──
+  // â”€â”€ VENTILATION TVA (sous totaux Ã  droite, si plusieurs taux) â”€â”€
   if (Object.keys(tvaGroups).length > 1) {
     rightY = drawTvaBreakdown(doc, lignes, rightY + 1)
   }
 
-  // ── COLONNE GAUCHE : conditions + mentions ──
+  // â”€â”€ COLONNE GAUCHE : conditions + mentions â”€â”€
   let leftY = totalsStartY
   const M = 14
   const leftMaxW = 88
@@ -1017,30 +1017,30 @@ export function generateDevisPdf(data: DevisData): string {
     }
   }
 
-  // Déchets AGEC
+  // DÃ©chets AGEC
   if (data.dechets && (data.dechets.nature || data.dechets.collecte_nom)) {
     leftY += 1
     setDraw(doc, C.border); doc.setLineWidth(0.2)
     doc.line(M, leftY, M + leftMaxW, leftY); leftY += 2.5
     doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
-    doc.text('GESTION DES DÉCHETS (AGEC)', M, leftY); leftY += 3
+    doc.text('GESTION DES DÃ‰CHETS (AGEC)', M, leftY); leftY += 3
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
     const dechParts: string[] = []
     if (data.dechets.nature) dechParts.push(`Nature : ${data.dechets.nature}`)
     if (data.dechets.responsable) dechParts.push(data.dechets.responsable)
     if (data.dechets.tri) dechParts.push(`Tri : ${data.dechets.tri}`)
     if (data.dechets.collecte_nom) dechParts.push(`Collecte : ${data.dechets.collecte_nom}${data.dechets.collecte_type ? ` (${data.dechets.collecte_type})` : ''}`)
-    const dechWrapped = doc.splitTextToSize(dechParts.join(' · '), leftMaxW)
+    const dechWrapped = doc.splitTextToSize(dechParts.join(' Â· '), leftMaxW)
     doc.text(dechWrapped, M, leftY); leftY += dechWrapped.length * 2.8
   }
 
-  // ── SIGNATURES (bas de page, 2 cadres dashed) ──
+  // â”€â”€ SIGNATURES (bas de page, 2 cadres dashed) â”€â”€
   let sigY = Math.max(leftY, rightY) + 4
-  // Hauteur minimale réservée
+  // Hauteur minimale rÃ©servÃ©e
   if (sigY > 250) { doc.addPage(); sigY = 25 }
 
   const pageW = 210
-  const sigBoxW = (pageW - 2 * M - 6) / 2  // 2 colonnes égales
+  const sigBoxW = (pageW - 2 * M - 6) / 2  // 2 colonnes Ã©gales
   const sigH = 28
   const sigLeftX = M
   const sigRightX = M + sigBoxW + 6
@@ -1093,7 +1093,7 @@ export function generateDevisPdf(data: DevisData): string {
     }
   } else {
     doc.setFontSize(8); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
-    doc.text('Date et signature précédées de "Bon pour accord"', sigRightX + sigBoxW / 2, sigY + sigH - 3, { align: 'center' })
+    doc.text('Date et signature prÃ©cÃ©dÃ©es de "Bon pour accord"', sigRightX + sigBoxW / 2, sigY + sigH - 3, { align: 'center' })
   }
 
   drawMiniHeaderAllPagesAfterFirst(doc, 'DEVIS', data.numero)
@@ -1111,7 +1111,7 @@ export function generateFacturePdf(data: FactureData): string {
   const lignes = normalizeLignes(data.lignes)
   const isSituation = data.type === 'situation'
 
-  // ── 0. Calculs préliminaires (acompte versé) ──────────────────
+  // â”€â”€ 0. Calculs prÃ©liminaires (acompte versÃ©) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const hasAcompte = !!(
     (data.acompte_montant_ttc !== undefined && data.acompte_montant_ttc > 0) ||
     (data.acompte_pourcent !== undefined && data.acompte_pourcent > 0)
@@ -1130,15 +1130,15 @@ export function generateFacturePdf(data: FactureData): string {
 
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
-  if (data.date_echeance) dateParts.push(`Échéance : ${fmtDate(data.date_echeance)}`)
+  if (data.date_echeance) dateParts.push(`Ã‰chÃ©ance : ${fmtDate(data.date_echeance)}`)
   if (data.date_prestation) dateParts.push(`Prestation : ${fmtDate(data.date_prestation)}`)
 
   const headerOpts: HeaderOpts = isSituation
     ? {
       title: 'FACTURE DE SITUATION',
       numero: data.numero,
-      subtitle: data.numero_situation ? `Situation N° ${data.numero_situation}` : undefined,
-      refLine: data.devis_ref ? `Sur devis N° ${data.devis_ref}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''}` : undefined,
+      subtitle: data.numero_situation ? `Situation NÂ° ${data.numero_situation}` : undefined,
+      refLine: data.devis_ref ? `Sur devis NÂ° ${data.devis_ref}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''}` : undefined,
       dateLine: dateParts.join(' | '),
     }
     : {
@@ -1151,8 +1151,8 @@ export function generateFacturePdf(data: FactureData): string {
   y = drawIdentityBoxes(doc, ent, { clientNom: data.clientNom, clientAdresse: data.clientAdresse }, y)
   if (data.objet) y = drawObjet(doc, data.objet, y)
 
-  // ── V6 : pré-calcul de l'espace requis en bas pour totaux+conditions+IBAN ──
-  // Le bottomMargin du tableau est calé sur ce besoin réel pour éviter tout vide blanc :
+  // â”€â”€ V6 : prÃ©-calcul de l'espace requis en bas pour totaux+conditions+IBAN â”€â”€
+  // Le bottomMargin du tableau est calÃ© sur ce besoin rÃ©el pour Ã©viter tout vide blanc :
   // si la table ne tient pas, elle saute proprement de page ; si elle tient, les totaux suivent direct.
   const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
   const hasIban = !!(ent.iban && ent.iban.trim())
@@ -1160,7 +1160,7 @@ export function generateFacturePdf(data: FactureData): string {
   if (hasAcompte) NEEDED_BOTTOM += 14
   if (hasReste) NEEDED_BOTTOM += 14
   if (hasIban) NEEDED_BOTTOM += 26
-  // +10mm de respiration entre fin tableau et début totaux
+  // +10mm de respiration entre fin tableau et dÃ©but totaux
   const tableBottomMargin = NEEDED_BOTTOM + 10
 
   if (isSituation) {
@@ -1168,7 +1168,7 @@ export function generateFacturePdf(data: FactureData): string {
     const w = pageW - 2 * M
     const pct = data.pourcentage_situation ?? 0
     const totalTTC = data.montant_ttc / (pct > 0 ? pct / 100 : 1)
-    const desc = `Situation #${data.numero_situation ?? '?'} pour le devis n° ${data.devis_ref ?? '-'}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''} - ${pct}% TTC sur un montant total de ${fmt(totalTTC)} TTC`
+    const desc = `Situation #${data.numero_situation ?? '?'} pour le devis nÂ° ${data.devis_ref ?? '-'}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''} - ${pct}% TTC sur un montant total de ${fmt(totalTTC)} TTC`
 
     setFill(doc, C.skyVeryPale)
     const blockH = 22
@@ -1184,8 +1184,8 @@ export function generateFacturePdf(data: FactureData): string {
 
     autoTable(doc, {
       startY: y,
-      head: [['DÉSIGNATION', 'TOTAL HT']],
-      body: [[`Situation N°${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
+      head: [['DÃ‰SIGNATION', 'TOTAL HT']],
+      body: [[`Situation NÂ°${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
       theme: 'plain',
       margin: { left: M, right: M, bottom: tableBottomMargin },
       styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, textColor: C.navy, lineColor: C.border, lineWidth: 0.1 },
@@ -1198,19 +1198,19 @@ export function generateFacturePdf(data: FactureData): string {
     y = drawHierTable(doc, lignes, y, tableBottomMargin)
   }
 
-  // V6 : si malgré la marge réservée, la fin du tableau dépasse, sécurité :
+  // V6 : si malgrÃ© la marge rÃ©servÃ©e, la fin du tableau dÃ©passe, sÃ©curitÃ© :
   if (y + NEEDED_BOTTOM > 290) { doc.addPage(); y = 20 }
 
-  y += 10 // V4 : marge respiration tableau ↔ totaux (facture)
+  y += 10 // V4 : marge respiration tableau â†” totaux (facture)
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
 
-  // ── BLOC TOTAUX (droite) avec acompte si présent ──
+  // â”€â”€ BLOC TOTAUX (droite) avec acompte si prÃ©sent â”€â”€
   const rightEndY = drawTotals(doc, {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
-    netLabel: 'NET À PAYER',
+    netLabel: 'NET Ã€ PAYER',
     netAmount: hasAcompte ? netAPayerTTC : undefined,
     acomptePct: hasAcompte
       ? (data.acompte_pourcent ?? Math.round((acompteTTC / Math.max(data.montant_ttc, 1)) * 100))
@@ -1221,12 +1221,12 @@ export function generateFacturePdf(data: FactureData): string {
     resteAFacturerTTC: hasReste ? data.reste_a_facturer_ttc : undefined,
   }, y)
 
-  // ── COLONNE GAUCHE : conditions + notes perso + mentions ──
+  // â”€â”€ COLONNE GAUCHE : conditions + notes perso + mentions â”€â”€
   let leftY = totalsStartY
   const M = 14
   const leftMaxW = 88
 
-  // Conditions de paiement (pré-remplies si absent)
+  // Conditions de paiement (prÃ©-remplies si absent)
   const conditions = (data.conditions_paiement && data.conditions_paiement.trim())
     || (data.notes && data.notes.trim()) // legacy fallback
     || DEFAULT_CONDITIONS_PAIEMENT
@@ -1237,7 +1237,7 @@ export function generateFacturePdf(data: FactureData): string {
   const splitCond = doc.splitTextToSize(conditions, leftMaxW)
   doc.text(splitCond, M, leftY); leftY += splitCond.length * 3.2 + 2
 
-  // Notes personnalisées (visibles client — ex: "Travaux du 11 au 13 mai")
+  // Notes personnalisÃ©es (visibles client â€” ex: "Travaux du 11 au 13 mai")
   if (data.notes_personnalisees && data.notes_personnalisees.trim()) {
     leftY += 1.5
     doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
@@ -1247,16 +1247,16 @@ export function generateFacturePdf(data: FactureData): string {
     doc.text(splitNotes, M, leftY); leftY += splitNotes.length * 3.2 + 2
   }
 
-  // Mentions légales standardisées
+  // Mentions lÃ©gales standardisÃ©es
   leftY += 1
   doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur (art. L.441-10 C. com.).', M, leftY, { maxWidth: leftMaxW })
+  doc.text('PÃ©nalitÃ©s de retard : 3x le taux d\'intÃ©rÃªt lÃ©gal en vigueur (art. L.441-10 C. com.).', M, leftY, { maxWidth: leftMaxW })
   leftY += 5.5
   if (data.clientType === 'professionnel') {
-    doc.text('Indemnité forfaitaire pour frais de recouvrement : 40 € (art. D.441-5 C. com.).', M, leftY, { maxWidth: leftMaxW })
+    doc.text('IndemnitÃ© forfaitaire pour frais de recouvrement : 40 â‚¬ (art. D.441-5 C. com.).', M, leftY, { maxWidth: leftMaxW })
     leftY += 5.5
   }
-  doc.text('Pas d\'escompte pour paiement anticipé.', M, leftY); leftY += 4
+  doc.text('Pas d\'escompte pour paiement anticipÃ©.', M, leftY); leftY += 4
 
   // Mentions TVA (293B auto ou 10%/5.5%)
   const tvaMentions = getTvaMentions(lignes)
@@ -1270,22 +1270,22 @@ export function generateFacturePdf(data: FactureData): string {
 
   // Article L441-3
   doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
-  doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
+  doc.text('Facture Ã©mise conformÃ©ment aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
   leftY += 4
 
-  // Ventilation TVA si plusieurs taux (sous totaux à droite)
+  // Ventilation TVA si plusieurs taux (sous totaux Ã  droite)
   if (Object.keys(tvaGroups).length > 1) {
     drawTvaBreakdown(doc, lignes, rightEndY + 1)
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // BLOC IBAN/BIC — moitié gauche (88mm), juste APRÈS les mentions
-  // ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // BLOC IBAN/BIC â€” moitiÃ© gauche (88mm), juste APRÃˆS les mentions
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (hasIban) {
-    const ribW = leftMaxW  // 88mm — moitié gauche
+    const ribW = leftMaxW  // 88mm â€” moitiÃ© gauche
     const ribH = 21
 
-    // Position : juste après les mentions, avec une petite respiration
+    // Position : juste aprÃ¨s les mentions, avec une petite respiration
     const ribY = leftY + 2
 
     setFill(doc, C.skyVeryPale)
@@ -1295,7 +1295,7 @@ export function generateFacturePdf(data: FactureData): string {
     doc.rect(M, ribY, 1.6, ribH, 'F')
 
     doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
-    doc.text('POUR RÉGLER PAR VIREMENT', M + 5, ribY + 5)
+    doc.text('POUR RÃ‰GLER PAR VIREMENT', M + 5, ribY + 5)
 
     const ibanClean = (ent.iban as string).replace(/\s+/g, '').toUpperCase()
     const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
@@ -1308,15 +1308,7 @@ export function generateFacturePdf(data: FactureData): string {
       doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 5, ribY + 14.5)
     }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); setText(doc, C.muted)
-    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
-  }
-
-  const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
-  drawMiniHeaderAllPagesAfterFirst(doc, miniTitle, data.numero)
-  drawFooterAllPages(doc, ent, data.numero)
-  return doc.output('datauristring').split(',')[1]
-}
-    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
+    doc.text(`BÃ©nÃ©ficiaire : ${ent.nom || ''}`, M + 5, ribY + 18.5, { maxWidth: ribW - 8 })
   }
 
   const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
