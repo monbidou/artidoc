@@ -99,7 +99,7 @@ export default function Footer() {
               Support
             </h4>
             <ul className="flex flex-col gap-1 text-[13px] text-white/55">
-              <li>📧 contact@nexartis.fr</li>
+              <li>📧 contact.nexartis@gmail.com</li>
               <li>Lun-Ven 9h-18h</li>
             </ul>
           </div>

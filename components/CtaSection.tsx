@@ -38,7 +38,7 @@ export default function CtaSection() {
           Vos données sont hébergées en France et ne sont jamais partagées.
         </p>
         <p className="mt-3 text-[13px] text-white/35 font-medium">
-          Une question ? Écrivez-nous : contact@nexartis.fr (Lun-Ven 9h-18h)
+          Une question ? Écrivez-nous : contact.nexartis@gmail.com (Lun-Ven 9h-18h)
         </p>
       </div>
     </section>
