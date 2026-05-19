@@ -44,6 +44,7 @@ interface DevisRecord {
   duree_estimee?: string
   conditions_paiement?: string
   acompte_pourcent?: number
+  montant_ht?: number
   objet?: string
   description?: string
   notes_client?: string
