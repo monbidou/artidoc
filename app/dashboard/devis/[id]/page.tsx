@@ -45,6 +45,7 @@ interface DevisRecord {
   conditions_paiement?: string
   acompte_pourcent?: number
   montant_ht?: number
+  montant_tva?: number
   objet?: string
   description?: string
   notes_client?: string

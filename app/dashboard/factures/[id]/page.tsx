@@ -289,10 +289,10 @@ export default function FactureDetailPage() {
   // est vide. La ligne TVA disparaissait du recap (filtre g.tva > 0.005 ligne 550)
   // alors que facture.montant_tva > 0 (ex: forfait 3000 HT + TVA 10% = 3300 TTC).
   // On reconstruit tvaGroups depuis facture.montant_tva en deduisant le taux.
-  if (isForfaitMode && facture.montant_tva > 0 && totalHT > 0) {
-    const tauxBrut = (facture.montant_tva / totalHT) * 100
+  if (isForfaitMode && totalTVA > 0 && totalHT > 0) {
+    const tauxBrut = (totalTVA / totalHT) * 100
     const taux = Math.round(tauxBrut * 10) / 10
-    tvaGroups[taux] = { ht: totalHT, tva: facture.montant_tva }
+    tvaGroups[taux] = { ht: totalHT, tva: totalTVA }
   }
 
   const printStyles = `@media print {
