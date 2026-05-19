@@ -327,27 +327,36 @@ function normalizeLignes(input: Ligne[]): Ligne[] {
  */
 export function computeSubtotals(lignes: Ligne[]): Map<string, number> {
   const map = new Map<string, number>()
-  const byId = new Map<string, Ligne>()
-  for (const l of lignes) if (l.id) byId.set(l.id, l)
 
-  // 1) Sous-totaux des sous-sections (somme des prestations enfants)
-  for (const ss of lignes.filter(l => l.type === 'sous_section' && l.id)) {
-    const total = lignes
-      .filter(l => l.parent_id === ss.id && isPrestation(l))
-      .reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
-    map.set(ss.id as string, total)
-  }
+  // V12 — Bug fix : la version precedente s'appuyait sur l.parent_id qui n'est
+  // PAS stocke en DB (sauvegarde page Nouveau/Modifier ne le persiste pas).
+  // Resultat : tous les sous-totaux a 0,00 EUR sur le PDF.
+  // Nouvelle approche : on itere dans l'ordre visuel. Chaque prestation est
+  // rattachee implicitement a la derniere section/sous-section vue, comme dans
+  // le rendu HTML. C'est plus robuste et fonctionne pour les factures historiques
+  // sans parent_id.
+  const sorted = [...lignes].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))
 
-  // 2) Sous-totaux des sections (sous-sections enfants + prestations
-  //    rattachées directement à la section)
-  for (const sec of lignes.filter(l => l.type === 'section' && l.id)) {
-    const fromSubs = lignes
-      .filter(l => l.parent_id === sec.id && l.type === 'sous_section')
-      .reduce((s, ss) => s + (map.get(ss.id as string) ?? 0), 0)
-    const fromDirect = lignes
-      .filter(l => l.parent_id === sec.id && isPrestation(l))
-      .reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
-    map.set(sec.id as string, fromSubs + fromDirect)
+  let currentSectionId: string | null = null
+  let currentSubSectionId: string | null = null
+
+  for (const l of sorted) {
+    if (l.type === 'section' && l.id) {
+      currentSectionId = l.id as string
+      currentSubSectionId = null
+      if (!map.has(currentSectionId)) map.set(currentSectionId, 0)
+    } else if (l.type === 'sous_section' && l.id) {
+      currentSubSectionId = l.id as string
+      if (!map.has(currentSubSectionId)) map.set(currentSubSectionId, 0)
+    } else if (isPrestation(l)) {
+      const ht = (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)
+      if (currentSubSectionId) {
+        map.set(currentSubSectionId, (map.get(currentSubSectionId) ?? 0) + ht)
+      }
+      if (currentSectionId) {
+        map.set(currentSectionId, (map.get(currentSectionId) ?? 0) + ht)
+      }
+    }
   }
 
   return map
