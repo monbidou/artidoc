@@ -92,11 +92,14 @@ export async function POST(req: NextRequest) {
       lignes: lignesAvecNumero.map((item) => {
         const l = item._orig as Record<string, unknown>
         return {
+          // V13 — Bug fix : id manquant cassait computeSubtotals (sections a 0)
+          id: (l.id as string | undefined),
           designation: (l.designation as string) || '',
           quantite: (l.quantite as number) || 0,
           unite: (l.unite as string) || '',
           prix_unitaire_ht: (l.prix_unitaire_ht as number) || 0,
-          taux_tva: (l.taux_tva as number) || 20,
+          // V13 — Bug fix : ?? au lieu de || pour respecter taux_tva=0 (Sans TVA)
+          taux_tva: (l.taux_tva as number) ?? 20,
           type: (l.type as 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page' | undefined),
           niveau: (l.niveau as 1 | 2 | 3 | undefined),
           parent_id: (l.parent_id as string | null | undefined),

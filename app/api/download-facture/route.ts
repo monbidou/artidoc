@@ -71,11 +71,19 @@ export async function POST(req: NextRequest) {
       montant_tva: facture.montant_tva || 0,
       montant_ttc: facture.montant_ttc || 0,
       lignes: (lignes || []).map((l: Record<string, unknown>) => ({
+        // V13 — Bug fix : on copie l'id (manquait) pour que computeSubtotals
+        // puisse calculer les sous-totaux par section. Sans id, la fonction
+        // retournait 0 pour toutes les sections.
+        id: (l.id as string | undefined),
         designation: (l.designation as string) || '',
         quantite: (l.quantite as number) || 0,
         unite: (l.unite as string) || '',
         prix_unitaire_ht: (l.prix_unitaire_ht as number) || 0,
-        taux_tva: (l.taux_tva as number) || 10,
+        // V13 — Bug fix : on utilise ?? au lieu de || pour respecter taux_tva=0
+        // (Sans TVA / franchise art. 293 B). Avant : (0 || 10) renvoyait 10
+        // donc le PDF affichait "TVA 10%" meme quand l'utilisateur avait coche
+        // "Sans TVA".
+        taux_tva: (l.taux_tva as number) ?? 10,
         type: (l.type as 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page' | undefined),
         niveau: (l.niveau as 1 | 2 | 3 | undefined),
         parent_id: (l.parent_id as string | null | undefined),
