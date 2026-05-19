@@ -388,6 +388,15 @@ export default function DevisDetailPage() {
     const taux = Math.round(tauxBrut * 10) / 10
     tvaGroups[taux] = { ht: totalHtDevis, tva: devisMontantTva }
   }
+
+  // V14 — Bug F (parite facture) : si tvaGroups est vide mais montant_tva > 0
+  // (cas mode normal avec lignes ayant taux_tva = null en DB), on reconstruit
+  // tvaGroups depuis devis.montant_tva. Sinon la ligne TVA disparait du recap.
+  if (Object.keys(tvaGroups).length === 0 && devisMontantTva > 0 && totalHtDevis > 0) {
+    const tauxBrut = (devisMontantTva / totalHtDevis) * 100
+    const taux = Math.round(tauxBrut * 10) / 10
+    tvaGroups[taux] = { ht: totalHtDevis, tva: devisMontantTva }
+  }
   const statutStyle = STATUT_STYLES[devis.statut] ?? 'bg-gray-100 text-gray-600'
   const clientNom = client?.nom ?? devis.notes_client?.split(' | ')[0] ?? 'Non renseigné'
 
