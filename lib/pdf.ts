@@ -80,9 +80,12 @@ interface Entreprise {
   capital_social?: string
   rcs_rm?: string
   tva_intracommunautaire?: string
+  franchise_tva?: boolean
   assurance_nom?: string
   decennale_numero?: string
   assurance_zone?: string
+  qualification_pro?: string
+  mentions_legales_custom?: string
   couleur_principale?: string
   logo_url?: string
   signature_base64?: string
@@ -1394,6 +1397,36 @@ export function generateFacturePdf(data: FactureData): string {
   doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
   doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
   leftY += 4
+
+  // Mentions légales entreprise (parité HTML) — assurance décennale, RCS_RM,
+  // médiateur, qualification pro, forme juridique, capital, custom.
+  // Format compact italique 7pt, identique au reste des mentions.
+  const entMentions: string[] = []
+  if (ent.assurance_nom || ent.decennale_numero) {
+    let line = `Assurance décennale : ${ent.assurance_nom || ''}`
+    if (ent.decennale_numero) line += ` — n° ${ent.decennale_numero}`
+    if (ent.assurance_zone) line += ` — Zone : ${ent.assurance_zone}`
+    entMentions.push(line.trim())
+  }
+  if (ent.forme_juridique === 'EI' || ent.forme_juridique === 'Micro-entreprise') {
+    entMentions.push(`${ent.nom || ''} — ${ent.forme_juridique === 'Micro-entreprise' ? 'Entrepreneur individuel (Micro-entreprise)' : 'Entrepreneur individuel (EI)'}`)
+  }
+  if (ent.capital_social && ['EURL', 'SARL', 'SAS', 'SASU'].includes(String(ent.forme_juridique || ''))) {
+    entMentions.push(`${ent.forme_juridique} au capital de ${ent.capital_social}`)
+  }
+  if (ent.rcs_rm) entMentions.push(String(ent.rcs_rm))
+  if (ent.qualification_pro) entMentions.push(`Qualification : ${ent.qualification_pro}`)
+  if (ent.mediateur) entMentions.push(`Médiateur : ${ent.mediateur}`)
+  if (ent.mentions_legales_custom) entMentions.push(String(ent.mentions_legales_custom))
+
+  if (entMentions.length > 0) {
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+    for (const m of entMentions) {
+      const split = doc.splitTextToSize(m, leftMaxW)
+      doc.text(split, M, leftY); leftY += split.length * 2.6 + 0.6
+    }
+    leftY += 1
+  }
 
   // Ventilation TVA si plusieurs taux (sous totaux à droite)
   if (Object.keys(tvaGroups).length > 1) {

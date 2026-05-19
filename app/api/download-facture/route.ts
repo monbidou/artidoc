@@ -37,10 +37,28 @@ export async function POST(req: NextRequest) {
     const { data: lignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', factureId).order('ordre')
     const { data: entreprise } = await supabase.from('entreprises').select('*').eq('user_id', facture.user_id).single()
 
+    // Parité HTML (app/dashboard/factures/[id]/page.tsx) :
+    // le HTML utilise facture.notes_client en PRIORITÉ si présent (snapshot
+    // figé à l'émission), sinon il reconstruit depuis la table clients.
+    // On adopte le même ordre côté PDF pour garantir l'identité visuelle.
     let clientNom = facture.client_nom || 'Client'
     let clientAdresse = ''
     let clientType = 'particulier'
-    if (facture.client_id) {
+
+    if (facture.notes_client) {
+      // PRIORITÉ 1 : snapshot figé sur la facture (parité HTML)
+      const parts = String(facture.notes_client).split(' | ')
+      clientNom = parts[0] || clientNom
+      if (parts.length > 1) clientAdresse = parts.slice(1).join(' | ')
+      // type client : on tente quand même de récupérer via la table clients
+      // pour les mentions légales pro (indemnité 40 €), mais on n'écrase pas
+      // les autres champs.
+      if (facture.client_id) {
+        const { data: client } = await supabase.from('clients').select('type').eq('id', facture.client_id).single()
+        if (client) clientType = client.type || 'particulier'
+      }
+    } else if (facture.client_id) {
+      // PRIORITÉ 2 : fallback table clients (parité HTML)
       const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, telephone, email, type').eq('id', facture.client_id).single()
       if (client) {
         clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
@@ -52,17 +70,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback: use notes_client
-    if (facture.notes_client) {
-      clientNom = facture.notes_client.split(' | ')[0] || clientNom
-      const parts = facture.notes_client.split(' | ').slice(1)
-      if (parts.length > 0 && !clientAdresse) clientAdresse = parts.join(' | ')
-    }
-
     const pdfBase64 = generateFacturePdf({
       numero: facture.numero,
       date_emission: facture.date_emission || facture.created_at,
       date_echeance: facture.date_echeance,
+      date_prestation: facture.date_prestation,
       objet: facture.objet || '',
       clientNom,
       clientAdresse,
