@@ -285,6 +285,16 @@ export default function FactureDetailPage() {
     .reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
   const isForfaitMode = totalHT > 0 && sumLignes < 0.01 && lignes.length > 0
 
+  // V11 — Bug fix : en mode forfait global, les lignes sont a 0 EUR donc tvaGroups
+  // est vide. La ligne TVA disparaissait du recap (filtre g.tva > 0.005 ligne 550)
+  // alors que facture.montant_tva > 0 (ex: forfait 3000 HT + TVA 10% = 3300 TTC).
+  // On reconstruit tvaGroups depuis facture.montant_tva en deduisant le taux.
+  if (isForfaitMode && facture.montant_tva > 0 && totalHT > 0) {
+    const tauxBrut = (facture.montant_tva / totalHT) * 100
+    const taux = Math.round(tauxBrut * 10) / 10
+    tvaGroups[taux] = { ht: totalHT, tva: facture.montant_tva }
+  }
+
   const printStyles = `@media print {
     nav, header, aside, .no-print, .sidebar-col { display: none !important; }
     body { background: white !important; }

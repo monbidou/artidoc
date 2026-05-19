@@ -1063,7 +1063,15 @@ export function generateDevisPdf(data: DevisData): string {
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
   y += 10 // V4 : marge respiration tableau — totaux (devis)
-  const tvaGroups = computeTvaGroups(lignes)
+  let tvaGroups = computeTvaGroups(lignes)
+  const isForfaitDevis = detectForfaitMode(lignes, data.montant_ht)
+  // V11 — Meme fix qu'en facture : mode forfait + TVA > 0, on reconstruit
+  // tvaGroups depuis data.montant_tva sinon la ligne TVA disparait du recap.
+  if (isForfaitDevis && data.montant_tva > 0 && data.montant_ht > 0) {
+    const tauxBrut = (data.montant_tva / data.montant_ht) * 100
+    const taux = Math.round(tauxBrut * 10) / 10
+    tvaGroups = { [taux]: data.montant_tva }
+  }
   const totalsStartY = y
   const acompteTTC = hasAcompte ? data.montant_ttc * ((data.acompte_pourcent as number) / 100) : undefined
   const resteTTC = hasAcompte ? data.montant_ttc - (acompteTTC as number) : undefined
@@ -1075,7 +1083,7 @@ export function generateDevisPdf(data: DevisData): string {
     acomptePct: hasAcompte ? data.acompte_pourcent : undefined,
     acompteMontant: acompteTTC,
     resteMontant: resteTTC,
-    isForfait: detectForfaitMode(lignes, data.montant_ht),
+    isForfait: isForfaitDevis,
   }, y)
 
   // —— VENTILATION TVA (sous totaux à droite, si plusieurs taux) ——
@@ -1295,7 +1303,18 @@ export function generateFacturePdf(data: FactureData): string {
   if (y + NEEDED_BOTTOM > 290) { doc.addPage(); y = 20 }
 
   y += 10 // V4 : marge respiration tableau — totaux (facture)
-  const tvaGroups = computeTvaGroups(lignes)
+  let tvaGroups = computeTvaGroups(lignes)
+  const isForfaitFacture = detectForfaitMode(lignes, data.montant_ht)
+  // V11 — Bug fix : en mode forfait global, les lignes sont a 0 EUR, donc
+  // computeTvaGroups(lignes) retourne {} ou {10: 0}. La ligne TVA disparaissait
+  // du recapitulatif (filtre > 0.005 ligne 878) alors que data.montant_tva > 0
+  // (ex: facture forfait 3000 HT + TVA 10% = 3300 TTC, ligne TVA 300 invisible).
+  // On reconstruit tvaGroups depuis data.montant_tva en deduisant le taux.
+  if (isForfaitFacture && data.montant_tva > 0 && data.montant_ht > 0) {
+    const tauxBrut = (data.montant_tva / data.montant_ht) * 100
+    const taux = Math.round(tauxBrut * 10) / 10 // arrondi a 0.1% (gere 5.5, 10, 20)
+    tvaGroups = { [taux]: data.montant_tva }
+  }
   const totalsStartY = y
 
   // —— BLOC TOTAUX (droite) avec acompte si présent ——
@@ -1312,6 +1331,7 @@ export function generateFacturePdf(data: FactureData): string {
     resteMontant: hasAcompte ? netAPayerTTC : undefined,
     resteAFacturerHT: hasReste ? data.reste_a_facturer_ht : undefined,
     resteAFacturerTTC: hasReste ? data.reste_a_facturer_ttc : undefined,
+    isForfait: isForfaitFacture,
   }, y)
 
   // —— COLONNE GAUCHE : conditions + notes perso + mentions ——

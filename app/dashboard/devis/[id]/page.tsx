@@ -377,6 +377,16 @@ export default function DevisDetailPage() {
     .reduce((s, l) => s + ((l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)), 0)
   const totalHtDevis = devis.montant_ht ?? totalHT
   const isForfaitMode = totalHtDevis > 0 && sumLignesDevis < 0.01 && lignes.length > 0
+
+  // V11 — Bug fix : meme correction qu'en facture. En mode forfait global,
+  // tvaGroups est vide (lignes a 0 EUR). On reconstruit depuis devis.montant_tva
+  // pour afficher la ligne TVA dans le recapitulatif.
+  const devisMontantTva = devis.montant_tva ?? 0
+  if (isForfaitMode && devisMontantTva > 0 && totalHtDevis > 0) {
+    const tauxBrut = (devisMontantTva / totalHtDevis) * 100
+    const taux = Math.round(tauxBrut * 10) / 10
+    tvaGroups[taux] = { ht: totalHtDevis, tva: devisMontantTva }
+  }
   const statutStyle = STATUT_STYLES[devis.statut] ?? 'bg-gray-100 text-gray-600'
   const clientNom = client?.nom ?? devis.notes_client?.split(' | ')[0] ?? 'Non renseigné'
 
