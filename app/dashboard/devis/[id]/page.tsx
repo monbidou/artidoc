@@ -344,18 +344,38 @@ export default function DevisDetailPage() {
   }
 
   // Computations
+  // Bug fix (V8.1) — Detection "devis sans TVA" :
+  //   1) toutes les lignes prestation ont taux_tva === 0 (saisi explicitement a Sans TVA)
+  //   2) entreprise.franchise_tva (auto-entrepreneur / art. 293 B CGI)
+  // Dans ces cas, on NE construit AUCUN groupe TVA — pas de fallback 20% silencieux.
+  const lignesPrestations = lignes.filter(l => l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
+  const allLinesZeroTva = lignesPrestations.length > 0 && lignesPrestations.every(l => l.taux_tva === 0)
+  const isSansTva = allLinesZeroTva || Boolean(entreprise?.franchise_tva)
+
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
   let totalHT = 0
   lignes.forEach((l) => {
     const lineTotal = (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)
+    if (l.type === 'section' || l.type === 'sous_section' || l.type === 'commentaire') return
     totalHT += lineTotal
-    const rate = l.taux_tva ?? 10
+    if (isSansTva) return
+    // Parite PDF (lib/pdf.ts) : meme fallback 20% (taux normal France) si non renseigne
+    const rate = l.taux_tva ?? 20
+    if (rate <= 0) return
     if (!tvaGroups[rate]) tvaGroups[rate] = { ht: 0, tva: 0 }
     tvaGroups[rate].ht += lineTotal
     tvaGroups[rate].tva += lineTotal * (rate / 100)
   })
   const totalTVA = Object.values(tvaGroups).reduce((s, g) => s + g.tva, 0)
   const totalTTC = totalHT + totalTVA
+  // Bug fix (V8) — Detection mode "forfait global" : si toutes les lignes ont
+  // un prix unitaire HT a 0 mais que le total HT (devis.montant_ht) est positif,
+  // on affiche un bandeau explicatif. Parite stricte avec la facture et le PDF.
+  const sumLignesDevis = lignes
+    .filter(l => l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
+    .reduce((s, l) => s + ((l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)), 0)
+  const totalHtDevis = devis.montant_ht ?? totalHT
+  const isForfaitMode = totalHtDevis > 0 && sumLignesDevis < 0.01 && lignes.length > 0
   const statutStyle = STATUT_STYLES[devis.statut] ?? 'bg-gray-100 text-gray-600'
   const clientNom = client?.nom ?? devis.notes_client?.split(' | ')[0] ?? 'Non renseigné'
 
@@ -526,6 +546,14 @@ export default function DevisDetailPage() {
               </div>
             )}
 
+            {/* FORFAIT GLOBAL (V10) — bandeau bleu (parite design system) si lignes a 0 EUR + total positif */}
+            {isForfaitMode && (
+              <div style={{ marginBottom: 14, background: '#e8f4fb', border: '1.5px solid #1a6fb5', borderLeft: '5px solid #1a6fb5', borderRadius: 6, padding: '10px 14px' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#1a6fb5', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>FORFAIT GLOBAL</div>
+                <div style={{ fontSize: 12, color: '#5f6c80' }}>Montant total convenu de <strong style={{ color: '#0f1a3a' }}>{formatCurrency(totalHtDevis)} HT</strong>. Le detail ci-dessous est informatif.</div>
+              </div>
+            )}
+
             {/* ═══ TABLEAU — plus de marge au-dessus pour aérer (V4) ═══ */}
             {lignes.length > 0 && (
               <table className="w-full mb-8 print-table">
@@ -666,11 +694,16 @@ export default function DevisDetailPage() {
               <div>
                 <div className="rounded-lg border-2 border-gray-300 bg-gray-100 overflow-hidden shadow-sm">
                   <div className="px-3 py-2 text-[10px] font-manrope font-bold text-[#5f6c80] uppercase tracking-wider border-b border-gray-300 bg-gray-200/60">Récapitulatif</div>
+                  {/* V10 — En mode forfait global, on remplace "Sous-total HT" par "Forfait global HT"
+                      pour eviter l'incoherence visuelle (lignes a 0 EUR + sous-total positif). */}
                   <div className="px-3 py-2.5 flex justify-between text-sm font-manrope">
-                    <span className="text-[#5f6c80]">Sous-total HT</span>
+                    <span className="text-[#5f6c80]">{isForfaitMode ? 'Forfait global HT' : 'Sous-total HT'}</span>
                     <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalHT)}</span>
                   </div>
+                  {/* Bug fix (V8.1) : on filtre rate <= 0 ET tva == 0 pour ne PAS afficher
+                      "TVA 10% — 0,00 €" quand le devis est en mode "Sans TVA" ou forfait global a 0. */}
                   {Object.entries(tvaGroups)
+                    .filter(([rate, group]) => Number(rate) > 0 && group.tva > 0.005)
                     .sort(([a], [b]) => Number(a) - Number(b))
                     .map(([rate, group]) => (
                       <div key={rate} className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
@@ -798,7 +831,7 @@ export default function DevisDetailPage() {
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-manrope hover:bg-red-100 transition-colors"
                   >
                     <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                    Marquer Refusé
+                    Marquer Refuse
                   </button>
                 )}
                 {devis.statut !== 'envoye' && devis.statut !== 'brouillon' && (
@@ -807,7 +840,7 @@ export default function DevisDetailPage() {
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-manrope hover:bg-blue-100 transition-colors"
                   >
                     <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                    Remettre en Envoyé
+                    Remettre en Envoye
                   </button>
                 )}
               </div>
@@ -826,7 +859,7 @@ export default function DevisDetailPage() {
           numeroDevis={devis.numero}
           clientEmail={client?.email ?? (devis.notes_client?.split(' | ').find((s: string) => s.includes('@')) ?? '')}
           chantier={devis.objet || devis.description || ''}
-          onSuccess={() => { setToastMsg('Email envoyé avec succès !'); setTimeout(() => setToastMsg(null), 3000) }}
+          onSuccess={() => { setToastMsg('Email envoye avec succes !'); setTimeout(() => setToastMsg(null), 3000) }}
         />
       )}
     </div>

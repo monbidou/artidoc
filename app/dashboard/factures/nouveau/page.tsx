@@ -75,8 +75,9 @@ export default function NouvelleFacturePage() {
   const [chantierSuggestions, setChantierSuggestions] = useState<ChantierRecord[]>([])
   const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
 
-  // Lignes
-  const [lines, setLines] = useState<LineItem[]>([{ id: 1, designation: '', qty: 1, unit: 'U', priceHT: 0, type: 'line' }])
+  // Lignes — bug fix (V8) : on demarre avec une liste vide. L'artisan cree lui-meme
+  // sa premiere ligne / section via les boutons "+ Ligne" / "+ Section". Parite devis.
+  const [lines, setLines] = useState<LineItem[]>([])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
 
   // ── Bottom sheet mobile (saisie/édition d'une ligne) ──
@@ -483,6 +484,12 @@ export default function NouvelleFacturePage() {
         <div className="bg-white rounded-xl border border-gray-200">
           {/* ─── Mobile : cards + bottom sheet (V2 maquette validée) ─── */}
           <div className="sm:hidden p-3 space-y-2">
+            {lines.length === 0 && (
+              <div className="rounded-xl border-2 border-dashed border-[#5ab4e0]/40 bg-[#f8fbfd] px-4 py-6 text-center">
+                <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                <p className="text-[12px] font-manrope text-gray-400 mt-1">Touchez <strong>+ Ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+              </div>
+            )}
             {lines.map((line, idx) => (
               <LineCard
                 key={line.id}
@@ -524,6 +531,12 @@ export default function NouvelleFacturePage() {
             <div className="bg-[#0f1a3a] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
               <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
             </div>
+            {lines.length === 0 && (
+              <div className="px-4 py-8 text-center border-b border-gray-100">
+                <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                <p className="text-[12px] font-manrope text-gray-400 mt-1">Cliquez sur <strong>+ Ajouter une ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+              </div>
+            )}
             {lines.map((line, idx) => {
               // Section : bandeau sky foncé pleine largeur
               if (line.type === 'section') {
@@ -714,7 +727,7 @@ export default function NouvelleFacturePage() {
         </div>
       </div>
 
-      {/* ─── Bottom sheet mobile (saisie/édition ligne) ─── */}
+      {/* --- Bottom sheet mobile (saisie/edition ligne) --- */}
       <LineSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}

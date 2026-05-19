@@ -44,10 +44,18 @@ const C = {
 // -------------------------------------------------------------------
 
 function fmt(n: number): string {
-  return new Intl.NumberFormat('fr-FR', {
+  // Bug fix (V8) : Intl.NumberFormat('fr-FR') retourne un narrow no-break space U+202F
+  // (Node >= 18) ou un no-break space U+00A0 (anciens runtimes) comme separateur de milliers.
+  // La police Helvetica de jsPDF ne sait pas dessiner ces glyphes et affiche un caractere
+  // casse en prod ("40/000,00 €" au lieu de "40 000,00 €"). On normalise donc tous
+  // les espaces unicode vers un espace ASCII standard.
+  const raw = new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(n).replace(/€/g, ' ').replace(/ /g, ' ') + ' €'
+  }).format(n)
+  // U+00A0 no-break, U+202F narrow no-break, U+2009 thin space
+  const safe = raw.replace(/[\u00a0\u202f\u2009]/g, ' ')
+  return safe + ' €'
 }
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
@@ -219,6 +227,52 @@ function computeTvaBases(lignes: Ligne[]): Record<number, number> {
   return bases
 }
 
+/**
+ * Detecte le "mode forfait global" : l'artisan a coche la case "prix forfaitaire
+ * global" cote saisie, ce qui sauvegarde un montant_ht > 0 alors que toutes les
+ * lignes ont un prix unitaire HT a 0. Sans cette detection, le PDF affiche des
+ * lignes a 0 EUR + un sous-total a 40 000 EUR = confusion client garantie.
+ *
+ * Retour true uniquement si :
+ *   - il y a au moins une prestation
+ *   - la somme des prestations vaut 0
+ *   - le montant_ht passe par l'appelant est strictement positif
+ */
+export function detectForfaitMode(lignes: Ligne[], montantHt: number): boolean {
+  const prest = lignes.filter(isPrestation)
+  if (prest.length === 0) return false
+  if (!(montantHt > 0)) return false
+  const sumLignes = prest.reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
+  return sumLignes < 0.01
+}
+
+/**
+ * Dessine un bandeau "MODE FORFAIT GLOBAL" pleine largeur juste avant le tableau,
+ * pour expliquer pourquoi les lignes vont apparaitre a 0 EUR alors que le total
+ * indique 40 000 EUR. Visible parite HTML/PDF.
+ */
+function drawForfaitBanner(doc: jsPDF, montantHt: number, y: number): number {
+  const M = 14
+  const pageW = 210
+  const w = pageW - 2 * M
+  const h = 11
+  // V10 — Bandeau bleu (parite design system Nexartis) au lieu d'orange.
+  // Fond #e8f4fb (skyVeryPale), bordure et accent #1a6fb5 (netBlue).
+  setFill(doc, C.skyVeryPale)
+  setDraw(doc, C.netBlue); doc.setLineWidth(0.4)
+  doc.roundedRect(M, y, w, h, 1.5, 1.5, 'FD')
+  setFill(doc, C.netBlue)
+  doc.rect(M, y, 1.8, h, 'F')
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+  doc.text('FORFAIT GLOBAL', M + 5, y + 4.6)
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+  doc.text(
+    `Montant total convenu de ${fmt(montantHt)} HT. Le detail ci-dessous est informatif.`,
+    M + 5, y + 8.6
+  )
+  return y + h + 4
+}
+
 // -------------------------------------------------------------------
 // Hiérarchie : normalisation + sous-totaux
 // -------------------------------------------------------------------
@@ -325,11 +379,19 @@ function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
     setText(doc, C.muted)
 
     // Ligne 1 : entreprise + adresse + SIRET + email
+    // Bug fix (V8) : l'email Nexartis officiel est contact.nexartis@gmail.com.
+    // Si la fiche entreprise contient l'ancienne valeur contact@nexartis.fr
+    // (jamais creee, source de mails NDR), on force la valeur correcte cote PDF
+    // en attendant une migration DB. Toute autre adresse est conservee telle quelle.
+    const rawEmail = (ent.email || '').trim()
+    const displayEmail = rawEmail.toLowerCase() === 'contact@nexartis.fr'
+      ? 'contact.nexartis@gmail.com'
+      : rawEmail
     const id = [
       ent.nom,
       ent.adresse ? `${ent.adresse}${ent.code_postal || ent.ville ? `, ${ent.code_postal || ''} ${ent.ville || ''}`.replace(/  +/g, ' ').trim() : ''}` : '',
       ent.siret ? `SIRET : ${ent.siret}` : '',
-      ent.email ? `Email : ${ent.email}` : '',
+      displayEmail ? `Email : ${displayEmail}` : '',
     ].filter(Boolean).join(' — ')
     if (id) doc.text(id, pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
     y += 3.2
@@ -785,6 +847,11 @@ interface TotalsOpts {
   // Bloc C alternatif — Reste à facturer (factures de situation)
   resteAFacturerHT?: number
   resteAFacturerTTC?: number
+  // V9 — Mode forfait global : remplace le libellé "Sous-total HT" par
+  // "Forfait global" pour eviter l'incoherence visuelle (lignes a 0 EUR
+  // au-dessus + sous-total positif). Coche cote saisie "Appliquer un prix
+  // forfaitaire global". Calcule via detectForfaitMode() par l'appelant.
+  isForfait?: boolean
 }
 
 function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
@@ -802,7 +869,14 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
     && opts.acompteMontant !== undefined && opts.resteMontant !== undefined
 
   // —— BLOC A — RÉCAPITULATIF HT/TVA/TTC (+ acompte si présent) ——
-  const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
+  // Bug fix (V8) : on filtre les taux nuls / NaN / negatifs (cas "Sans TVA",
+  // franchise art. 293 B CGI / auto-entrepreneur) pour ne PAS afficher de ligne
+  // "TVA 0% — 0,00 €" ni "TVA 10% — 0,00 €" parasites dans le recapitulatif.
+  // Si pas de TVA -> aucune ligne TVA n'est dessinee.
+  const sortedRates = Object.keys(opts.tvaGroups)
+    .map(Number)
+    .filter((r) => Number.isFinite(r) && r > 0 && (opts.tvaGroups[r] ?? 0) > 0.005)
+    .sort((a, b) => a - b)
   const headerH = 5
   const rowH = 4.8         // un poil plus aéré
   // 2 lignes fixes (HT + TTC) + TVA(s) + (acompte si présent)
@@ -844,8 +918,11 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
     rowIdx++
   }
 
-  // Sous-total HT
-  drawRow('Sous-total HT', fmt(opts.ht), true)
+  // Sous-total HT — V9 : si mode forfait global (case "prix forfaitaire global"
+  // cochee cote saisie), on remplace le libelle pour eviter l'incoherence
+  // visuelle (lignes a 0 EUR + sous-total positif). Le bandeau "MODE FORFAIT
+  // GLOBAL" est deja dessine au-dessus du tableau (voir drawForfaitBanner).
+  drawRow(opts.isForfait ? 'Forfait global HT' : 'Sous-total HT', fmt(opts.ht), true)
   // TVA par taux
   for (const rate of sortedRates) {
     drawRow(`TVA ${rate}%`, fmt(opts.tvaGroups[rate]), false)
@@ -912,7 +989,13 @@ function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
 function drawTvaBreakdown(doc: jsPDF, lignes: Ligne[], y: number): number {
   const groups = computeTvaGroups(lignes)
   const bases = computeTvaBases(lignes)
-  const rates = Object.keys(groups).map(Number).sort((a, b) => a - b)
+  // Bug fix (V8) : on exclut les taux nuls / NaN / negatifs ET les montants nuls
+  // du tableau de ventilation TVA (franchise art. 293 B CGI : pas de mention
+  // "Taux 0% — Base : X — 0 €" ni "TVA 10% — 0 €" parasite).
+  const rates = Object.keys(groups)
+    .map(Number)
+    .filter((r) => Number.isFinite(r) && r > 0 && (groups[r] ?? 0) > 0.005)
+    .sort((a, b) => a - b)
   if (rates.length === 0) return y
 
   const pageW = 210
@@ -965,6 +1048,11 @@ export function generateDevisPdf(data: DevisData): string {
   // —— OBJET ——
   if (data.objet) y = drawObjet(doc, data.objet, y)
 
+  // —— MODE FORFAIT GLOBAL (V8) : bandeau explicite si les lignes sont a 0 EUR ——
+  if (detectForfaitMode(lignes, data.montant_ht)) {
+    y = drawForfaitBanner(doc, data.montant_ht, y)
+  }
+
   // —— TABLE HIÉRARCHIQUE ——
   y = drawHierTable(doc, lignes, y)
 
@@ -987,6 +1075,7 @@ export function generateDevisPdf(data: DevisData): string {
     acomptePct: hasAcompte ? data.acompte_pourcent : undefined,
     acompteMontant: acompteTTC,
     resteMontant: resteTTC,
+    isForfait: detectForfaitMode(lignes, data.montant_ht),
   }, y)
 
   // —— VENTILATION TVA (sous totaux à droite, si plusieurs taux) ——
@@ -1195,6 +1284,10 @@ export function generateFacturePdf(data: FactureData): string {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     y = (doc as any).lastAutoTable.finalY + 4
   } else {
+    // —— MODE FORFAIT GLOBAL (V8) : bandeau explicite si les lignes sont a 0 EUR ——
+    if (detectForfaitMode(lignes, data.montant_ht)) {
+      y = drawForfaitBanner(doc, data.montant_ht, y)
+    }
     y = drawHierTable(doc, lignes, y, tableBottomMargin)
   }
 
@@ -1278,9 +1371,9 @@ export function generateFacturePdf(data: FactureData): string {
     drawTvaBreakdown(doc, lignes, rightEndY + 1)
   }
 
-  // ?????????????????????????????????????????????????????????????
-  // BLOC IBAN/BIC ? moitié gauche (88mm), juste APRÈS les mentions
-  // ?????????????????????????????????????????????????????????????
+  // -----------------------------------------------------------------
+  // BLOC IBAN/BIC - moitié gauche (88mm), juste APRÈS les mentions
+  // -----------------------------------------------------------------
   if (hasIban) {
     const ribW = leftMaxW
     const ribH = 21

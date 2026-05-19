@@ -1010,6 +1010,12 @@ function NouveauDevisPage() {
 
             {/* ── Mobile : cards + bottom sheet (V2 maquette validée) ── */}
             <div className="sm:hidden p-3 space-y-2">
+              {lines.length === 0 && (
+                <div className="rounded-xl border-2 border-dashed border-[#5ab4e0]/40 bg-[#f8fbfd] px-4 py-6 text-center">
+                  <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                  <p className="text-[12px] font-manrope text-gray-400 mt-1">Touchez <strong>+ Ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+                </div>
+              )}
               {lines.map(line => (
                 <LineCard
                   key={line.id}
@@ -1050,6 +1056,12 @@ function NouveauDevisPage() {
               <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
                 <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
               </div>
+              {lines.length === 0 && (
+                <div className="px-4 py-8 text-center border-b border-gray-100">
+                  <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                  <p className="text-[12px] font-manrope text-gray-400 mt-1">Cliquez sur <strong>+ Ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+                </div>
+              )}
               {lines.map(line => (
                 <div key={line.id} className={`grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
                   <textarea
