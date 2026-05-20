@@ -84,11 +84,18 @@ export async function POST(req: NextRequest) {
       })),
     )
 
-    // Generate PDF
+    // Generate PDF — P2 (audit) : alignement avec download-facture pour que le
+    // PDF envoyé par email soit IDENTIQUE au PDF téléchargé. Auparavant il
+    // manquait date_prestation, conditions_paiement, notes_personnalisees,
+    // acompte_* et type/numero_situation, ce qui produisait un NET À PAYER
+    // faux quand un acompte avait été versé. Correction : on passe désormais
+    // tous les champs métier au générateur PDF.
     const pdfBase64 = generateFacturePdf({
       numero: facture.numero,
       date_emission: facture.date_emission || facture.created_at,
       date_echeance: facture.date_echeance,
+      // P2 (audit) : date de prestation manquait → ajoutée
+      date_prestation: facture.date_prestation,
       objet: facture.objet || '',
       clientNom,
       clientAdresse,
@@ -115,6 +122,18 @@ export async function POST(req: NextRequest) {
         }
       }),
       entreprise: ent,
+      // P2 (audit) : conditions de paiement personnalisées + notes visibles client
+      conditions_paiement: facture.conditions_paiement || undefined,
+      notes_personnalisees: facture.notes_personnalisees || undefined,
+      // P2 (audit) : acompte déjà versé (très impactant car change le NET À PAYER)
+      acompte_pourcent: facture.acompte_pourcent ?? undefined,
+      acompte_montant_ht: facture.acompte_montant_ht ?? undefined,
+      acompte_montant_ttc: facture.acompte_montant_ttc ?? undefined,
+      acompte_label: facture.acompte_label || undefined,
+      // P2 (audit) : type de facture (standard / acompte / situation / avoir)
+      type: facture.type || undefined,
+      numero_situation: facture.numero_situation ?? undefined,
+      // Legacy : ancien champ notes conservé pour rétrocompat
       notes: facture.notes,
     })
 
