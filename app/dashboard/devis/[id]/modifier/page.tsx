@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
-import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, insertRow, LoadingSkeleton } from '@/lib/hooks'
+import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, LoadingSkeleton } from '@/lib/hooks'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
 interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'subsection' | 'text' }
@@ -150,20 +150,24 @@ export default function ModifierDevisPage() {
         montant_ttc: totalTTC,
       })
       const supabase = (await import('@/lib/supabase/client')).createClient()
-      await supabase.from('devis_lignes').delete().eq('devis_id', devis.id)
+
+      // P5 (audit) : remplacement ATOMIQUE des lignes via RPC Postgres.
+      // Avant : DELETE puis boucle d'INSERT → une coupure réseau au milieu
+      // perdait TOUTES les lignes du devis. Désormais l'opération est dans
+      // une transaction Postgres : tout réussit ou tout est rollback.
+      // Migration SQL associée : sql/rpc-replace-lignes-transactional.sql
       const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
       const lignesPourNumero = lignesFiltrees.map(l => ({
         type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
         _orig: l,
       }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
-      for (let i = 0; i < lignesAvecNumero.length; i++) {
-        const item = lignesAvecNumero[i]
+
+      const lignesPayload = lignesAvecNumero.map((item, i) => {
         const l = item._orig as typeof lines[0]
         const dbType = item.type
         const dbNiveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
-        await insertRow('devis_lignes', {
-          devis_id: devis.id,
+        return {
           designation: l.designation,
           quantite: l.qty,
           unite: l.unit,
@@ -173,8 +177,14 @@ export default function ModifierDevisPage() {
           type: dbType,
           niveau: dbNiveau,
           numero: item.numero || null,
-        })
-      }
+        }
+      })
+
+      const { error: rpcError } = await supabase.rpc('replace_devis_lignes', {
+        p_devis_id: devis.id,
+        p_lignes: lignesPayload,
+      })
+      if (rpcError) throw rpcError
       if (action === 'brouillon') {
         setToastMsg('Modifications sauvegardées')
         setTimeout(() => setToastMsg(null), 3000)

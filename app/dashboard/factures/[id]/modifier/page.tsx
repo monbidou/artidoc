@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import { useClients, useEntreprise, useChantiers, useSupabaseRecord, updateRow, insertRow, LoadingSkeleton } from '@/lib/hooks'
+import { useClients, useEntreprise, useChantiers, useSupabaseRecord, updateRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
 import LineCard from '@/components/mobile/LineCard'
@@ -448,9 +448,12 @@ export default function ModifierFacturePage() {
 
       await updateRow('factures', facture.id, factureData)
 
-      // ── Supprimer puis ré-insérer les lignes ──
+      // ── P5 (audit) : remplacement ATOMIQUE des lignes via RPC Postgres ──
+      // Avant : DELETE puis boucle d'INSERT → une coupure réseau au milieu
+      // perdait TOUTES les lignes de la facture. Désormais l'opération est
+      // dans une transaction Postgres : tout réussit ou tout est rollback.
+      // Migration SQL associée : sql/rpc-replace-lignes-transactional.sql
       const supabase = createClient()
-      await supabase.from('facture_lignes').delete().eq('facture_id', facture.id)
 
       const lignesPourNumero = lines
         .filter(l => l.designation || (l.type === 'line' && l.priceHT !== 0))
@@ -459,13 +462,12 @@ export default function ModifierFacturePage() {
           _orig: l,
         }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
-      for (let i = 0; i < lignesAvecNumero.length; i++) {
-        const item = lignesAvecNumero[i]
+
+      const lignesPayload = lignesAvecNumero.map((item, i) => {
         const l = item._orig as typeof lines[0]
         const dbType = l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation'
         const niveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
-        await insertRow('facture_lignes', {
-          facture_id: facture.id,
+        return {
           designation: l.designation,
           quantite: l.type === 'line' ? l.qty : 0,
           unite: l.type === 'line' ? l.unit : '',
@@ -475,8 +477,14 @@ export default function ModifierFacturePage() {
           type: dbType,
           niveau,
           numero: item.numero || null,
-        })
-      }
+        }
+      })
+
+      const { error: rpcError } = await supabase.rpc('replace_facture_lignes', {
+        p_facture_id: facture.id,
+        p_lignes: lignesPayload,
+      })
+      if (rpcError) throw rpcError
 
       if (action === 'brouillon') {
         setToastMsg('Modifications sauvegardées')
