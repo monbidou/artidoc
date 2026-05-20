@@ -1,0 +1,58 @@
+name: CI
+
+# Lance les vérifications de base à chaque push et chaque PR :
+#  - Lint (next lint + ESLint avec règles Next.js)
+#  - Type-check TypeScript
+#  - Build de production (s'assure que rien ne casse la build Vercel)
+#
+# Si une de ces étapes échoue, le push est marqué en rouge sur GitHub et
+# la PR ne peut pas être mergée tant que ce n'est pas corrigé.
+# C'est le filet de sécurité minimal recommandé par le rapport d'audit.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Lint (next lint)
+        run: npm run lint
+        # On laisse le lint planter le build s'il y a des erreurs.
+        # Pour activer en mode warning seulement, ajoute "continue-on-error: true"
+
+      - name: Vérification des types TypeScript
+        run: npx tsc --noEmit
+        # Vérifie qu'aucune erreur de type n'a été introduite
+
+      - name: Build de production
+        run: npm run build
+        env:
+          # Variables d'env factices pour permettre la build en CI
+          # (les vraies sont dans Vercel — celles-ci servent juste à compiler)
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_SITE_URL: https://nexartis.fr

@@ -2,14 +2,22 @@
 
 import { useState } from 'react'
 import { Search, Wrench, Plus, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
-import { useChantiers, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { usePrestations, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 
+// La table `prestations` utilise `designation` comme libellé principal.
+// Voir : SELECT * FROM information_schema.columns WHERE table_name='prestations'
 interface PrestationRow {
   id: string
-  titre: string
-  description?: string
-  created_at: string
+  designation: string
+  unite?: string | null
+  prix_unitaire_ht?: number | null
+  taux_tva?: number | null
+  categorie?: string | null
+  tags?: string[] | null
+  usage_count?: number | null
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 // ─── Suggestions par catégorie de métier ───────────────────────────────────
@@ -122,7 +130,7 @@ const SUGGESTIONS: { categorie: string; emoji: string; items: string[] }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function PrestationsPage() {
-  const { data, loading, error, refetch } = useChantiers()
+  const { data, loading, error, refetch } = usePrestations()
   const prestations = data as unknown as PrestationRow[]
 
   const [search, setSearch] = useState('')
@@ -133,15 +141,19 @@ export default function PrestationsPage() {
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({ 'Électricité': true })
   const [addingItem, setAddingItem] = useState<string | null>(null)
 
-  const savedNoms = new Set(prestations.map(p => p.titre.toLowerCase()))
+  const savedNoms = new Set(prestations.map((p) => p.designation.toLowerCase()))
 
-  const filtered = prestations.filter(p =>
-    !search || p.titre.toLowerCase().includes(search.toLowerCase())
+  const filtered = prestations.filter(
+    (p) => !search || p.designation.toLowerCase().includes(search.toLowerCase()),
   )
 
   const toggleCategory = (cat: string) => {
     setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }))
   }
+
+  // ⚠️ Fix C23 : on insère/lit désormais dans la table `prestations`
+  // (anciennement par erreur dans `chantiers`, ce qui polluait la liste des
+  // chantiers de l'artisan). Migration SQL associée : sql/create-prestations-table.sql
 
   const addPrestation = async (label: string) => {
     if (savedNoms.has(label.toLowerCase())) return
@@ -150,7 +162,14 @@ export default function PrestationsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await supabase.from('chantiers').insert({ titre: label, user_id: user.id })
+      const { error } = await supabase.from('prestations').insert({
+        designation: label,
+        prix_unitaire_ht: 0, // Valeur par défaut, l'artisan ajustera dans le devis
+        user_id: user.id,
+      })
+      if (error) {
+        console.error('Erreur ajout prestation :', error)
+      }
       refetch()
     } finally {
       setAddingItem(null)
@@ -165,7 +184,12 @@ export default function PrestationsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non connecté')
-      await supabase.from('chantiers').insert({ titre: nom.trim(), user_id: user.id })
+      const { error } = await supabase.from('prestations').insert({
+        designation: nom.trim(),
+        prix_unitaire_ht: 0,
+        user_id: user.id,
+      })
+      if (error) throw error
       setShowModal(false)
       setNom('')
       refetch()
@@ -179,7 +203,10 @@ export default function PrestationsPage() {
   const handleDelete = async (id: string, label: string) => {
     if (!confirm(`Supprimer "${label}" ? Elle ne sera plus proposée en autocomplétion.`)) return
     const supabase = createClient()
-    await supabase.from('chantiers').delete().eq('id', id)
+    const { error } = await supabase.from('prestations').delete().eq('id', id)
+    if (error) {
+      console.error('Erreur suppression prestation :', error)
+    }
     refetch()
   }
 
@@ -234,9 +261,9 @@ export default function PrestationsPage() {
                   key={p.id}
                   className="flex items-center gap-2 px-3 py-2 bg-[#eef7fc] border border-[#5ab4e0] rounded-full text-sm font-manrope text-[#1a1a2e] group"
                 >
-                  <span>{p.titre}</span>
+                  <span>{p.designation}</span>
                   <button
-                    onClick={() => handleDelete(p.id, p.titre)}
+                    onClick={() => handleDelete(p.id, p.designation)}
                     className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                     title="Supprimer"
                   >

@@ -7,7 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Aucun test configuré pour l'instant. Voir Phase 0 du rapport d'audit pour ajouter Vitest.\" && exit 0"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +36,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/papaparse": "^5.5.2"
+    "@types/papaparse": "^5.5.2",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.35"
   }
 }

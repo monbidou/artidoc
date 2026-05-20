@@ -47,7 +47,7 @@ interface Devis {
   numero: string
   statut: string
   created_at: string
-  total_ttc: number
+  montant_ttc: number
 }
 
 interface Facture {
@@ -55,7 +55,7 @@ interface Facture {
   numero: string
   statut: string
   created_at: string
-  total_ttc: number
+  montant_ttc: number
 }
 
 const TABS = [
@@ -104,7 +104,7 @@ export default function ClientDetailPage() {
     )
   }
 
-  const caTotal = devis.reduce((sum, d) => sum + (d.total_ttc ?? 0), 0)
+  const caTotal = devis.reduce((sum, d) => sum + (d.montant_ttc ?? 0), 0)
 
   return (
     <div className="space-y-6">
@@ -273,7 +273,7 @@ export default function ClientDetailPage() {
                           {d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : ''}
                         </td>
                         <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">
-                          {(d.total_ttc ?? 0).toLocaleString('fr-FR')} &euro;
+                          {(d.montant_ttc ?? 0).toLocaleString('fr-FR')} &euro;
                         </td>
                       </tr>
                     ))}
@@ -312,7 +312,7 @@ export default function ClientDetailPage() {
                           {f.created_at ? new Date(f.created_at).toLocaleDateString('fr-FR') : ''}
                         </td>
                         <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">
-                          {(f.total_ttc ?? 0).toLocaleString('fr-FR')} &euro;
+                          {(f.montant_ttc ?? 0).toLocaleString('fr-FR')} &euro;
                         </td>
                       </tr>
                     ))}

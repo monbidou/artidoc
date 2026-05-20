@@ -3,7 +3,7 @@ import Link from "next/link";
 const metierLinks = [
   { label: "Plombier", href: "/logiciel-devis-plombier" },
   { label: "Électricien", href: "/logiciel-devis-electricien" },
-  { label: "Maçon", href: "/logiciel-devis-macon" },
+  { label: "Maçon", href: "/logiciel-devis-maconnerie" },
   { label: "Menuisier", href: "/logiciel-devis-menuisier" },
   { label: "Peintre", href: "/logiciel-devis-peintre" },
   { label: "Paysagiste", href: "/logiciel-devis-paysagiste" },
