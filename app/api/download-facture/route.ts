@@ -44,22 +44,35 @@ export async function POST(req: NextRequest) {
     let clientNom = facture.client_nom || 'Client'
     let clientAdresse = ''
     let clientType = 'particulier'
+    // P11 (audit) : SIRET client et TVA intracom à afficher sur le PDF
+    // pour conformité art. L441-9 Code de commerce (facture B2B).
+    let clientSiret: string | undefined
 
     if (facture.notes_client) {
       // PRIORITÉ 1 : snapshot figé sur la facture (parité HTML)
       const parts = String(facture.notes_client).split(' | ')
       clientNom = parts[0] || clientNom
       if (parts.length > 1) clientAdresse = parts.slice(1).join(' | ')
-      // type client : on tente quand même de récupérer via la table clients
-      // pour les mentions légales pro (indemnité 40 €), mais on n'écrase pas
-      // les autres champs.
+      // type client + SIRET : on tente toujours de récupérer depuis la table
+      // clients (sans écraser nom/adresse snapshot).
       if (facture.client_id) {
-        const { data: client } = await supabase.from('clients').select('type').eq('id', facture.client_id).single()
-        if (client) clientType = client.type || 'particulier'
+        const { data: client } = await supabase
+          .from('clients')
+          .select('type, siret')
+          .eq('id', facture.client_id)
+          .single()
+        if (client) {
+          clientType = client.type || 'particulier'
+          clientSiret = (client.siret as string | undefined) || undefined
+        }
       }
     } else if (facture.client_id) {
       // PRIORITÉ 2 : fallback table clients (parité HTML)
-      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, telephone, email, type').eq('id', facture.client_id).single()
+      const { data: client } = await supabase
+        .from('clients')
+        .select('nom, prenom, adresse, code_postal, ville, telephone, email, type, siret')
+        .eq('id', facture.client_id)
+        .single()
       if (client) {
         clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
         const adressParts = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim()].filter(Boolean)
@@ -67,6 +80,7 @@ export async function POST(req: NextRequest) {
         if (client.email) adressParts.push(client.email)
         clientAdresse = adressParts.join(' | ')
         clientType = client.type || 'particulier'
+        clientSiret = (client.siret as string | undefined) || undefined
       }
     }
 
@@ -79,6 +93,7 @@ export async function POST(req: NextRequest) {
       clientNom,
       clientAdresse,
       clientType,
+      clientSiret,
       montant_ht: facture.montant_ht || 0,
       montant_tva: facture.montant_tva || 0,
       montant_ttc: facture.montant_ttc || 0,

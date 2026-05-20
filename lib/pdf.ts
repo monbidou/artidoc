@@ -133,6 +133,10 @@ export interface DevisData {
   clientNom: string
   clientAdresse?: string
   clientType?: string
+  /** SIRET du client si professionnel (B2B). Obligatoire art. L441-9 C. comm. */
+  clientSiret?: string
+  /** N° TVA intracommunautaire du client (B2B intra-UE). */
+  clientTvaIntra?: string
   montant_ht: number
   montant_tva: number
   montant_ttc: number
@@ -153,6 +157,10 @@ export interface FactureData {
   clientNom: string
   clientAdresse?: string
   clientType?: string
+  /** SIRET du client si professionnel (B2B). Obligatoire art. L441-9 C. comm. */
+  clientSiret?: string
+  /** N° TVA intracommunautaire du client (B2B intra-UE). */
+  clientTvaIntra?: string
   montant_ht: number
   montant_tva: number
   montant_ttc: number
@@ -549,7 +557,14 @@ function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: numbe
 function drawIdentityBoxes(
   doc: jsPDF,
   ent: Entreprise,
-  data: { clientNom: string; clientAdresse?: string },
+  data: {
+    clientNom: string
+    clientAdresse?: string
+    /** SIRET du client (si pro). Obligatoire art. L441-9 C. comm. */
+    clientSiret?: string
+    /** N° TVA intracom du client (B2B intra-UE). */
+    clientTvaIntra?: string
+  },
   y: number,
 ): number {
   const M = 14
@@ -567,6 +582,11 @@ function drawIdentityBoxes(
   if (ent.adresse) artisanLines.push({ text: ent.adresse, size: 8.5, color: C.muted })
   if (ent.code_postal || ent.ville) artisanLines.push({ text: `${ent.code_postal || ''} ${ent.ville || ''}`.trim(), size: 8.5, color: C.muted })
   if (ent.siret) artisanLines.push({ text: `SIRET : ${ent.siret}`, size: 8.5, color: C.muted })
+  // P11 (audit) : afficher le N° TVA intracom de l'émetteur. Obligation
+  // facture B2B / intra-UE. Champ DB : entreprises.tva_intracommunautaire.
+  if (ent.tva_intracommunautaire) {
+    artisanLines.push({ text: `TVA intracom. : ${ent.tva_intracommunautaire}`, size: 8.5, color: C.muted })
+  }
   if (ent.telephone) artisanLines.push({ text: `Tél : ${ent.telephone}`, size: 8.5, color: C.muted })
 
   // --- Mesure contenu CLIENT ---
@@ -576,6 +596,14 @@ function drawIdentityBoxes(
   if (data.clientAdresse) {
     const parts = data.clientAdresse.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean)
     for (const p of parts) clientLines.push({ text: p, size: 8.5, color: C.muted })
+  }
+  // P11 (audit) : afficher le SIRET du client si pro. Obligation art. L441-9 C. comm.
+  if (data.clientSiret) {
+    clientLines.push({ text: `SIRET : ${data.clientSiret}`, size: 8.5, color: C.muted })
+  }
+  // TVA intracom du client (B2B intra-UE) — affiché si présent.
+  if (data.clientTvaIntra) {
+    clientLines.push({ text: `TVA intracom. : ${data.clientTvaIntra}`, size: 8.5, color: C.muted })
   }
 
   // Hauteur uniforme

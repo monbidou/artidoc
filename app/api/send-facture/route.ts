@@ -46,12 +46,19 @@ export async function POST(req: NextRequest) {
     let clientNom = facture.client_nom || 'Client'
     let clientAdresse = ''
     let clientType = 'particulier'
+    // P11 (audit) : SIRET à afficher (art. L441-9 C. comm.)
+    let clientSiret: string | undefined
     if (facture.client_id) {
-      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, type, telephone, email').eq('id', facture.client_id).single()
+      const { data: client } = await supabase
+        .from('clients')
+        .select('nom, prenom, adresse, code_postal, ville, type, telephone, email, siret')
+        .eq('id', facture.client_id)
+        .single()
       if (client) {
         clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
         clientAdresse = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim(), client.telephone, client.email].filter(Boolean).join(' | ')
         clientType = client.type || 'particulier'
+        clientSiret = (client.siret as string | undefined) || undefined
       }
     }
     // Fallback sur notes_client
@@ -86,6 +93,7 @@ export async function POST(req: NextRequest) {
       clientNom,
       clientAdresse,
       clientType,
+      clientSiret,
       montant_ht: totalHT,
       montant_tva: totalTVA,
       montant_ttc: totalTTC,

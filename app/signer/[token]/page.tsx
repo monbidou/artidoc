@@ -55,6 +55,8 @@ interface Entreprise {
   telephone?: string
   email?: string
   siret?: string
+  /** P11 (audit) : N° TVA intracom de l'émetteur, à afficher sur le devis */
+  tva_intracommunautaire?: string
   logo_url?: string
   signature_base64?: string
   tampon_base64?: string
@@ -65,6 +67,8 @@ interface ClientInfo {
   adresse: string
   telephone: string
   email: string
+  /** P11 (audit) : SIRET du client (si pro), à afficher sur le devis signé */
+  siret?: string
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -397,6 +401,9 @@ export default function SignerDevisPage() {
                   <p className="font-manrope text-gray-700 text-xs">{entreprise.code_postal} {entreprise.ville}</p>
                 )}
                 {entreprise.siret && <p className="font-manrope text-gray-700 text-xs mt-1">SIRET : {entreprise.siret}</p>}
+                {entreprise.tva_intracommunautaire && (
+                  <p className="font-manrope text-gray-700 text-xs">TVA intracom. : {entreprise.tva_intracommunautaire}</p>
+                )}
                 {entreprise.telephone && <p className="font-manrope text-gray-700 text-xs">Tél : {entreprise.telephone}</p>}
               </div>
               <div className="rounded-lg p-4" style={{background:'#c9efd5', border:'1px solid #22c55e', borderLeft:'4px solid #22c55e'}}>
@@ -405,6 +412,7 @@ export default function SignerDevisPage() {
                 {client.adresse && client.adresse.split(/\s*\|\s*/).map(s=>s.trim()).filter(Boolean).map((part,idx)=>(
                   <p key={idx} className="font-manrope text-gray-700 text-xs">{part}</p>
                 ))}
+                {client.siret && <p className="font-manrope text-gray-700 text-xs mt-1">SIRET : {client.siret}</p>}
                 {client.telephone && <p className="font-manrope text-gray-700 text-xs mt-1">{client.telephone}</p>}
                 {client.email && <p className="font-manrope text-gray-700 text-xs">{client.email}</p>}
               </div>

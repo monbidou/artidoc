@@ -69,7 +69,7 @@ export async function GET(
     // ✅ SÉCURITÉ : Exclure signature_base64 et tampon_base64 (données sensibles)
     const { data: entreprise } = await supabase
       .from('entreprises')
-      .select('nom, adresse, code_postal, ville, telephone, email, siret, logo_url')
+      .select('nom, adresse, code_postal, ville, telephone, email, siret, tva_intracommunautaire, logo_url')
       .eq('user_id', devis.user_id)
       .single()
 
@@ -78,11 +78,13 @@ export async function GET(
     let clientAdresse = ''
     let clientTelephone = ''
     let clientEmail = ''
+    // P11 (audit) : SIRET du client à transmettre à la vue publique /signer
+    let clientSiret = ''
 
     if (devis.client_id) {
       const { data: client } = await supabase
         .from('clients')
-        .select('nom, prenom, adresse, code_postal, ville, telephone, email')
+        .select('nom, prenom, adresse, code_postal, ville, telephone, email, siret')
         .eq('id', devis.client_id)
         .single()
       if (client) {
@@ -90,6 +92,7 @@ export async function GET(
         clientAdresse = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim()].filter(Boolean).join(', ')
         clientTelephone = client.telephone || ''
         clientEmail = client.email || ''
+        clientSiret = (client as { siret?: string }).siret || ''
       }
     }
     // Fallback sur notes_client
@@ -144,6 +147,7 @@ export async function GET(
         adresse: clientAdresse,
         telephone: clientTelephone,
         email: clientEmail,
+        siret: clientSiret || undefined,
       },
     })
   } catch (error) {

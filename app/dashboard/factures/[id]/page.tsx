@@ -71,6 +71,8 @@ interface ClientRecord {
   telephone?: string
   email?: string
   client_type?: string
+  /** P11 (audit) : SIRET du client à afficher sur facture (art. L441-9 C. comm.) */
+  siret?: string
 }
 
 interface LigneRecord {
@@ -414,6 +416,9 @@ export default function FactureDetailPage() {
                   {Boolean(entreprise?.adresse) && <div>{String(entreprise?.adresse || '')}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {String(entreprise?.siret || '')}</div>}
+                  {Boolean((entreprise as Record<string, unknown> | null | undefined)?.tva_intracommunautaire) && (
+                    <div>TVA intracom. : {String((entreprise as Record<string, unknown> | null | undefined)?.tva_intracommunautaire || '')}</div>
+                  )}
                   {Boolean(entreprise?.telephone) && <div>Tel : {String(entreprise?.telephone || '')}</div>}
                 </div>
               </div>
@@ -439,6 +444,7 @@ export default function FactureDetailPage() {
                       {(client?.code_postal || client?.ville) && (
                         <div style={{ color: '#6b7280', fontSize: 11 }}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
                       )}
+                      {client?.siret && <div style={{ color: '#6b7280', fontSize: 11 }}>SIRET : {client.siret}</div>}
                       {client?.telephone && <div style={{ color: '#6b7280', fontSize: 11 }}>{client.telephone}</div>}
                       {client?.email && <div style={{ color: '#6b7280', fontSize: 11 }}>{client.email}</div>}
                     </>
