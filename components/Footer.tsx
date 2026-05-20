@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieSettingsButton from "./CookieSettingsButton";
 
 const metierLinks = [
   { label: "Plombier", href: "/logiciel-devis-plombier" },
@@ -94,6 +95,11 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              {/* Bouton CNIL : permettre à l'utilisateur de modifier ses choix
+                  cookies à tout moment, conformément à la recommandation 2020-091 */}
+              <li>
+                <CookieSettingsButton />
+              </li>
             </ul>
             <h4 className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/35 mb-4">
               Support

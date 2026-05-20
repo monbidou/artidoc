@@ -2,41 +2,56 @@
 
 import { useEffect, useState } from 'react'
 import Script from 'next/script'
+import { readCookieConsent } from './CookieConsent'
 
 /**
  * Composant Google Analytics 4
- * Ne se charge QUE si l'utilisateur a accepté les cookies (RGPD).
- * L'ID de mesure est lu depuis la variable d'environnement NEXT_PUBLIC_GA_ID.
+ *
+ * Ne se charge QUE si l'utilisateur a explicitement consenti à la mesure
+ * d'audience via la bannière cookies (catégorie "analytics").
+ *
+ * Écoute l'événement `nexartis-cookie-consent-change` pour activer GA
+ * sans recharger la page quand l'utilisateur passe de "refusé" à "accepté".
+ *
+ * NB : passer de "accepté" à "refusé" ne désactive pas instantanément GA si
+ * le script gtag.js est déjà chargé. C'est une limitation connue de GA. La
+ * solution la plus propre serait de pousser `gtag('consent', 'update', ...)`
+ * ce qui désactive le tracking sans décharger le script. À implémenter quand
+ * on aura du temps (P14 du backlog d'audit). Pour l'instant l'utilisateur
+ * peut effacer manuellement les cookies _ga* depuis son navigateur.
  */
 export default function GoogleAnalytics() {
-  const [hasConsent, setHasConsent] = useState(false)
+  const [hasAnalyticsConsent, setHasAnalyticsConsent] = useState(false)
 
   useEffect(() => {
-    // Vérifier le consentement cookies
-    try {
-      const consent = localStorage.getItem('nexartis-cookie-consent')
-      if (consent === 'accepted') {
-        setHasConsent(true)
-      }
-    } catch {
-      // localStorage non disponible (mode privé, etc.)
+    // 1) Lecture initiale
+    const initial = readCookieConsent()
+    if (initial?.analytics === true) {
+      setHasAnalyticsConsent(true)
     }
 
-    // Écouter les changements de consentement
-    const handleConsent = () => {
-      try {
-        const consent = localStorage.getItem('nexartis-cookie-consent')
-        setHasConsent(consent === 'accepted')
-      } catch {}
+    // 2) Écoute des changements de consentement
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const detail = customEvent.detail as { analytics?: boolean } | undefined
+      if (detail) {
+        setHasAnalyticsConsent(detail.analytics === true)
+      } else {
+        // Si pas de détail, on relit depuis le storage par sécurité
+        const fresh = readCookieConsent()
+        setHasAnalyticsConsent(fresh?.analytics === true)
+      }
     }
-    window.addEventListener('cookie-consent-changed', handleConsent)
-    return () => window.removeEventListener('cookie-consent-changed', handleConsent)
+
+    window.addEventListener('nexartis-cookie-consent-change', handler)
+    return () =>
+      window.removeEventListener('nexartis-cookie-consent-change', handler)
   }, [])
 
   const measurementId = process.env.NEXT_PUBLIC_GA_ID
 
-  // Ne rien charger si pas de consentement ou pas d'ID
-  if (!hasConsent || !measurementId) return null
+  // Ne rien charger si pas de consentement OU si pas d'ID de mesure configuré
+  if (!hasAnalyticsConsent || !measurementId) return null
 
   return (
     <>
