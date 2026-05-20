@@ -416,11 +416,15 @@ function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
     if (id) doc.text(id, pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
     y += 3.2
 
-    // Ligne 2 : tel + décennale
+    // Ligne 2 : tel + décennale (avec zone géographique, P12 audit)
     const line2Parts: string[] = []
     if (ent.telephone) line2Parts.push(`Tél : ${ent.telephone}`)
     if (ent.assurance_nom) {
-      line2Parts.push(`Garantie décennale ${ent.assurance_nom}${ent.decennale_numero ? ` (n° ${ent.decennale_numero})` : ''}`)
+      let partAssurance = `Garantie décennale ${ent.assurance_nom}`
+      if (ent.decennale_numero) partAssurance += ` (n° ${ent.decennale_numero})`
+      // P12 (audit) : zone géographique couverte par la décennale (obligation BTP)
+      if (ent.assurance_zone) partAssurance += ` — Zone : ${ent.assurance_zone}`
+      line2Parts.push(partAssurance)
     }
     if (line2Parts.length) doc.text(line2Parts.join(' — '), pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
 
@@ -1169,6 +1173,37 @@ export function generateDevisPdf(data: DevisData): string {
     if (data.dechets.collecte_nom) dechParts.push(`Collecte : ${data.dechets.collecte_nom}${data.dechets.collecte_type ? ` (${data.dechets.collecte_type})` : ''}`)
     const dechWrapped = doc.splitTextToSize(dechParts.join(' · '), leftMaxW)
     doc.text(dechWrapped, M, leftY); leftY += dechWrapped.length * 2.8
+  }
+
+  // P12 (audit) — Mentions légales entreprise sur le DEVIS (parité facture)
+  // Inclut : assurance décennale + zone géographique (obligation BTP),
+  // forme juridique, capital, RCS/RM, qualification pro, médiateur.
+  const entMentionsDevis: string[] = []
+  if (ent.assurance_nom || ent.decennale_numero) {
+    let line = `Assurance décennale : ${ent.assurance_nom || ''}`
+    if (ent.decennale_numero) line += ` — n° ${ent.decennale_numero}`
+    if (ent.assurance_zone) line += ` — Zone : ${ent.assurance_zone}`
+    entMentionsDevis.push(line.trim())
+  }
+  if (ent.forme_juridique === 'EI' || ent.forme_juridique === 'Micro-entreprise') {
+    entMentionsDevis.push(`${ent.nom || ''} — ${ent.forme_juridique === 'Micro-entreprise' ? 'Entrepreneur individuel (Micro-entreprise)' : 'Entrepreneur individuel (EI)'}`)
+  }
+  if (ent.capital_social && ['EURL', 'SARL', 'SAS', 'SASU'].includes(String(ent.forme_juridique || ''))) {
+    entMentionsDevis.push(`${ent.forme_juridique} au capital de ${ent.capital_social}`)
+  }
+  if (ent.rcs_rm) entMentionsDevis.push(String(ent.rcs_rm))
+  if (ent.qualification_pro) entMentionsDevis.push(`Qualification : ${ent.qualification_pro}`)
+  if (ent.mediateur) entMentionsDevis.push(`Médiateur : ${ent.mediateur}`)
+  if (ent.mentions_legales_custom) entMentionsDevis.push(String(ent.mentions_legales_custom))
+
+  if (entMentionsDevis.length > 0) {
+    leftY += 1
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+    for (const m of entMentionsDevis) {
+      const split = doc.splitTextToSize(m, leftMaxW)
+      doc.text(split, M, leftY); leftY += split.length * 2.6 + 0.6
+    }
+    leftY += 1
   }
 
   // —— SIGNATURES (bas de page, 2 cadres dashed) ——

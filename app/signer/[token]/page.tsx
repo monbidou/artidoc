@@ -57,6 +57,16 @@ interface Entreprise {
   siret?: string
   /** P11 (audit) : N° TVA intracom de l'émetteur, à afficher sur le devis */
   tva_intracommunautaire?: string
+  /** P12 (audit) : assurance décennale + zone géographique (obligation BTP) */
+  assurance_nom?: string
+  decennale_numero?: string
+  assurance_zone?: string
+  /** Mentions légales (forme juridique, RCS, qualification, médiateur, etc.) */
+  forme_juridique?: string
+  capital_social?: string
+  rcs_rm?: string
+  qualification_pro?: string
+  mediateur?: string
   logo_url?: string
   signature_base64?: string
   tampon_base64?: string
@@ -611,6 +621,7 @@ export default function SignerDevisPage() {
             {entreprise.adresse && ` — ${entreprise.adresse}`}
             {(entreprise.code_postal || entreprise.ville) && `, ${entreprise.code_postal || ''} ${entreprise.ville || ''}`}
             {entreprise.siret && ` — SIRET : ${entreprise.siret}`}
+            {entreprise.tva_intracommunautaire && ` — TVA intracom. : ${entreprise.tva_intracommunautaire}`}
             {(entreprise.telephone || entreprise.email) && (
               <p className="mt-0.5">
                 {entreprise.telephone && `Tél : ${entreprise.telephone}`}
@@ -618,6 +629,31 @@ export default function SignerDevisPage() {
                 {entreprise.email && `Email : ${entreprise.email}`}
               </p>
             )}
+            {/* P12 (audit) — Assurance décennale + zone géographique (obligation BTP) */}
+            {(entreprise.assurance_nom || entreprise.decennale_numero) && (
+              <p className="mt-0.5 italic">
+                Assurance décennale : {entreprise.assurance_nom || ''}
+                {entreprise.decennale_numero && ` — n° ${entreprise.decennale_numero}`}
+                {entreprise.assurance_zone && ` — Zone : ${entreprise.assurance_zone}`}
+              </p>
+            )}
+            {/* Mentions légales complémentaires : forme juridique, capital, RCS */}
+            {(entreprise.forme_juridique === 'EI' ||
+              entreprise.forme_juridique === 'Micro-entreprise') && (
+              <p className="mt-0.5 italic">
+                {entreprise.nom} —{' '}
+                {entreprise.forme_juridique === 'Micro-entreprise'
+                  ? 'Entrepreneur individuel (Micro-entreprise)'
+                  : 'Entrepreneur individuel (EI)'}
+              </p>
+            )}
+            {entreprise.capital_social &&
+              ['EURL', 'SARL', 'SAS', 'SASU'].includes(entreprise.forme_juridique || '') && (
+                <p className="mt-0.5 italic">
+                  {entreprise.forme_juridique} au capital de {entreprise.capital_social}
+                </p>
+              )}
+            {entreprise.rcs_rm && <p className="mt-0.5 italic">{entreprise.rcs_rm}</p>}
           </div>
         </div>
 
