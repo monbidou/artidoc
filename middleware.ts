@@ -54,6 +54,9 @@ export async function middleware(request: NextRequest) {
       response.headers.set('Retry-After', '3600')
       // Empêche les CDN/proxies de cacher cette réponse
       response.headers.set('Cache-Control', 'no-store, max-age=0')
+      // Empêche tout moteur de recherche d'indexer la page maintenance
+      // (en plus du <meta robots noindex> côté page)
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
       return response
     }
   }
