@@ -9,13 +9,23 @@ export default function ConditionalLayout({
   header,
   footer,
   children,
+  forceHidden = false,
 }: {
   header: ReactNode
   footer: ReactNode
   children: ReactNode
+  /**
+   * Permet au layout racine de forcer le masquage du header/footer même
+   * quand l'URL du navigateur ne correspond à aucune route cachée.
+   * Utilisé notamment en mode maintenance : le middleware fait un rewrite
+   * vers /maintenance mais l'URL côté client reste l'URL d'origine, donc
+   * usePathname() ne voit pas /maintenance.
+   */
+  forceHidden?: boolean
 }) {
   const pathname = usePathname()
-  const isHidden = HIDDEN_ROUTES.some(route => pathname.startsWith(route))
+  const isHidden =
+    forceHidden || HIDDEN_ROUTES.some((route) => pathname.startsWith(route))
 
   return (
     <>

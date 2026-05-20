@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Syne, Manrope, Plus_Jakarta_Sans } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -76,11 +77,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Le middleware ajoute l'en-tête `x-maintenance: 1` quand il sert la page
+  // de maintenance via un rewrite. On le lit ici côté serveur pour pouvoir
+  // forcer le masquage du header / footer marketing (sinon ils apparaissent
+  // parce que l'URL côté navigateur reste celle d'origine, ex: /).
+  const headersList = headers()
+  const isMaintenance = headersList.get('x-maintenance') === '1'
+
   return (
     <html lang="fr" className={`${syne.variable} ${manrope.variable} ${jakarta.variable}`}>
       <body className="font-manrope bg-white">
         <GoogleAnalytics />
-        <ConditionalLayout header={<Header />} footer={<Footer />}>
+        <ConditionalLayout
+          header={<Header />}
+          footer={<Footer />}
+          forceHidden={isMaintenance}
+        >
           {children}
         </ConditionalLayout>
         <CookieConsent />

@@ -38,7 +38,18 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/maintenance'
 
-      const response = NextResponse.rewrite(url, { status: 503 })
+      // On ajoute un en-tête marqueur à la requête. Le layout racine pourra
+      // le lire côté serveur (via headers() de next/headers) pour savoir qu'on
+      // est en maintenance et masquer header/footer marketing en conséquence.
+      // Indispensable parce qu'un rewrite garde l'URL d'origine côté client,
+      // donc usePathname() ne peut pas détecter qu'on est sur /maintenance.
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('x-maintenance', '1')
+
+      const response = NextResponse.rewrite(url, {
+        request: { headers: requestHeaders },
+        status: 503,
+      })
       // Indique aux moteurs de recherche et navigateurs de revenir dans 1 heure
       response.headers.set('Retry-After', '3600')
       // Empêche les CDN/proxies de cacher cette réponse
