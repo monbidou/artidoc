@@ -359,9 +359,20 @@ export default function FactureDetailPage() {
           <button onClick={() => setSendModalOpen(true)} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-[#1a6fb5] hover:bg-[#2d8bc9] text-white text-sm font-manrope transition-colors">
             <Send size={14} /> Envoyer par email
           </button>
-          <Link href={`/dashboard/factures/${facture.id}/modifier`} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors">
-            <Pencil size={14} /> Modifier
-          </Link>
+          {facture.statut === 'brouillon' ? (
+            <Link href={`/dashboard/factures/${facture.id}/modifier`} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors">
+              <Pencil size={14} /> Modifier
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="Facture émise : modification interdite par la loi (art. L441-9 C. comm.). Créez un avoir pour corriger."
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-gray-50 text-sm font-manrope text-gray-400 cursor-not-allowed"
+            >
+              <Pencil size={14} /> Modifier (verrouillée)
+            </button>
+          )}
           {facture.statut !== 'payee' && facture.statut !== 'Encaissée' && facture.statut !== 'archivee' && (
             <button onClick={handleMarkPaid} disabled={updating} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 text-sm font-manrope text-green-700 transition-colors disabled:opacity-50">
               <CreditCard size={14} /> Marquer payée

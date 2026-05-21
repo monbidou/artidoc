@@ -18,7 +18,9 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react'
-import { useFactures, useClients, softDeleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { useFactures, useClients, softDeleteRow, insertRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { createClient } from '@/lib/supabase/client'
+import EnvoyerFactureModal from '@/components/dashboard/EnvoyerFactureModal'
 
 type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard' | 'Archivées'
 
@@ -60,6 +62,9 @@ export default function FacturesListPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [duplicating, setDuplicating] = useState<string | null>(null)
+  const [sendTarget, setSendTarget] = useState<{ id: string; numero: string; email: string; clientNom: string; montantTtcLabel: string } | null>(null)
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
 
   const loading = loadingF || loadingC
 
@@ -160,6 +165,80 @@ export default function FacturesListPage() {
       alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
     }
     setBulkDeleting(false)
+  }
+
+  // ── Dupliquer : copie de la facture (en-tête + lignes) en brouillon, nouveau numéro et nouvelles dates ──
+  async function handleDuplicate(sourceId: string) {
+    closeMenu()
+    if (duplicating) return
+    setDuplicating(sourceId)
+    try {
+      const supabase = createClient()
+
+      // 1) Récupère la source
+      const { data: src, error: srcErr } = await supabase.from('factures').select('*').eq('id', sourceId).maybeSingle()
+      if (srcErr || !src) throw new Error(srcErr?.message || 'Facture source introuvable')
+
+      // 2) Construit le payload sans les champs auto / historiques
+      const source = src as Record<string, unknown>
+      const excluded = new Set([
+        'id', 'created_at', 'updated_at', 'numero', 'statut',
+        'date_emission', 'date_echeance', 'date_envoi', 'sent_at', 'paid_at',
+        'montant_paye', 'archivee', 'deleted_at',
+      ])
+      const newFacture: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(source)) {
+        if (!excluded.has(k)) newFacture[k] = v
+      }
+
+      const yearNow = new Date().getFullYear()
+      newFacture.numero = `F-${yearNow}-${String(Date.now()).slice(-5)}`
+      newFacture.statut = 'brouillon'
+      newFacture.date_emission = new Date().toISOString().slice(0, 10)
+      // date_echeance laissée vide volontairement (sera reposée lors de l'édition)
+
+      const inserted = (await insertRow('factures', newFacture)) as Record<string, unknown>
+      const newId = inserted.id as string
+
+      // 3) Copie des lignes (table sans user_id, RLS via parent)
+      const { data: lignes } = await supabase
+        .from('facture_lignes')
+        .select('designation, quantite, unite, prix_unitaire_ht, taux_tva, ordre, type, niveau, numero')
+        .eq('facture_id', sourceId)
+        .order('ordre')
+
+      if (lignes && lignes.length > 0) {
+        const rows = (lignes as Array<Record<string, unknown>>).map(l => ({ ...l, facture_id: newId }))
+        const { error: liErr } = await supabase.from('facture_lignes').insert(rows)
+        if (liErr) throw new Error(liErr.message)
+      }
+
+      refetchF()
+      router.push(`/dashboard/factures/${newId}/modifier`)
+    } catch (err) {
+      alert('Erreur lors de la duplication : ' + (err as Error).message)
+    } finally {
+      setDuplicating(null)
+    }
+  }
+
+  // ── Envoyer : ouvre la modale partagée EnvoyerFactureModal avec les bonnes infos ──
+  function handleSend(facture: EnrichedFacture) {
+    closeMenu()
+    const id = facture.id as string
+    const numero = (facture.numero as string) ?? ''
+    // Email : champ direct, puis lookup clientMap → email via clients
+    const clientId = facture.client_id as string | undefined
+    let email = (facture.client_email as string) || ''
+    if (!email && clientId) {
+      const c = clients.find(cl => (cl.id as string) === clientId)
+      if (c && c.email) email = c.email as string
+    }
+    if (!email && typeof facture.notes_client === 'string') {
+      email = facture.notes_client.split(' | ').find((p: string) => p.includes('@')) || ''
+    }
+    const montantTtcLabel = formatCurrency(facture.montantTtc)
+    setSendTarget({ id, numero, email, clientNom: facture.clientName, montantTtcLabel })
   }
 
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, factureId: string) {
@@ -316,11 +395,41 @@ export default function FacturesListPage() {
           onClick={(e) => e.stopPropagation()}
         >
           <button onClick={() => { closeMenu(); router.push(`/dashboard/factures/${activeFacture.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
-          <button onClick={() => { closeMenu(); router.push(`/dashboard/factures/${activeFacture.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
-          <button onClick={() => { closeMenu() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Copy size={14} /> Dupliquer</button>
-          <button onClick={() => { closeMenu() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><SendHorizonal size={14} /> Envoyer</button>
+          {(activeFacture.statut as string) === 'brouillon' ? (
+            <button onClick={() => { closeMenu(); router.push(`/dashboard/factures/${activeFacture.id}/modifier`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
+          ) : (
+            <button disabled title="Facture émise : modification interdite (art. L441-9 C. comm.)" className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope text-gray-400 cursor-not-allowed"><Pencil size={14} /> Modifier (verrouillée)</button>
+          )}
+          <button onClick={() => { handleDuplicate(activeFacture.id as string) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Copy size={14} /> Dupliquer</button>
+          <button onClick={() => { handleSend(activeFacture) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><SendHorizonal size={14} /> Envoyer</button>
           <button onClick={() => { handleDelete(activeFacture.id as string) }} disabled={deleting === (activeFacture.id as string)} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"><Trash2 size={14} /> {deleting === (activeFacture.id as string) ? 'Suppression...' : 'Supprimer'}</button>
         </div>
+      )}
+
+      {duplicating && (
+        <div className="fixed bottom-6 right-6 bg-[#1a1a2e] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-manrope z-50">Duplication en cours...</div>
+      )}
+
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 bg-[#1a1a2e] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-manrope z-50">{toastMsg}</div>
+      )}
+
+      {sendTarget && (
+        <EnvoyerFactureModal
+          open={!!sendTarget}
+          onClose={() => setSendTarget(null)}
+          factureId={sendTarget.id}
+          numeroFacture={sendTarget.numero}
+          clientEmail={sendTarget.email}
+          clientNom={sendTarget.clientNom}
+          montantTTC={sendTarget.montantTtcLabel}
+          onSuccess={() => {
+            setToastMsg('Facture envoyée avec succès !')
+            setTimeout(() => setToastMsg(null), 3000)
+            setSendTarget(null)
+            refetchF()
+          }}
+        />
       )}
     </div>
   )

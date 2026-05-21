@@ -13,7 +13,7 @@ import {
   Trash2,
   Copy,
 } from 'lucide-react'
-import { usePrestations, insertRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { usePrestations, insertRow, updateRow, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types & Constants
@@ -56,6 +56,8 @@ export default function BibliothequePage() {
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
 
   // Modal state
   const [modalDesignation, setModalDesignation] = useState('')
@@ -66,6 +68,7 @@ export default function BibliothequePage() {
   const [modalTags, setModalTags] = useState('')
 
   const resetModal = () => {
+    setEditingId(null)
     setModalDesignation('')
     setModalUnite('U')
     setModalPrix('')
@@ -74,17 +77,57 @@ export default function BibliothequePage() {
     setModalTags('')
   }
 
+  const openEditModal = (prestation: Record<string, unknown>) => {
+    setEditingId(prestation.id as string)
+    setModalDesignation((prestation.designation as string) || '')
+    setModalUnite((prestation.unite as string) || 'U')
+    setModalPrix(String((prestation.prix_unitaire_ht as number) ?? ''))
+    setModalTva(String((prestation.taux_tva as number) ?? '10'))
+    const cat = (prestation.categorie as CategorieValue) || 'Fournitures'
+    setModalCategorie(cat)
+    setModalTags((prestation.tags as string) || '')
+    setOpenActionId(null)
+    setShowModal(true)
+  }
+
+  const handleDuplicate = async (prestation: Record<string, unknown>) => {
+    const id = prestation.id as string
+    setOpenActionId(null)
+    if (duplicatingId) return
+    setDuplicatingId(id)
+    try {
+      const baseName = (prestation.designation as string) || ''
+      await insertRow('prestations', {
+        designation: `${baseName} (copie)`.trim(),
+        unite: (prestation.unite as string) || 'U',
+        prix_unitaire_ht: (prestation.prix_unitaire_ht as number) ?? 0,
+        taux_tva: (prestation.taux_tva as number) ?? 10,
+        categorie: (prestation.categorie as string) || 'Fournitures',
+      })
+      refetch()
+    } catch (err) {
+      alert('Erreur lors de la duplication : ' + (err as Error).message)
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
   const handleSave = async () => {
     if (!modalDesignation.trim() || !modalPrix) return
     setSaving(true)
     try {
-      await insertRow('prestations', {
+      const values: Record<string, unknown> = {
         designation: modalDesignation.trim(),
         unite: modalUnite,
         prix_unitaire_ht: parseFloat(modalPrix),
         taux_tva: parseFloat(modalTva),
         categorie: modalCategorie,
-      })
+      }
+      if (editingId) {
+        await updateRow('prestations', editingId, values)
+      } else {
+        await insertRow('prestations', values)
+      }
       setShowModal(false)
       resetModal()
       refetch()
@@ -250,18 +293,19 @@ export default function BibliothequePage() {
                       {openActionId === id && (
                         <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1 w-36">
                           <button
-                            onClick={() => setOpenActionId(null)}
+                            onClick={() => openEditModal(prestation)}
                             className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
                           >
                             <Pencil size={14} />
                             Modifier
                           </button>
                           <button
-                            onClick={() => setOpenActionId(null)}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50"
+                            onClick={() => handleDuplicate(prestation)}
+                            disabled={duplicatingId === id}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm font-manrope text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                           >
                             <Copy size={14} />
-                            Dupliquer
+                            {duplicatingId === id ? 'Copie...' : 'Dupliquer'}
                           </button>
                           <button
                             onClick={() => handleDelete(id)}
@@ -294,8 +338,8 @@ export default function BibliothequePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Nouvelle prestation</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">{editingId ? 'Modifier la prestation' : 'Nouvelle prestation'}</h2>
+              <button onClick={() => { setShowModal(false); resetModal() }} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -384,7 +428,7 @@ export default function BibliothequePage() {
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); resetModal() }}
                 className="px-5 h-10 rounded-lg border border-gray-200 text-sm font-syne font-bold text-[#6b7280] hover:text-[#1a1a2e] hover:border-gray-300 transition-colors"
               >
                 Annuler

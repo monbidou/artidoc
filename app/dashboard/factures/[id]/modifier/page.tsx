@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Lock, FileMinus } from 'lucide-react'
 import { useClients, useEntreprise, useChantiers, useSupabaseRecord, updateRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
@@ -498,6 +498,49 @@ export default function ModifierFacturePage() {
 
   if (loadingFacture || loadingLignes) return <div className="p-6"><LoadingSkeleton rows={8} /></div>
   if (!facture) return <div className="p-6"><p className="text-sm text-gray-500">Facture introuvable.</p></div>
+
+  // ── BLOCAGE LÉGAL : une facture émise est figée (art. L441-9 C. comm. + art. 242 nonies A CGI) ──
+  // Seul le statut "brouillon" autorise la modification. Pour toute autre, proposer la création d'un avoir.
+  if (facture.statut !== 'brouillon') {
+    return (
+      <div className="min-h-screen flex items-start justify-center px-4 py-12">
+        <div className="w-full max-w-2xl bg-white rounded-2xl border-2 border-orange-200 shadow-sm p-8">
+          <div className="flex items-start gap-4 mb-5">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+              <Lock size={22} className="text-[#e87a2a]" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-syne font-bold text-[#0f1a3a]">Facture {facture.numero} verrouillée</h1>
+              <p className="text-sm font-manrope text-gray-500 mt-1">Statut actuel : <span className="font-semibold capitalize">{facture.statut}</span></p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-orange-50 border border-orange-200 p-4 mb-6">
+            <p className="text-sm font-manrope text-[#1a1a2e] leading-relaxed">
+              Cette facture a déjà été émise et ne peut <strong>plus être modifiée légalement</strong> (article L441-9 du Code de commerce et article 242 nonies A du CGI). Pour corriger une erreur, vous devez émettre un <strong>avoir</strong> (facture rectificative négative), puis créer une nouvelle facture.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href={'/dashboard/factures/' + id}
+              className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all"
+            >
+              <ArrowLeft size={16} /> Retour à la facture
+            </Link>
+            <button
+              type="button"
+              disabled
+              title="Bientôt disponible"
+              className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm opacity-60 cursor-not-allowed"
+            >
+              <FileMinus size={16} /> Créer un avoir (bientôt disponible)
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
