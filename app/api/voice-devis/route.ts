@@ -1,20 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseVoiceDevis } from '@/lib/voice/parser'
+import {
+  getAuthenticatedUser, getClientIp, checkRateLimit,
+  secureJson, secureError, rateLimitError, unauthorizedError,
+} from '@/lib/api-security'
 
+/**
+ * POST /api/voice-devis
+ *
+ * Parse une transcription vocale et retourne les champs d'un devis pre-rempli.
+ * Le parsing est local (lib/voice/parser.ts) - pas d'appel IA pour l'instant,
+ * mais on protege quand meme la route au cas ou on basculerait sur OpenAI/Whisper.
+ *
+ * Securite (P15 audit) :
+ * - Auth obligatoire : seul un utilisateur connecte peut invoquer la route.
+ * - Rate-limit : 20 requetes / minute par utilisateur (et 30 par IP en filet
+ *   de securite anti-bot, plus restrictif si pas authentifie).
+ * - Pas de devis_id en input -> pas d'ownership check a faire ici.
+ * - Taille de la transcription limitee a 10 000 caracteres (anti-DoS).
+ */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    // Filet IP : bloque les bots/scans avant meme de toucher Supabase
+    const ip = getClientIp(req)
+    if (!checkRateLimit(`voice-devis:ip:${ip}`, 30, 60_000)) {
+      return rateLimitError()
+    }
+
+    // Auth obligatoire
+    const user = await getAuthenticatedUser()
+    if (!user) return unauthorizedError()
+
+    // Rate-limit par utilisateur (plus genereux, mais evite l'abus IA si on
+    // bascule sur un parser payant)
+    if (!checkRateLimit(`voice-devis:user:${user.id}`, 20, 60_000)) {
+      return rateLimitError()
+    }
+
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return secureError('Corps de requete invalide')
+    }
+
     const transcription = body.transcript || body.transcription || body.text || body.input
 
     if (!transcription || typeof transcription !== 'string' || transcription.trim() === '') {
-      return NextResponse.json({ error: 'Transcription manquante' }, { status: 400 })
+      return secureError('Transcription manquante')
     }
 
-    // Parse avec le moteur BTP local (gratuit, instantané)
+    // Anti-DoS : on borne la taille d'entree
+    if (transcription.length > 10_000) {
+      return secureError('Transcription trop longue (10 000 caracteres max)', 413)
+    }
+
+    // Parse avec le moteur BTP local (gratuit, instantane)
     const result = parseVoiceDevis(transcription)
 
-    // Transformer le résultat pour matcher le format attendu par handleVoiceResult
-    return NextResponse.json({
+    // Transformer le resultat pour matcher le format attendu par handleVoiceResult
+    return secureJson({
       client_civilite: result.client_civilite,
       client_nom: [result.client_prenom, result.client_nom].filter(Boolean).join(' ') || null,
       client_prenom: result.client_prenom,
@@ -40,6 +83,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('Voice devis error:', error)
-    return NextResponse.json({ error: 'Erreur de traitement' }, { status: 500 })
+    return secureError('Erreur de traitement', 500)
   }
 }

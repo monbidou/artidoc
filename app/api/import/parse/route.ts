@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import {
   SourceType,
   DataCategory,
@@ -10,6 +10,10 @@ import {
   detectCategory,
   detectSource,
 } from '@/lib/import/mappers'
+
+// Note (P10 audit securite) : xlsx (SheetJS sur npm) bloque sur deux CVE
+// (Prototype Pollution + ReDoS) et a quitte npm officiel. Nous utilisons
+// desormais exceljs, alternative npm maintenue activement.
 
 interface ParsedRow {
   [key: string]: unknown
@@ -52,35 +56,71 @@ async function parseCSVFile(file: File, _fileName: string): Promise<{ headers: s
   return { headers, rows }
 }
 
+/**
+ * Normalise une valeur de cellule ExcelJS en chaine nette.
+ * Gere les types riches (Date, formule, hyperlien, rich text).
+ */
+function cellToString(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  if (value instanceof Date) {
+    // Format ISO court (YYYY-MM-DD), equivalent a ce que xlsx renvoyait
+    return value.toISOString().slice(0, 10)
+  }
+  if (typeof value === 'object') {
+    const v = value as Record<string, unknown>
+    // Formule : { formula, result }
+    if ('result' in v) return cellToString(v.result)
+    // Hyperlien : { text, hyperlink }
+    if ('text' in v) return String(v.text).trim()
+    // Rich text : { richText: [{ text }, ...] }
+    if ('richText' in v && Array.isArray(v.richText)) {
+      return (v.richText as Array<{ text?: string }>)
+        .map(rt => rt.text || '')
+        .join('')
+        .trim()
+    }
+    // Error cell : { error: '#REF!' } -> on traite comme vide
+    if ('error' in v) return ''
+  }
+  return String(value).trim()
+}
+
 async function parseExcelFile(file: File, _fileName: string): Promise<{ sheet: string; headers: string[]; rows: ParsedRow[] }[]> {
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array' })
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer)
 
   const sheets: { sheet: string; headers: string[]; rows: ParsedRow[] }[] = []
 
-  for (const sheetName of workbook.SheetNames) {
-    const worksheet = workbook.Sheets[sheetName]
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]
+  workbook.eachSheet((worksheet) => {
+    // Construire la matrice brute (equivalent sheet_to_json { header: 1 })
+    const matrix: string[][] = []
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = row.values as unknown[]
+      // ExcelJS commence a l'index 1 (index 0 = null), on shift
+      const cleaned = values.slice(1).map(cellToString)
+      matrix.push(cleaned)
+    })
 
-    if (data.length === 0) continue
+    if (matrix.length === 0) return
 
-    const headers = (data[0] as string[])
+    const headers = matrix[0]
       .map(h => (h || '').toString().trim())
       .filter(h => h !== '')
 
-    const rows: ParsedRow[] = data.slice(1).map(row => {
+    const rows: ParsedRow[] = matrix.slice(1).map(row => {
       const obj: ParsedRow = {}
       headers.forEach((header, index) => {
-        const value = (row as unknown[])[index]
-        obj[header] = value === '' || value === null || value === undefined ? '' : String(value).trim()
+        const value = row[index]
+        obj[header] = value === '' || value === undefined ? '' : value
       })
       return obj
     })
 
     if (rows.length > 0) {
-      sheets.push({ sheet: sheetName, headers, rows })
+      sheets.push({ sheet: worksheet.name, headers, rows })
     }
-  }
+  })
 
   return sheets
 }
@@ -177,7 +217,7 @@ export async function POST(req: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autorise' }, { status: 401 })
     }
 
     const formData = await req.formData()
