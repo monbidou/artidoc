@@ -7,6 +7,7 @@ import { Trash2, Plus, ArrowLeft, Mic, MicOff, X } from 'lucide-react'
 import { useClients, useChantiers, useEntreprise, usePointsCollecte, insertRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 import LineCard from '@/components/mobile/LineCard'
 import LineSheet, { type SheetLine } from '@/components/mobile/LineSheet'
 
@@ -276,18 +277,16 @@ function NouveauDevisPage() {
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
 
-  // Auto-cocher la TVA 0 si l'entreprise est en franchise (micro-entrepreneur / EI non assujetti)
-  // Lu depuis le profil entreprise → plus besoin de cocher manuellement à chaque nouveau devis.
-  // On coche aussi si la forme juridique implique la franchise (micro-entreprise / EI),
-  // même si le toggle "franchise_tva" n'a pas été activé manuellement.
+  // Auto-cocher la TVA 0 si l'entreprise est en franchise (micro-entrepreneur / EI / auto-entrepreneur).
+  // Source de vérité unique : helper isAutoEntrepreneur (lib/helpers.ts).
+  // Pré-remplissage : si franchise → autoEntrepreneur=true ET globalTvaRate=0.
+  // L'artisan peut malgré tout repasser à 10/20% (cas dépassement seuil de franchise).
   useEffect(() => {
-    const fj = (entreprise?.forme_juridique || '').toLowerCase()
-    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle')
-    if (entreprise?.franchise_tva === true || estMicro) {
+    if (isAutoEntrepreneur(entreprise)) {
       setAutoEntrepreneur(true)
+      setGlobalTvaRate(0)
     }
-  }, [entreprise?.franchise_tva, entreprise?.forme_juridique])
-  const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
+  }, [entreprise])
   const [useForfait, setUseForfait] = useState(false)
   const [forfaitHT, setForfaitHT] = useState(0)
 
@@ -1099,14 +1098,13 @@ function NouveauDevisPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Taux de TVA applicable :</label>
-                <select value={globalTvaRate} onChange={e => setGlobalTvaRate(Number(e.target.value))} disabled={autoEntrepreneur} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white cursor-pointer disabled:opacity-50">
+                <select value={globalTvaRate} onChange={e => { const v = Number(e.target.value); setGlobalTvaRate(v); setAutoEntrepreneur(v === 0) }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white cursor-pointer">
                   <option value={0}>Sans TVA</option><option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
                 </select>
               </div>
-              <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
-                <input type="checkbox" checked={showTvaOnDevis} onChange={e => setShowTvaOnDevis(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
-                Afficher TVA sur le devis
-              </label>
+              {autoEntrepreneur && (
+                <span className="text-xs font-manrope text-[#6b7280] italic">TVA non applicable, art. 293 B du CGI</span>
+              )}
             </div>
           {/* Forfait option */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
@@ -1230,13 +1228,13 @@ function NouveauDevisPage() {
           {/* Totaux */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">Total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span></div>
-            {showTvaOnDevis && !autoEntrepreneur && Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
+            {!autoEntrepreneur && Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
               <div key={rate} className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {rate}%</span><span className="font-medium">{formatCurrency(group.tva)}</span></div>
             ))}
             {dechetsInclureCout && dechetsCoutNum > 0 && (
               <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#e87a2a]">Gestion déchets TTC</span><span className="font-medium text-[#e87a2a]">{formatCurrency(dechetsCoutNum)}</span></div>
             )}
-            <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{showTvaOnDevis && !autoEntrepreneur ? 'Total TTC' : 'Total'}</span><span className="font-semibold">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span></div>
+            <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{autoEntrepreneur ? 'Total' : 'Total TTC'}</span><span className="font-semibold">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span></div>
             {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
             {acompteMontant > 0 && (
               <>
@@ -1251,7 +1249,7 @@ function NouveauDevisPage() {
               </>
             )}
             <div className="bg-[#5ab4e0] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
-              <span className="font-syne font-bold text-sm">NET À PAYER</span><span className="font-syne font-bold text-lg">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span>
+              <span className="font-syne font-bold text-sm">NET À PAYER</span><span className="font-syne font-bold text-lg">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span>
             </div>
           </div>
         </div>

@@ -26,6 +26,7 @@ import {
   updateRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 
 interface FactureRecord {
   id: string
@@ -257,11 +258,11 @@ export default function FactureDetailPage() {
   // Bug fix (V8.1) — Detection "facture sans TVA" :
   //   1) facture.montant_tva explicitement 0 (auto-entrepreneur / franchise art. 293 B)
   //   2) toutes les lignes ont taux_tva === 0 (saisi explicitement a Sans TVA)
-  //   3) entreprise.franchise_tva
+  //   3) helper isAutoEntrepreneur (franchise_tva OU forme juridique micro/EI/auto)
   // Dans ces cas, on NE construit AUCUN groupe TVA — pas de fallback 20%.
   const lignesPrestations = lignes.filter(l => !l.designation?.startsWith('---') && l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
   const allLinesZeroTva = lignesPrestations.length > 0 && lignesPrestations.every(l => l.taux_tva === 0)
-  const isSansTva = facture.montant_tva === 0 || allLinesZeroTva || Boolean(entreprise?.franchise_tva)
+  const isSansTva = facture.montant_tva === 0 || allLinesZeroTva || isAutoEntrepreneur(entreprise)
 
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
   if (!isSansTva) {
@@ -667,7 +668,7 @@ export default function FactureDetailPage() {
                     {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                   </p>
                 )}
-                {Boolean(entreprise?.franchise_tva) && (
+                {isAutoEntrepreneur(entreprise) && (
                   <p style={{ fontWeight: 600 }}>TVA non applicable, art. 293 B du Code Général des Impôts.</p>
                 )}
                 {(entreprise?.forme_juridique === 'EI' || entreprise?.forme_juridique === 'Micro-entreprise') && (

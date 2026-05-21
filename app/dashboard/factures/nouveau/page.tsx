@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { useClients, useEntreprise, useChantiers, insertRow } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 import LineCard from '@/components/mobile/LineCard'
 import LineSheet, { type SheetLine } from '@/components/mobile/LineSheet'
 
@@ -132,17 +133,13 @@ export default function NouvelleFacturePage() {
   // V6 — Si l'utilisateur change manuellement la TVA, on ne ré-impose plus 0 automatiquement
   const [tvaUserOverride, setTvaUserOverride] = useState(false)
 
-  // V6 — Auto-détection franchise TVA (micro-entreprise / EI / auto-entrepreneur)
-  // Si la forme juridique implique la franchise OU si entreprise.franchise_tva === true,
-  // on force globalTvaRate à 0 (parité avec le devis). L'artisan peut malgré tout
-  // remettre 10% / 20% manuellement (cas dépassement seuil), auquel cas on respecte son choix.
+  // V6 — Auto-détection franchise TVA via helper unique isAutoEntrepreneur.
+  // Si l'entreprise est en franchise, on force globalTvaRate=0 (parité avec le devis).
+  // L'artisan peut malgré tout remettre 10/20% (cas dépassement seuil), auquel cas
+  // tvaUserOverride passe à true et on respecte son choix sans le ré-écraser.
   useEffect(() => {
     if (tvaUserOverride) return
-    if (!entreprise) return
-    const fj = ((entreprise as { forme_juridique?: string })?.forme_juridique || '').toLowerCase()
-    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle') || fj.includes('auto')
-    const franchise = (entreprise as { franchise_tva?: boolean })?.franchise_tva === true
-    if (estMicro || franchise) {
+    if (isAutoEntrepreneur(entreprise)) {
       setGlobalTvaRate(0)
     }
   }, [entreprise, tvaUserOverride])

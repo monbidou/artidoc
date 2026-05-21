@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, LoadingSkeleton } from '@/lib/hooks'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 
 interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'subsection' | 'text' }
 interface DevisRecord { id: string; numero: string; statut: string; date_emission?: string; date_validite?: string; date_debut_travaux?: string; duree_estimee?: string; description?: string; objet?: string; conditions_paiement?: string; notes_internes?: string; notes_client?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number }
@@ -31,16 +32,22 @@ export default function ModifierDevisPage() {
 
   const [lines, setLines] = useState<LineItem[]>([])
   const [globalTvaRate, setGlobalTvaRate] = useState(10)
-  const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
+  // V6 — Garde-fou : si l'utilisateur a explicitement choisi un taux manuel
+  // (par exemple en chargeant les lignes existantes du devis), on ne ré-impose
+  // pas le taux 0 automatiquement, même si l'entreprise est en franchise.
+  const [tvaUserOverride, setTvaUserOverride] = useState(false)
 
+  // Auto-détection franchise TVA (source unique : helper isAutoEntrepreneur).
+  // Pré-remplit globalTvaRate=0 ET autoEntrepreneur=true si l'entreprise est en
+  // franchise. L'artisan peut malgré tout repasser à 10/20% (override manuel).
   useEffect(() => {
-    const fj = (entreprise?.forme_juridique || '').toLowerCase()
-    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle')
-    if (entreprise?.franchise_tva === true || estMicro) {
+    if (tvaUserOverride) return
+    if (isAutoEntrepreneur(entreprise)) {
       setAutoEntrepreneur(true)
+      setGlobalTvaRate(0)
     }
-  }, [entreprise?.franchise_tva, entreprise?.forme_juridique])
+  }, [entreprise, tvaUserOverride])
 
   const [dateDevis, setDateDevis] = useState('')
   const [dateValidite, setDateValidite] = useState('')
@@ -77,6 +84,7 @@ export default function ModifierDevisPage() {
     if (raw.length > 0 && raw[0].taux_tva != null) {
       const tva = raw[0].taux_tva
       setGlobalTvaRate(tva)
+      setTvaUserOverride(true) // on respecte la TVA déjà choisie sur ce devis
       if (tva === 0) setAutoEntrepreneur(true)
     }
   }, [lignesRaw, lines.length])
@@ -270,22 +278,21 @@ export default function ModifierDevisPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-sm font-manrope font-medium">Taux TVA :</label>
-            <select value={globalTvaRate} onChange={e => setGlobalTvaRate(Number(e.target.value))} disabled={autoEntrepreneur} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope bg-white cursor-pointer disabled:opacity-50">
+            <select value={globalTvaRate} onChange={e => { const v = Number(e.target.value); setTvaUserOverride(true); setGlobalTvaRate(v); setAutoEntrepreneur(v === 0) }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope bg-white cursor-pointer">
               <option value={0}>Sans TVA</option><option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
             </select>
           </div>
-          <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
-            <input type="checkbox" checked={showTvaOnDevis} onChange={e => setShowTvaOnDevis(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0]" />
-            Afficher TVA sur le devis
-          </label>
+          {autoEntrepreneur && (
+            <span className="text-xs font-manrope text-[#6b7280] italic">TVA non applicable, art. 293 B du CGI</span>
+          )}
         </div>
 
         {/* Totals */}
         <div className="flex justify-end">
           <div className="bg-white rounded-xl border border-gray-200 p-6 w-80">
             <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">Total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span></div>
-            {showTvaOnDevis && effectiveTva > 0 && <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {effectiveTva}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span></div>}
-            <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{showTvaOnDevis && effectiveTva > 0 ? 'Total TTC' : 'Total'}</span><span className="font-semibold">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span></div>
+            {!autoEntrepreneur && effectiveTva > 0 && <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {effectiveTva}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span></div>}
+            <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{autoEntrepreneur || effectiveTva === 0 ? 'Total' : 'Total TTC'}</span><span className="font-semibold">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span></div>
             {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
           </div>
         </div>

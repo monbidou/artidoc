@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { useClients, useEntreprise, useChantiers, useSupabaseRecord, updateRow, LoadingSkeleton } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 import LineCard from '@/components/mobile/LineCard'
 import LineSheet, { type SheetLine } from '@/components/mobile/LineSheet'
 
@@ -271,14 +272,10 @@ export default function ModifierFacturePage() {
     })
   }, [id, lines.length])
 
-  // ── Auto-détection franchise TVA (uniquement si pas de TVA déjà chargée) ──
+  // ── Auto-détection franchise TVA via helper (uniquement si pas de TVA déjà chargée) ──
   useEffect(() => {
     if (tvaUserOverride) return
-    if (!entreprise) return
-    const fj = ((entreprise as { forme_juridique?: string })?.forme_juridique || '').toLowerCase()
-    const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle') || fj.includes('auto')
-    const franchise = (entreprise as { franchise_tva?: boolean })?.franchise_tva === true
-    if (estMicro || franchise) {
+    if (isAutoEntrepreneur(entreprise)) {
       setGlobalTvaRate(0)
     }
   }, [entreprise, tvaUserOverride])

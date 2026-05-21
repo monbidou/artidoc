@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 
 // ───────────────────────────────────────────────────────────────
 // Types
@@ -67,6 +68,8 @@ interface Entreprise {
   rcs_rm?: string
   qualification_pro?: string
   mediateur?: string
+  /** Auto-entrepreneur / micro-entreprise / EI → franchise TVA art. 293 B CGI */
+  franchise_tva?: boolean
   logo_url?: string
   signature_base64?: string
   tampon_base64?: string
@@ -350,15 +353,26 @@ export default function SignerDevisPage() {
   const totalTVA = devis.montant_tva || 0
   const totalTTC = devis.montant_ttc || 0
 
-  // Group lignes by TVA rate for the summary
+  // Parité stricte avec lib/pdf.ts + dashboard : détection sans TVA via helper unique
+  // OU si toutes les lignes prestations ont taux_tva === 0.
+  // Dans ces cas, on ne construit AUCUN groupe TVA (pas de fallback 10/20% silencieux)
+  // et on affiche la mention art. 293 B du CGI à la place des lignes TVA.
+  const prestNonOpt = lignes.filter(l => l.type === 'prestation' && !l.optionnel)
+  const allLinesZeroTva = prestNonOpt.length > 0 && prestNonOpt.every(l => (l.taux_tva ?? 0) === 0)
+  const isSansTva = isAutoEntrepreneur(entreprise) || allLinesZeroTva || totalTVA === 0
+
+  // Group lignes by TVA rate for the summary (uniquement si TVA applicable)
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
-  lignes.filter(l => l.type === 'prestation' && !l.optionnel).forEach(l => {
-    const rate = l.taux_tva || 10
-    if (!tvaGroups[rate]) tvaGroups[rate] = { ht: 0, tva: 0 }
-    const ht = l.quantite * l.prix_unitaire_ht
-    tvaGroups[rate].ht += ht
-    tvaGroups[rate].tva += ht * (rate / 100)
-  })
+  if (!isSansTva) {
+    prestNonOpt.forEach(l => {
+      const rate = l.taux_tva || 10
+      if (rate <= 0) return
+      if (!tvaGroups[rate]) tvaGroups[rate] = { ht: 0, tva: 0 }
+      const ht = l.quantite * l.prix_unitaire_ht
+      tvaGroups[rate].ht += ht
+      tvaGroups[rate].tva += ht * (rate / 100)
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -552,35 +566,46 @@ export default function SignerDevisPage() {
               {/* COLONNE DROITE — Totaux + NET À PAYER */}
               <div className="space-y-1 text-sm font-manrope">
                 <div className="flex justify-between py-1.5 border-b border-gray-100">
-                  <span className="text-gray-700">Total HT</span>
+                  <span className="text-gray-700">{isSansTva ? 'Total' : 'Total HT'}</span>
                   <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalHT)}</span>
                 </div>
-                {Object.entries(tvaGroups).map(([rate, vals]) => (
+                {!isSansTva && Object.entries(tvaGroups).map(([rate, vals]) => (
                   <div key={rate} className="flex justify-between py-1.5 border-b border-gray-100">
                     <span className="text-gray-700">TVA {rate}%</span>
                     <span className="text-[#1a1a2e]">{formatCurrency(vals.tva)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between py-1.5 border-b border-gray-100">
-                  <span className="text-gray-700">Total TTC</span>
-                  <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalTTC)}</span>
-                </div>
-                <div className="bg-[#2563eb] text-white rounded-md px-3 py-2.5 flex justify-between items-center mt-2">
-                  <span className="font-syne font-bold text-sm uppercase tracking-wider">Net à payer</span>
-                  <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
-                </div>
-                {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (
-                  <div className="mt-2 px-3 py-2 space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#2563eb] font-semibold">Acompte ({devis.acompte_pourcent}%) :</span>
-                      <span className="text-[#2563eb] font-bold">{formatCurrency(totalTTC * devis.acompte_pourcent / 100)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Reste à facturer :</span>
-                      <span className="text-gray-700 font-medium">{formatCurrency(totalTTC - totalTTC * devis.acompte_pourcent / 100)}</span>
-                    </div>
+                {!isSansTva && (
+                  <div className="flex justify-between py-1.5 border-b border-gray-100">
+                    <span className="text-gray-700">Total TTC</span>
+                    <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalTTC)}</span>
                   </div>
                 )}
+                {isSansTva && (
+                  <p className="text-[11px] font-manrope italic text-gray-500 py-1.5">
+                    TVA non applicable, art. 293 B du CGI
+                  </p>
+                )}
+                <div className="bg-[#2563eb] text-white rounded-md px-3 py-2.5 flex justify-between items-center mt-2">
+                  <span className="font-syne font-bold text-sm uppercase tracking-wider">Net à payer</span>
+                  <span className="font-syne font-bold text-lg">{formatCurrency(isSansTva ? totalHT : totalTTC)}</span>
+                </div>
+                {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (() => {
+                  const baseAcompte = isSansTva ? totalHT : totalTTC
+                  const acompte = baseAcompte * devis.acompte_pourcent / 100
+                  return (
+                    <div className="mt-2 px-3 py-2 space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#2563eb] font-semibold">Acompte ({devis.acompte_pourcent}%) :</span>
+                        <span className="text-[#2563eb] font-bold">{formatCurrency(acompte)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Reste à facturer :</span>
+                        <span className="text-gray-700 font-medium">{formatCurrency(baseAcompte - acompte)}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 

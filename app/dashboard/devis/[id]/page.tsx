@@ -27,6 +27,7 @@ import {
   softDeleteRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
+import { isAutoEntrepreneur } from '@/lib/helpers'
 
 // -------------------------------------------------------------------
 // Types
@@ -350,11 +351,11 @@ export default function DevisDetailPage() {
   // Computations
   // Bug fix (V8.1) — Detection "devis sans TVA" :
   //   1) toutes les lignes prestation ont taux_tva === 0 (saisi explicitement a Sans TVA)
-  //   2) entreprise.franchise_tva (auto-entrepreneur / art. 293 B CGI)
+  //   2) helper isAutoEntrepreneur (franchise_tva OU forme juridique micro/EI/auto)
   // Dans ces cas, on NE construit AUCUN groupe TVA — pas de fallback 20% silencieux.
   const lignesPrestations = lignes.filter(l => l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
   const allLinesZeroTva = lignesPrestations.length > 0 && lignesPrestations.every(l => l.taux_tva === 0)
-  const isSansTva = allLinesZeroTva || Boolean(entreprise?.franchise_tva)
+  const isSansTva = allLinesZeroTva || isAutoEntrepreneur(entreprise)
 
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
   let totalHT = 0
@@ -670,8 +671,8 @@ export default function DevisDetailPage() {
                         {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                       </p>
                     )}
-                    {/* Franchise TVA — auto-entrepreneur / micro-entreprise */}
-                    {Boolean(entreprise?.franchise_tva) && (
+                    {/* Franchise TVA — auto-entrepreneur / micro-entreprise (helper isAutoEntrepreneur) */}
+                    {isAutoEntrepreneur(entreprise) && (
                       <p className="font-semibold">TVA non applicable — art. 293 B du CGI.</p>
                     )}
                     {/* Forme juridique EI → mention obligatoire depuis mai 2022 */}

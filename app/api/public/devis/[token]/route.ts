@@ -69,7 +69,7 @@ export async function GET(
     // ✅ SÉCURITÉ : Exclure signature_base64 et tampon_base64 (données sensibles)
     const { data: entreprise } = await supabase
       .from('entreprises')
-      .select('nom, adresse, code_postal, ville, telephone, email, siret, tva_intracommunautaire, assurance_nom, assurance_zone, forme_juridique, capital_social, rcs_rm, logo_url')
+      .select('nom, adresse, code_postal, ville, telephone, email, siret, tva_intracommunautaire, assurance_nom, assurance_zone, forme_juridique, capital_social, rcs_rm, franchise_tva, logo_url')
       .eq('user_id', devis.user_id)
       .single()
 
