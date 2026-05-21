@@ -563,7 +563,7 @@ export default function SignerDevisPage() {
                 )}
               </div>
 
-              {/* COLONNE DROITE — Totaux + NET À PAYER */}
+              {/* COLONNE DROITE — Totaux + NET À PAYER (parité stricte devis/facture) */}
               <div className="space-y-1 text-sm font-manrope">
                 <div className="flex justify-between py-1.5 border-b border-gray-100">
                   <span className="text-gray-700">{isSansTva ? 'Total' : 'Total HT'}</span>
@@ -577,8 +577,8 @@ export default function SignerDevisPage() {
                 ))}
                 {!isSansTva && (
                   <div className="flex justify-between py-1.5 border-b border-gray-100">
-                    <span className="text-gray-700">Total TTC</span>
-                    <span className="text-[#1a1a2e] font-semibold">{formatCurrency(totalTTC)}</span>
+                    <span className="text-[#0f1a3a] font-bold">Total TTC</span>
+                    <span className="text-[#0f1a3a] font-bold">{formatCurrency(totalTTC)}</span>
                   </div>
                 )}
                 {isSansTva && (
@@ -586,23 +586,31 @@ export default function SignerDevisPage() {
                     TVA non applicable, art. 293 B du CGI
                   </p>
                 )}
-                <div className="bg-[#2563eb] text-white rounded-md px-3 py-2.5 flex justify-between items-center mt-2">
-                  <span className="font-syne font-bold text-sm uppercase tracking-wider">Net à payer</span>
-                  <span className="font-syne font-bold text-lg">{formatCurrency(isSansTva ? totalHT : totalTTC)}</span>
-                </div>
+                {/* Acompte (en vert, comme devis/facture HTML) */}
                 {devis.acompte_pourcent && devis.acompte_pourcent > 0 && (() => {
                   const baseAcompte = isSansTva ? totalHT : totalTTC
                   const acompte = baseAcompte * devis.acompte_pourcent / 100
                   return (
-                    <div className="mt-2 px-3 py-2 space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#2563eb] font-semibold">Acompte ({devis.acompte_pourcent}%) :</span>
-                        <span className="text-[#2563eb] font-bold">{formatCurrency(acompte)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-600">Reste à facturer :</span>
-                        <span className="text-gray-700 font-medium">{formatCurrency(baseAcompte - acompte)}</span>
-                      </div>
+                    <div className="flex justify-between py-1.5 border-b border-gray-100">
+                      <span className="text-[#15803d] font-bold">Acompte à verser ({devis.acompte_pourcent}%)</span>
+                      <span className="text-[#15803d] font-bold">- {formatCurrency(acompte)}</span>
+                    </div>
+                  )
+                })()}
+                {/* NET À PAYER (parité devis : netBlue #1a6fb5 + font-syne text-base).
+                    Si acompte présent, on affiche le solde restant après acompte
+                    (label "NET À PAYER À RÉCEPTION"). */}
+                {(() => {
+                  const base = isSansTva ? totalHT : totalTTC
+                  const acomptePct = devis.acompte_pourcent || 0
+                  const hasAcompteSigner = acomptePct > 0
+                  const acompteMontant = base * (acomptePct / 100)
+                  const netAPayerSigner = hasAcompteSigner ? Math.max(base - acompteMontant, 0) : base
+                  const netLabelSigner = hasAcompteSigner ? 'NET À PAYER À RÉCEPTION' : 'NET À PAYER'
+                  return (
+                    <div className="bg-[#1a6fb5] text-white rounded-md px-3 py-2.5 flex justify-between items-center mt-2 shadow-md">
+                      <span className="font-syne font-bold text-sm uppercase tracking-wider">{netLabelSigner}</span>
+                      <span className="font-syne font-bold text-base">{formatCurrency(netAPayerSigner)}</span>
                     </div>
                   )
                 })()}

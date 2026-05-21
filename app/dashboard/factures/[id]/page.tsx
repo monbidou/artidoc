@@ -65,6 +65,7 @@ interface ClientRecord {
   id: string
   nom: string
   prenom?: string
+  civilite?: string
   adresse?: string
   code_postal?: string
   ville?: string
@@ -223,7 +224,10 @@ export default function FactureDetailPage() {
   }
 
   const lignes = lignesRaw as unknown as LigneRecord[]
-  const resolvedClientName = client ? [client.prenom, client.nom].filter(Boolean).join(' ') : facture.client_nom || devisSource?.notes_client?.split(' | ')[0] || 'Non renseigné'
+  // Ordre logique : Civilite + Prenom + Nom (ex: "M. Eric Dupont")
+  const resolvedClientName = client
+    ? [client.civilite, client.prenom, client.nom].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+    : facture.client_nom || devisSource?.notes_client?.split(' | ')[0] || 'Non renseigné'
   const totalHT = facture.montant_ht ?? lignes.reduce((s, l) => s + (l.total_ht ?? 0), 0)
   const totalTVA = facture.montant_tva ?? 0
   const totalTTC = facture.montant_ttc ?? totalHT + totalTVA
@@ -621,10 +625,12 @@ export default function FactureDetailPage() {
                   )}
                 </div>
 
-                {/* NET À PAYER — parité PDF : taille modérée, sobre */}
+                {/* NET À PAYER — parité PDF : taille modérée, sobre.
+                    Si acompte versé, label "NET À PAYER À RÉCEPTION" pour clarifier
+                    qu'il s'agit du solde restant. Font-syne pour parité devis. */}
                 <div className="bg-[#1a6fb5] text-white rounded-lg px-3 py-2.5 mt-2 flex justify-between items-center shadow-md">
-                  <span className="font-manrope font-bold text-sm">NET À PAYER</span>
-                  <span className="font-manrope font-bold text-base">{fmt(netAPayerAffiche)}</span>
+                  <span className="font-syne font-bold text-sm">{hasAcompte ? 'NET À PAYER À RÉCEPTION' : 'NET À PAYER'}</span>
+                  <span className="font-syne font-bold text-base">{fmt(netAPayerAffiche)}</span>
                 </div>
 
                 {/* Ventilation TVA multi-taux (parité PDF : drawTvaBreakdown) */}

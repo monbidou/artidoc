@@ -399,19 +399,12 @@ function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
     setText(doc, C.muted)
 
     // Ligne 1 : entreprise + adresse + SIRET + email
-    // Bug fix (V8) : l'email Nexartis officiel est contact.nexartis@gmail.com.
-    // Si la fiche entreprise contient l'ancienne valeur contact@nexartis.fr
-    // (jamais creee, source de mails NDR), on force la valeur correcte cote PDF
-    // en attendant une migration DB. Toute autre adresse est conservee telle quelle.
-    const rawEmail = (ent.email || '').trim()
-    const displayEmail = rawEmail.toLowerCase() === 'contact@nexartis.fr'
-      ? 'contact.nexartis@gmail.com'
-      : rawEmail
+    // L'email vient toujours de la fiche entreprise (workaround V8 retiré le 21/05/2026)
     const id = [
       ent.nom,
       ent.adresse ? `${ent.adresse}${ent.code_postal || ent.ville ? `, ${ent.code_postal || ''} ${ent.ville || ''}`.replace(/  +/g, ' ').trim() : ''}` : '',
       ent.siret ? `SIRET : ${ent.siret}` : '',
-      displayEmail ? `Email : ${displayEmail}` : '',
+      ent.email ? `Email : ${ent.email}` : '',
     ].filter(Boolean).join(' — ')
     if (id) doc.text(id, pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
     y += 3.2
@@ -1124,6 +1117,11 @@ export function generateDevisPdf(data: DevisData): string {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
+    // Parite HTML : si acompte present, NET A PAYER = TTC - acompte
+    // et label devient "NET A PAYER A RECEPTION" pour eviter la confusion
+    // (le total TTC reste affiche dans le recap juste au-dessus).
+    netLabel: hasAcompte ? 'NET À PAYER À RÉCEPTION' : 'NET À PAYER',
+    netAmount: hasAcompte ? resteTTC : undefined,
     acomptePct: hasAcompte ? data.acompte_pourcent : undefined,
     acompteMontant: acompteTTC,
     resteMontant: resteTTC,
@@ -1397,7 +1395,9 @@ export function generateFacturePdf(data: FactureData): string {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
-    netLabel: 'NET À PAYER',
+    // Parite HTML : si acompte verse, label "NET A PAYER A RECEPTION"
+    // pour clarifier qu'il s'agit du solde restant apres acompte.
+    netLabel: hasAcompte ? 'NET À PAYER À RÉCEPTION' : 'NET À PAYER',
     netAmount: hasAcompte ? netAPayerTTC : undefined,
     acomptePct: hasAcompte
       ? (data.acompte_pourcent ?? Math.round((acompteTTC / Math.max(data.montant_ttc, 1)) * 100))

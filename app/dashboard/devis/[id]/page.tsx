@@ -69,6 +69,7 @@ interface ClientRecord {
   id: string
   nom: string
   prenom?: string
+  civilite?: string
   adresse?: string
   code_postal?: string
   ville?: string
@@ -552,7 +553,12 @@ export default function DevisDetailPage() {
                     ))
                   })() : (
                     <>
-                      <div style={{fontWeight:700, color:'#111', fontSize:12}}>{client?.prenom ? `${client.prenom} ${client.nom}` : (client?.nom ?? 'Non renseigné')}</div>
+                      {/* Ordre logique : Civilite + Prenom + Nom (ex: "M. Eric Dupont") */}
+                      <div style={{fontWeight:700, color:'#111', fontSize:12}}>{
+                        client
+                          ? [client.civilite, client.prenom, client.nom].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || 'Non renseigné'
+                          : 'Non renseigné'
+                      }</div>
                       {client?.adresse && <div style={{color:'#6b7280', fontSize:11}}>{client.adresse}</div>}
                       {(client?.code_postal || client?.ville) && (
                         <div style={{color:'#6b7280', fontSize:11}}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
@@ -615,11 +621,12 @@ export default function DevisDetailPage() {
                     return lignes.map((l, i) => {
                       const numAffiche = l.numero || ''
                       if (l.type === 'section') {
+                        // Parité facture/PDF : numero + total HT de section en netBlue (#1a6fb5)
                         return (
                           <tr key={l.id ?? i} className="bg-[#a8d4ec]">
-                            <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f3d63]">{numAffiche}</td>
+                            <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#1a6fb5]">{numAffiche}</td>
                             <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f1a3a]" colSpan={4}>{l.designation}</td>
-                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#0f3d63]">{formatCurrency(subtotalAt(i))}</td>
+                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(i))}</td>
                           </tr>
                         )
                       }
@@ -748,15 +755,26 @@ export default function DevisDetailPage() {
                   {Boolean(devis.acompte_pourcent && devis.acompte_pourcent > 0) && (
                     <div className="px-3 py-2.5 flex justify-between text-sm font-manrope border-t border-gray-300">
                       <span className="text-[#15803d] font-bold">Acompte à verser ({devis.acompte_pourcent}%)</span>
-                      <span className="text-[#15803d] font-bold">{formatCurrency(totalTTC * ((devis.acompte_pourcent || 0) / 100))}</span>
+                      <span className="text-[#15803d] font-bold">- {formatCurrency(totalTTC * ((devis.acompte_pourcent || 0) / 100))}</span>
                     </div>
                   )}
                 </div>
-                {/* NET À PAYER — toujours la dernière ligne, la plus importante */}
-                <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center shadow-md">
-                  <span className="font-syne font-bold text-sm">NET À PAYER</span>
-                  <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
-                </div>
+                {/* NET À PAYER — toujours la dernière ligne, la plus importante.
+                    Si un acompte est demandé, on affiche le solde restant après acompte
+                    (label "NET À PAYER À RÉCEPTION" pour éviter la confusion). */}
+                {(() => {
+                  const acomptePct = devis.acompte_pourcent || 0
+                  const hasAcompteDevis = acomptePct > 0
+                  const acompteMontant = totalTTC * (acomptePct / 100)
+                  const netAPayerDevis = hasAcompteDevis ? Math.max(totalTTC - acompteMontant, 0) : totalTTC
+                  const netLabelDevis = hasAcompteDevis ? 'NET À PAYER À RÉCEPTION' : 'NET À PAYER'
+                  return (
+                    <div className="print-net-payer bg-[#1a6fb5] text-white rounded-lg p-3 mt-2 flex justify-between items-center shadow-md">
+                      <span className="font-syne font-bold text-sm">{netLabelDevis}</span>
+                      <span className="font-syne font-bold text-lg">{formatCurrency(netAPayerDevis)}</span>
+                    </div>
+                  )
+                })()}
                 {/* ═══ SIGNATURES — sous NET À PAYER, 2 cadres identiques ═══ */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {/* Signature artisan */}

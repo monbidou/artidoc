@@ -84,11 +84,12 @@ export async function GET(
     if (devis.client_id) {
       const { data: client } = await supabase
         .from('clients')
-        .select('nom, prenom, adresse, code_postal, ville, telephone, email, siret')
+        .select('civilite, nom, prenom, adresse, code_postal, ville, telephone, email, siret')
         .eq('id', devis.client_id)
         .single()
       if (client) {
-        clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
+        // Ordre logique : Civilite + Prenom + Nom (ex: "M. Eric Dupont")
+        clientNom = `${(client as { civilite?: string }).civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
         clientAdresse = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim()].filter(Boolean).join(', ')
         clientTelephone = client.telephone || ''
         clientEmail = client.email || ''

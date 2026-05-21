@@ -70,11 +70,12 @@ export async function POST(req: NextRequest) {
       // PRIORITÉ 2 : fallback table clients (parité HTML)
       const { data: client } = await supabase
         .from('clients')
-        .select('nom, prenom, adresse, code_postal, ville, telephone, email, type, siret')
+        .select('civilite, nom, prenom, adresse, code_postal, ville, telephone, email, type, siret')
         .eq('id', facture.client_id)
         .single()
       if (client) {
-        clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
+        // Ordre logique : Civilite + Prenom + Nom (ex: "M. Eric Dupont")
+        clientNom = `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
         const adressParts = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim()].filter(Boolean)
         if (client.telephone) adressParts.push(client.telephone)
         if (client.email) adressParts.push(client.email)

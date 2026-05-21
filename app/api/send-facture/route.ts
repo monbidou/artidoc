@@ -51,11 +51,12 @@ export async function POST(req: NextRequest) {
     if (facture.client_id) {
       const { data: client } = await supabase
         .from('clients')
-        .select('nom, prenom, adresse, code_postal, ville, type, telephone, email, siret')
+        .select('civilite, nom, prenom, adresse, code_postal, ville, type, telephone, email, siret')
         .eq('id', facture.client_id)
         .single()
       if (client) {
-        clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
+        // Ordre logique : Civilite + Prenom + Nom (ex: "M. Eric Dupont")
+        clientNom = `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
         clientAdresse = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim(), client.telephone, client.email].filter(Boolean).join(' | ')
         clientType = client.type || 'particulier'
         clientSiret = (client.siret as string | undefined) || undefined
