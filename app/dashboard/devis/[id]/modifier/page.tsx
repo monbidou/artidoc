@@ -634,23 +634,19 @@ export default function ModifierDevisPage() {
             {lines.map((line, idx) => {
               if (line.type === 'section') {
                 return (
-                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#a8d4ec] border-l-4 border-[#1a6fb5] border-b border-gray-100">
-                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-bold text-[#0f1a3a] uppercase border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#1a6fb5]/60" placeholder="Nom de la section (ex : Démolition, Maçonnerie...)" />
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
-                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-                    </div>
+                  <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 bg-[#a8d4ec] border-l-4 border-[#1a6fb5] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-bold text-[#0f1a3a] uppercase border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#1a6fb5]/60 [grid-column:span_4]" placeholder="Nom de la section (ex : Démolition, Maçonnerie...)" />
+                    <span className="text-sm font-bold text-[#1a6fb5] text-right pr-1 whitespace-nowrap">{formatCurrency(subtotalAt(idx))}</span>
+                    <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500 justify-self-end"><Trash2 size={14} /></button>
                   </div>
                 )
               }
               if (line.type === 'subsection') {
                 return (
-                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#dceefa] border-l-4 border-[#5ab4e0] border-b border-gray-100">
-                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-semibold text-[#0f1a3a] border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#5ab4e0]/70" placeholder="Nom de la sous-section (ex : Cuisine, Plomberie...)" />
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
-                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-                    </div>
+                  <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 bg-[#dceefa] border-l-4 border-[#5ab4e0] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-semibold text-[#0f1a3a] border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#5ab4e0]/70 [grid-column:span_4]" placeholder="Nom de la sous-section (ex : Cuisine, Plomberie...)" />
+                    <span className="text-sm font-semibold text-[#1a6fb5] text-right pr-1 whitespace-nowrap">{formatCurrency(subtotalAt(idx))}</span>
+                    <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500 justify-self-end"><Trash2 size={14} /></button>
                   </div>
                 )
               }
@@ -838,17 +834,6 @@ export default function ModifierDevisPage() {
           <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes personnalisées<span className="ml-2 text-[10px] text-gray-400 font-normal">(visibles par le client)</span></label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Écrire ici…" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
         </div>
-
-        {Boolean(entreprise?.signature_base64) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-2">Signature de l&apos;artisan</label>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center bg-gray-50">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={String(entreprise?.signature_base64 || '')} alt="Signature de l'artisan" className="max-h-24 object-contain" />
-            </div>
-            <p className="text-[11px] font-manrope text-gray-400 mt-2">Apparaîtra automatiquement sur le PDF et la page de signature client. Modifiable dans <Link href="/dashboard/parametres" className="text-[#5ab4e0] underline">Paramètres</Link>.</p>
-          </div>
-        )}
 
         <div className="flex justify-end">
           <div className="bg-white rounded-xl border border-gray-200 p-6 w-full sm:w-80">

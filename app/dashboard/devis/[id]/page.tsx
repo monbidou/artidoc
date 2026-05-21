@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
-  ChevronDown,
   Pencil,
   SendHorizonal,
   Download,
@@ -222,7 +221,6 @@ export default function DevisDetailPage() {
 
   const searchParams = useSearchParams()
   const { entreprise } = useEntreprise()
-  const [actionsOpen, setActionsOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [convertTriggered, setConvertTriggered] = useState(false)
@@ -426,31 +424,30 @@ export default function DevisDetailPage() {
           }} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
             <Download size={14} /> <span className="hidden xs:inline">Télécharger</span> PDF
           </button>
-          <button onClick={() => setActionsOpen(!actionsOpen)} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-syne font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
-            Actions <ChevronDown size={14} />
+          <button onClick={() => setSendModalOpen(true)} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
+            <SendHorizonal size={14} /> <span className="hidden xs:inline">Envoyer par</span> email
           </button>
-          {actionsOpen && (
-            <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20 max-w-[calc(100vw-1rem)]">
-              {[
-                { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
-                { label: 'Convertir en facture', icon: FileText, action: () => handleConvertToFacture(false), danger: false },
-                { label: 'Envoyer par email', icon: SendHorizonal, action: () => setSendModalOpen(true), danger: false },
-                ...(devis.signature_token && devis.statut === 'envoye' ? [{
-                  label: 'Copier lien de signature', icon: Link2, action: () => {
-                    navigator.clipboard.writeText(`https://nexartis.fr/signer/${devis.signature_token}`)
-                    setToastMsg('Lien de signature copié !')
-                    setTimeout(() => setToastMsg(null), 3000)
-                  }, danger: false
-                }] : []),
-                { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
-              ].map((action) => (
-                <button key={action.label} onClick={() => { action.action(); setActionsOpen(false) }} className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-manrope hover:bg-gray-50 transition-colors ${action.danger ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
-                  <action.icon size={14} className="text-[#6b7280]" />
-                  {action.label}
-                </button>
-              ))}
-            </div>
+          <button onClick={() => router.push(`/dashboard/devis/${id}/modifier`)} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
+            <Pencil size={14} /> Modifier
+          </button>
+          <button onClick={() => handleConvertToFacture(false)} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]">
+            <FileText size={14} /> <span className="hidden xs:inline">Convertir en</span> facture
+          </button>
+          {devis.signature_token && devis.statut === 'envoye' && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`https://nexartis.fr/signer/${devis.signature_token}`)
+                setToastMsg('Lien de signature copié !')
+                setTimeout(() => setToastMsg(null), 3000)
+              }}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-[#1a1a2e]"
+            >
+              <Link2 size={14} /> <span className="hidden xs:inline">Copier lien</span> signature
+            </button>
           )}
+          <button onClick={handleDeleteDevis} className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors text-red-600">
+            <Trash2 size={14} /> <span className="hidden xs:inline">Supprimer</span>
+          </button>
         </div>
       </div>
 
