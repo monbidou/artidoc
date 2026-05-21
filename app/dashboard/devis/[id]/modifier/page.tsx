@@ -1,25 +1,115 @@
 'use client'
+// Modifier devis — refonte parité Nouveau (patch 3)
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { Trash2, Plus, ArrowLeft } from 'lucide-react'
-import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, LoadingSkeleton } from '@/lib/hooks'
+import { ArrowLeft, Plus, Trash2, X, Send } from 'lucide-react'
+import { useClients, useEntreprise, useChantiers, usePointsCollecte, useSupabaseRecord, useDevisLignes, updateRow, LoadingSkeleton } from '@/lib/hooks'
+import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
 import { isAutoEntrepreneur } from '@/lib/helpers'
+import LineCard from '@/components/mobile/LineCard'
+import LineSheet, { type SheetLine } from '@/components/mobile/LineSheet'
+import EnvoyerDevisModal from '@/components/dashboard/EnvoyerDevisModal'
 
-interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'subsection' | 'text' }
-interface DevisRecord { id: string; numero: string; statut: string; date_emission?: string; date_validite?: string; date_debut_travaux?: string; duree_estimee?: string; description?: string; objet?: string; conditions_paiement?: string; notes_internes?: string; notes_client?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number }
-interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number; type?: string; niveau?: number }
+interface LineItem {
+  id: number
+  designation: string
+  qty: number
+  unit: string
+  priceHT: number
+  type: 'line' | 'section' | 'subsection' | 'text'
+}
+
+interface ClientRecord { id: string; nom: string; prenom?: string; civilite?: string; adresse?: string; telephone?: string; email?: string; code_postal?: string; ville?: string }
+interface ChantierRecord { id: string; nom?: string; titre?: string; objet?: string; description?: string }
+
+interface DevisRecord {
+  id: string
+  numero: string
+  statut: string
+  date_emission?: string
+  date_validite?: string
+  date_debut_travaux?: string
+  duree_estimee?: string
+  objet?: string
+  description?: string
+  chantier_id?: string | null
+  client_id?: string | null
+  client_nom?: string
+  conditions_paiement?: string
+  notes_personnalisees?: string
+  notes_internes?: string
+  notes_client?: string
+  acompte_pourcent?: number
+  montant_ht?: number
+  montant_tva?: number
+  montant_ttc?: number
+  dechets_nature?: string
+  dechets_quantite?: string
+  dechets_responsable?: string
+  dechets_tri?: string
+  dechets_collecte_nom?: string
+  dechets_collecte_adresse?: string
+  dechets_collecte_type?: string
+  dechets_cout?: number
+  dechets_inclure_cout?: boolean
+}
+
+interface LigneRecord {
+  id: string
+  designation: string
+  quantite: number
+  unite: string
+  prix_unitaire_ht: number
+  taux_tva?: number
+  ordre: number
+  type?: string
+  niveau?: number
+}
 
 const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
+const TVA_RATES = [0, 5.5, 10, 20]
+
+const PRESTATIONS_INTEGREES = [
+  'Installation tableau électrique', 'Remplacement tableau électrique', 'Mise aux normes électriques',
+  'Installation prises de courant', 'Installation interrupteurs', 'Câblage / tirage de câbles',
+  'Installation éclairage intérieur', 'Installation éclairage extérieur', 'Pose spots encastrés',
+  'Installation VMC (ventilation)', 'Installation chauffe-eau électrique', 'Installation radiateurs électriques',
+  'Domotique / automatisation', 'Borne de recharge véhicule électrique', 'Mise à la terre',
+  'Diagnostic électrique', 'Installation alarme / sécurité', 'Sonette / interphone / visiophone',
+  'Installation sanitaires (WC, lavabo, douche)', 'Remplacement robinetterie', 'Débouchage canalisations',
+  'Réparation fuite d\'eau', 'Installation chauffe-eau', 'Remplacement chaudière',
+  'Construction mur / cloison', 'Démolition mur / cloison', 'Ouverture de mur porteur',
+  'Coulage dalle béton', 'Ragréage sol', 'Enduit / crépi extérieur', 'Isolation thermique',
+  'Pose fenêtres double vitrage', 'Pose porte d\'entrée', 'Pose porte intérieure',
+  'Installation volets roulants', 'Pose parquet', 'Construction terrasse bois', 'Pose pergola',
+  'Peinture intérieure', 'Peinture extérieure', 'Pose papier peint', 'Pose carrelage / faïence',
+  'Ravalement de façade', 'Travaux de plomberie générale', 'Travaux de charpente',
+  'Fourniture et pose de matériel', 'Main d\'œuvre', 'Déplacement et frais de chantier',
+  'Nettoyage fin de chantier', 'Dépose / évacuation gravats', 'Visite et diagnostic',
+  'Salle de bain', 'Cuisine', 'Rénovation complète', 'Mise en conformité',
+]
+
+const PAYMENT_OPTIONS = [
+  { id: 'p30', label: '30% à la commande, solde à la réception' },
+  { id: 'p50', label: '50% à la commande, solde à la réception' },
+  { id: 'comptant', label: 'Paiement comptant à la réception' },
+  { id: 'j30', label: 'Paiement à 30 jours' },
+  { id: 'reception', label: 'Paiement à réception de facture' },
+  { id: 'virement', label: 'Virement bancaire uniquement' },
+  { id: 'cheque', label: 'Chèque accepté' },
+  { id: 'penalites', label: 'Pénalités de retard : 3 fois le taux légal' },
+]
+
 let nextId = 1000
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-const inputCls = 'w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] transition-colors placeholder:text-gray-400'
+const inputCls = 'w-full h-11 rounded-xl border-2 border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/20 transition-all bg-white placeholder:text-gray-400'
 
 export default function ModifierDevisPage() {
   const params = useParams()
@@ -28,38 +118,91 @@ export default function ModifierDevisPage() {
 
   const { data: devis, loading: loadingDevis } = useSupabaseRecord<DevisRecord>('devis', id)
   const { data: lignesRaw, loading: loadingLignes } = useDevisLignes(id)
+  const { data: clientsRaw } = useClients()
+  const { data: chantiersRaw } = useChantiers()
+  const { data: pointsCollecteRaw } = usePointsCollecte()
   const { entreprise } = useEntreprise()
-
-  const [lines, setLines] = useState<LineItem[]>([])
-  const [globalTvaRate, setGlobalTvaRate] = useState(10)
-  const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
-  // V6 — Garde-fou : si l'utilisateur a explicitement choisi un taux manuel
-  // (par exemple en chargeant les lignes existantes du devis), on ne ré-impose
-  // pas le taux 0 automatiquement, même si l'entreprise est en franchise.
-  const [tvaUserOverride, setTvaUserOverride] = useState(false)
-
-  // Auto-détection franchise TVA (source unique : helper isAutoEntrepreneur).
-  // Pré-remplit globalTvaRate=0 ET autoEntrepreneur=true si l'entreprise est en
-  // franchise. L'artisan peut malgré tout repasser à 10/20% (override manuel).
-  useEffect(() => {
-    if (tvaUserOverride) return
-    if (isAutoEntrepreneur(entreprise)) {
-      setAutoEntrepreneur(true)
-      setGlobalTvaRate(0)
-    }
-  }, [entreprise, tvaUserOverride])
+  const clients = clientsRaw as unknown as ClientRecord[]
+  const chantiers = (chantiersRaw as unknown as ChantierRecord[]) || []
+  const pointsCollecte = pointsCollecteRaw as unknown as { id: string; nom: string; adresse?: string; type_installation?: string }[]
 
   const [dateDevis, setDateDevis] = useState('')
   const [dateValidite, setDateValidite] = useState('')
   const [dateTravaux, setDateTravaux] = useState('')
   const [duree, setDuree] = useState('')
-  const [description, setDescription] = useState('')
-  const [conditions, setConditions] = useState('')
+
+  const [clientCivilite, setClientCivilite] = useState('')
+  const [clientNom, setClientNom] = useState('')
+  const [clientPrenom, setClientPrenom] = useState('')
+  const [clientAdresse, setClientAdresse] = useState('')
+  const [clientCodePostal, setClientCodePostal] = useState('')
+  const [clientVille, setClientVille] = useState('')
+  const [clientTelephone, setClientTelephone] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
+  const [clientSuggestions, setClientSuggestions] = useState<ClientRecord[]>([])
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
+
+  const [chantierDesc, setChantierDesc] = useState('')
+  const [chantierId, setChantierId] = useState<string | null>(null)
+  const [chantierSuggestions, setChantierSuggestions] = useState<string[]>([])
+  const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
+
+  const [lines, setLines] = useState<LineItem[]>([])
+  const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
+  const [globalTvaRate, setGlobalTvaRate] = useState(10)
+  const [tvaUserOverride, setTvaUserOverride] = useState(false)
+
+  const [useForfait, setUseForfait] = useState(false)
+  const [forfaitHT, setForfaitHT] = useState(0)
+
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set())
+  const [conditionsLibres, setConditionsLibres] = useState('')
+
+  const [acompteActive, setAcompteActive] = useState(false)
+  const [acomptePercent, setAcomptePercent] = useState<string>('')
+  const [acompteLabel, setAcompteLabel] = useState('')
+
   const [notes, setNotes] = useState('')
+
+  const [dechetsNature, setDechetsNature] = useState('Déchets non dangereux (câbles, emballages)')
+  const [dechetsQuantite, setDechetsQuantite] = useState('')
+  const [dechetsResponsable, setDechetsResponsable] = useState('L\'entreprise')
+  const [dechetsTri, setDechetsTri] = useState('Tri sur le chantier')
+  const [dechetsCollecteNom, setDechetsCollecteNom] = useState('')
+  const [dechetsCollecteAdresse, setDechetsCollecteAdresse] = useState('')
+  const [dechetsCollecteType, setDechetsCollecteType] = useState('Déchetterie')
+  const [dechetsCout, setDechetsCout] = useState('')
+  const [dechetsInclureCout, setDechetsInclureCout] = useState(false)
+  const [dechetteriesProches, setDechetteriesProches] = useState<{nom:string;adresse:string;code_postal:string;commune:string;distance_km:number;accepte_pro:string;accepte_construction:boolean;accepte_deee:boolean}[]>([])
+  const [loadingDechetteries, setLoadingDechetteries] = useState(false)
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [envoyerOpen, setEnvoyerOpen] = useState(false)
+
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetLine, setSheetLine] = useState<LineItem | null>(null)
+  const [sheetDefaultType, setSheetDefaultType] = useState<'line' | 'section' | 'subsection' | 'text'>('line')
+
+  const openCreateSheet = (type: 'line' | 'section' | 'subsection' | 'text' = 'line') => {
+    setSheetLine(null); setSheetDefaultType(type); setSheetOpen(true)
+  }
+  const openEditSheet = (line: LineItem) => {
+    setSheetLine(line); setSheetDefaultType(line.type); setSheetOpen(true)
+  }
+  const handleSheetSave = (payload: SheetLine) => {
+    if (sheetLine) {
+      setLines(prev => prev.map(l => l.id === sheetLine.id ? { ...l, designation: payload.designation, qty: payload.qty, unit: payload.unit || l.unit, priceHT: payload.priceHT, type: payload.type } : l))
+    } else {
+      setLines(prev => [...prev, { id: nextId++, designation: payload.designation, qty: payload.qty, unit: payload.unit || 'U', priceHT: payload.priceHT, type: payload.type }])
+    }
+  }
+  const handleSheetSaveAndNew = (payload: SheetLine) => {
+    handleSheetSave(payload); setSheetLine(null); setSheetDefaultType('line'); setSheetOpen(false)
+    setTimeout(() => setSheetOpen(true), 50)
+  }
 
   useEffect(() => {
     if (!devis || loaded) return
@@ -67,38 +210,147 @@ export default function ModifierDevisPage() {
     setDateValidite(devis.date_validite || '')
     setDateTravaux(devis.date_debut_travaux || '')
     setDuree(devis.duree_estimee || '')
-    setDescription(devis.objet || devis.description || '')
-    setConditions(devis.conditions_paiement || '')
-    setNotes(devis.notes_internes || '')
+    setChantierDesc(devis.objet || devis.description || '')
+    setChantierId(devis.chantier_id || null)
+    setConditionsLibres(devis.conditions_paiement || '')
+    setNotes(devis.notes_personnalisees || devis.notes_internes || '')
+    if (devis.acompte_pourcent && devis.acompte_pourcent > 0) {
+      setAcompteActive(true); setAcomptePercent(String(devis.acompte_pourcent))
+    }
+    if (devis.dechets_nature) setDechetsNature(devis.dechets_nature)
+    if (devis.dechets_quantite) setDechetsQuantite(devis.dechets_quantite)
+    if (devis.dechets_responsable) setDechetsResponsable(devis.dechets_responsable)
+    if (devis.dechets_tri) setDechetsTri(devis.dechets_tri)
+    if (devis.dechets_collecte_nom) setDechetsCollecteNom(devis.dechets_collecte_nom)
+    if (devis.dechets_collecte_adresse) setDechetsCollecteAdresse(devis.dechets_collecte_adresse)
+    if (devis.dechets_collecte_type) setDechetsCollecteType(devis.dechets_collecte_type)
+    if (devis.dechets_cout != null) setDechetsCout(String(devis.dechets_cout))
+    if (devis.dechets_inclure_cout) setDechetsInclureCout(devis.dechets_inclure_cout)
     setLoaded(true)
   }, [devis, loaded])
+
+  useEffect(() => {
+    if (!devis || !loaded) return
+    if (clientNom) return
+    const supabase = createClient()
+    if (devis.client_id) {
+      supabase.from('clients').select('*').eq('id', devis.client_id).maybeSingle().then(({ data }) => {
+        if (data) {
+          const c = data as unknown as ClientRecord & { civilite?: string }
+          setClientCivilite(c.civilite || '')
+          setClientNom(c.nom || ''); setClientPrenom(c.prenom || '')
+          setClientAdresse(c.adresse || ''); setClientCodePostal(c.code_postal || '')
+          setClientVille(c.ville || ''); setClientTelephone(c.telephone || '')
+          setClientEmail(c.email || '')
+        } else if (devis.notes_client) {
+          const parts = devis.notes_client.split(/\s*\|\s*/).map(s => s.trim())
+          if (parts[0]) setClientNom(parts[0])
+          if (parts[1]) setClientAdresse(parts[1])
+        }
+      })
+    } else if (devis.notes_client) {
+      const parts = devis.notes_client.split(/\s*\|\s*/).map(s => s.trim())
+      if (parts[0]) setClientNom(parts[0])
+      if (parts[1]) setClientAdresse(parts[1])
+    }
+  }, [devis, loaded, clientNom])
 
   useEffect(() => {
     if (!lignesRaw || lignesRaw.length === 0 || lines.length > 0) return
     const raw = lignesRaw as unknown as LigneRecord[]
     setLines(raw.map((l, i) => {
       const reactType: LineItem['type'] = l.type === 'section' ? 'section' : l.type === 'sous_section' ? 'subsection' : l.type === 'commentaire' ? 'text' : 'line'
-      return { id: nextId + i, designation: l.designation || '', qty: l.quantite || 1, unit: l.unite || 'U', priceHT: l.prix_unitaire_ht || 0, type: reactType }
+      return { id: nextId + i, designation: l.designation || '', qty: l.quantite || (reactType === 'line' ? 1 : 0), unit: l.unite || 'U', priceHT: l.prix_unitaire_ht || 0, type: reactType }
     }))
     nextId += raw.length
-    if (raw.length > 0 && raw[0].taux_tva != null) {
-      const tva = raw[0].taux_tva
-      setGlobalTvaRate(tva)
-      setTvaUserOverride(true) // on respecte la TVA déjà choisie sur ce devis
+    const firstLine = raw.find(l => !l.type || l.type === 'prestation')
+    if (firstLine && firstLine.taux_tva != null) {
+      const tva = firstLine.taux_tva
+      setGlobalTvaRate(tva); setTvaUserOverride(true)
       if (tva === 0) setAutoEntrepreneur(true)
     }
   }, [lignesRaw, lines.length])
 
+  useEffect(() => {
+    if (tvaUserOverride) return
+    if (isAutoEntrepreneur(entreprise)) {
+      setAutoEntrepreneur(true); setGlobalTvaRate(0)
+    }
+  }, [entreprise, tvaUserOverride])
+
+  useEffect(() => {
+    if (!entreprise) return
+    const cp = (entreprise as Record<string, unknown>).code_postal as string
+    if (!cp) return
+    setLoadingDechetteries(true)
+    fetch(`/api/dechetteries?cp=${encodeURIComponent(cp)}`)
+      .then(r => r.json())
+      .then(data => { if (data.dechetteries) setDechetteriesProches(data.dechetteries) })
+      .catch(() => { /* ignore */ })
+      .finally(() => setLoadingDechetteries(false))
+  }, [entreprise])
+
+  useEffect(() => {
+    if (autoEntrepreneur) setGlobalTvaRate(0)
+  }, [autoEntrepreneur])
+
+  const handleClientNomChange = (value: string) => {
+    setClientNom(value)
+    if (value.length >= 1 && clients && clients.length > 0) {
+      const q = value.toLowerCase().trim()
+      const filtered = clients.filter(c => {
+        const nom = String(c.nom || '').toLowerCase()
+        const prenom = String(c.prenom || '').toLowerCase()
+        const civilite = String((c as unknown as Record<string, string>).civilite || '').toLowerCase()
+        return nom.includes(q) || prenom.includes(q) || (prenom + ' ' + nom).includes(q) || civilite.includes(q)
+      })
+      setClientSuggestions(filtered.slice(0, 8)); setClientDropdownOpen(filtered.length > 0)
+    } else { setClientSuggestions([]); setClientDropdownOpen(false) }
+  }
+  const selectClientSuggestion = (c: ClientRecord) => {
+    setClientCivilite((c as unknown as Record<string, string>).civilite || '')
+    setClientNom(c.nom); setClientPrenom(c.prenom || '')
+    setClientAdresse(c.adresse || ''); setClientCodePostal(c.code_postal || '')
+    setClientVille(c.ville || ''); setClientTelephone(c.telephone || '')
+    setClientEmail(c.email || ''); setClientSuggestions([]); setClientDropdownOpen(false)
+  }
+
+  const handleChantierDescChange = (value: string) => {
+    setChantierDesc(value)
+    if (value.length >= 1) {
+      const q = value.toLowerCase()
+      const fromDB = chantiers
+        .map(c => (c.titre as string) || (c.nom as string) || (c.objet as string) || '')
+        .filter(t => t.length > 0 && t.toLowerCase().includes(q))
+      const fromDBset = new Set(fromDB.map(n => n.toLowerCase()))
+      const fromBuiltin = PRESTATIONS_INTEGREES.filter(p => p.toLowerCase().includes(q) && !fromDBset.has(p.toLowerCase()))
+      const merged = [...fromDB, ...fromBuiltin].slice(0, 10)
+      setChantierSuggestions(merged); setChantierDropdownOpen(merged.length > 0)
+    } else { setChantierSuggestions([]); setChantierDropdownOpen(false) }
+  }
+  const selectChantierSuggestion = (nom: string) => {
+    setChantierDesc(nom)
+    const match = chantiers.find(c => {
+      const label = (c.titre as string) || (c.nom as string) || (c.objet as string) || ''
+      return label.toLowerCase() === nom.toLowerCase()
+    })
+    setChantierId(match ? match.id : null)
+    setChantierSuggestions([]); setChantierDropdownOpen(false)
+  }
+
   function updateLine(lid: number, field: keyof LineItem, value: string | number) {
-    setLines(prev => prev.map(l => (l.id === lid ? { ...l, [field]: value } : l)))
+    setLines(prev => prev.map(l => l.id === lid ? { ...l, [field]: value } : l))
   }
   function removeLine(lid: number) { setLines(prev => prev.filter(l => l.id !== lid)) }
-  function computeSubtotal(idx: number): number {
+  function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
+    setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
+  }
+  function subtotalAt(idx: number): number {
     const current = lines[idx]
     if (!current || (current.type !== 'section' && current.type !== 'subsection')) return 0
     let subtotal = 0
-    for (let i = idx + 1; i < lines.length; i++) {
-      const l = lines[i]
+    for (let j = idx + 1; j < lines.length; j++) {
+      const l = lines[j]
       if (current.type === 'section' && l.type === 'section') break
       if (current.type === 'subsection' && (l.type === 'section' || l.type === 'subsection')) break
       if (l.type === 'line') subtotal += l.qty * l.priceHT
@@ -106,80 +358,143 @@ export default function ModifierDevisPage() {
     return subtotal
   }
 
-  function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
-    setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
+  const togglePayment = (pid: string) => {
+    setSelectedPayments(prev => {
+      const next = new Set(prev)
+      if (next.has(pid)) next.delete(pid); else next.add(pid)
+      return next
+    })
   }
 
   const effectiveTva = autoEntrepreneur ? 0 : globalTvaRate
   let totalHT = 0
-  lines.forEach(l => { if (l.type === 'line') totalHT += l.qty * l.priceHT })
+  if (useForfait) { totalHT = forfaitHT } else {
+    lines.forEach(l => { if (l.type === 'line') totalHT += l.qty * l.priceHT })
+  }
   const totalTVA = effectiveTva > 0 ? totalHT * (effectiveTva / 100) : 0
-  const totalTTC = totalHT + totalTVA
+  const dechetsCoutNum = dechetsCout ? parseFloat(dechetsCout) : 0
+  const totalTTC = totalHT + totalTVA + (dechetsInclureCout ? dechetsCoutNum : 0)
+  const acomptePct = acompteActive && acomptePercent ? parseFloat(acomptePercent) : 0
+  const acompteMontant = acomptePct > 0 ? (autoEntrepreneur ? totalHT : totalTTC) * (acomptePct / 100) : 0
+  const resteAPayer = (autoEntrepreneur ? totalHT : totalTTC) - acompteMontant
 
-  // Numerotation live pour affichage dans l'editeur
-  const liveNumbers = useMemo(() => {
-    type MappedLine = { type: 'section' | 'sous_section' | 'prestation' | 'commentaire'; lineId: number }
-    const mapped: MappedLine[] = lines.map(l => ({
-      type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as MappedLine['type'],
-      lineId: l.id,
-    }))
-    const numbered = computeHierarchicalNumbers(mapped)
-    const result: Record<number, string> = {}
-    numbered.forEach(n => { result[n.lineId] = n.numero })
-    return result
-  }, [lines])
+  const buildConditionsStr = (): string => {
+    const fromChips = Array.from(selectedPayments).map(pid => {
+      const opt = PAYMENT_OPTIONS.find(p => p.id === pid)
+      return opt ? opt.label : ''
+    }).filter(Boolean)
+    const out = [...fromChips]
+    if (conditionsLibres && conditionsLibres.trim()) out.push(conditionsLibres.trim())
+    return out.join('\n')
+  }
 
   const handleSave = useCallback(async (action: 'brouillon' | 'enregistrer' | 'envoyer') => {
     if (!devis) return
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null)
     const wasSharedWithClient = devis.statut === 'envoye' || devis.statut === 'signe'
     let nouveauStatut: string
-    if (action === 'brouillon') {
-      nouveauStatut = 'brouillon'
-    } else if (action === 'enregistrer') {
-      nouveauStatut = wasSharedWithClient ? 'brouillon' : 'finalise'
-    } else {
-      nouveauStatut = 'finalise'
-    }
+    if (action === 'brouillon') nouveauStatut = 'brouillon'
+    else if (action === 'enregistrer') nouveauStatut = wasSharedWithClient ? 'brouillon' : 'finalise'
+    else nouveauStatut = 'finalise'
+
     try {
-      await updateRow('devis', devis.id, {
+      const clientDisplay = `${clientCivilite ? clientCivilite + ' ' : ''}${clientPrenom ? clientPrenom + ' ' : ''}${clientNom || ''}`.trim()
+      const conditionsStr = buildConditionsStr()
+      const devisData: Record<string, unknown> = {
         statut: nouveauStatut,
         date_emission: dateDevis || null,
         date_validite: dateValidite || null,
         date_debut_travaux: dateTravaux || null,
         duree_estimee: duree || null,
-        objet: description || null,
-        description: description || null,
-        conditions_paiement: conditions || null,
-        notes_internes: notes || null,
+        objet: chantierDesc || null,
+        description: chantierDesc || null,
+        chantier_id: chantierId,
+        conditions_paiement: conditionsStr || null,
+        notes_personnalisees: notes || null,
+        notes_internes: null,
+        notes_client: clientDisplay
+          ? `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`
+          : null,
+        acompte_pourcent: acomptePct > 0 ? acomptePct : null,
         montant_ht: totalHT,
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
-      })
-      const supabase = (await import('@/lib/supabase/client')).createClient()
+        dechets_nature: dechetsNature || null,
+        dechets_quantite: dechetsQuantite || null,
+        dechets_responsable: dechetsResponsable || null,
+        dechets_tri: dechetsTri || null,
+        dechets_collecte_nom: dechetsCollecteNom || null,
+        dechets_collecte_adresse: dechetsCollecteAdresse || null,
+        dechets_collecte_type: dechetsCollecteType || null,
+        dechets_cout: dechetsCout ? parseFloat(dechetsCout) : null,
+        dechets_inclure_cout: dechetsInclureCout,
+      }
 
-      // P5 (audit) : remplacement ATOMIQUE des lignes via RPC Postgres.
-      // Avant : DELETE puis boucle d'INSERT → une coupure réseau au milieu
-      // perdait TOUTES les lignes du devis. Désormais l'opération est dans
-      // une transaction Postgres : tout réussit ou tout est rollback.
-      // Migration SQL associée : sql/rpc-replace-lignes-transactional.sql
+      if (clientNom.trim()) {
+        try {
+          const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: existingClient } = await supabase
+              .from('clients').select('id').eq('user_id', user.id).ilike('nom', clientNom.trim()).maybeSingle()
+            const clientData: Record<string, unknown> = {
+              nom: clientNom.trim(),
+              prenom: clientPrenom.trim() || null,
+              adresse: clientAdresse || null,
+              code_postal: clientCodePostal || null,
+              ville: clientVille || null,
+              telephone: clientTelephone || null,
+              email: clientEmail || null,
+              user_id: user.id,
+            }
+            if (clientCivilite) clientData.civilite = clientCivilite
+            if (existingClient) {
+              devisData.client_id = existingClient.id
+              await supabase.from('clients').update(clientData).eq('id', existingClient.id)
+            } else {
+              const { data: newClient } = await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true }).select('id').single()
+              if (newClient) devisData.client_id = newClient.id
+            }
+          }
+        } catch (err) { console.error('Erreur sauvegarde client:', err) }
+      }
+
+      if (dechetsCollecteNom.trim()) {
+        try {
+          const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: existingPoint } = await supabase.from('points_collecte').select('id').eq('user_id', user.id).ilike('nom', dechetsCollecteNom.trim()).maybeSingle()
+            if (!existingPoint) {
+              await supabase.from('points_collecte').insert({
+                nom: dechetsCollecteNom.trim(),
+                adresse: dechetsCollecteAdresse || null,
+                type_installation: dechetsCollecteType || null,
+                user_id: user.id,
+              })
+            }
+          }
+        } catch (err) { console.error('Erreur sauvegarde point de collecte:', err) }
+      }
+
+      await updateRow('devis', devis.id, devisData)
+
+      const supabase = createClient()
       const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
       const lignesPourNumero = lignesFiltrees.map(l => ({
         type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
         _orig: l,
       }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
-
       const lignesPayload = lignesAvecNumero.map((item, i) => {
         const l = item._orig as typeof lines[0]
         const dbType = item.type
         const dbNiveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
         return {
           designation: l.designation,
-          quantite: l.qty,
-          unite: l.unit,
-          prix_unitaire_ht: l.priceHT,
+          quantite: l.type === 'line' ? l.qty : 0,
+          unite: l.type === 'line' ? l.unit : '',
+          prix_unitaire_ht: l.type === 'line' ? l.priceHT : 0,
           taux_tva: effectiveTva,
           ordre: i + 1,
           type: dbType,
@@ -193,126 +508,386 @@ export default function ModifierDevisPage() {
         p_lignes: lignesPayload,
       })
       if (rpcError) throw rpcError
+
       if (action === 'brouillon') {
         setToastMsg('Modifications sauvegardées')
         setTimeout(() => setToastMsg(null), 3000)
         setSaving(false)
+      } else if (action === 'envoyer') {
+        setSaving(false); setEnvoyerOpen(true)
       } else {
         router.push(`/dashboard/devis/${devis.id}`)
       }
     } catch (err) {
-      setError((err as Error).message)
-      setSaving(false)
+      setError((err as Error).message); setSaving(false)
     }
-  }, [devis, dateDevis, dateValidite, dateTravaux, duree, description, conditions, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devis, clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, chantierId, selectedPayments, conditionsLibres, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router, acomptePct, acompteActive, acompteLabel, dechetsNature, dechetsQuantite, dechetsResponsable, dechetsTri, dechetsCollecteNom, dechetsCollecteAdresse, dechetsCollecteType, dechetsCout, dechetsInclureCout, useForfait, forfaitHT])
 
   if (loadingDevis || loadingLignes) return <div className="p-6"><LoadingSkeleton rows={8} /></div>
   if (!devis) return <div className="p-6"><p className="text-sm text-gray-500">Devis introuvable.</p></div>
 
   return (
     <div className="min-h-screen">
-      {/* Top bar */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-10 py-3 px-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href={`/dashboard/devis/${id}`} className="p-1.5 rounded-md hover:bg-gray-100"><ArrowLeft size={18} className="text-[#6b7280]" /></Link>
-          <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Modifier {devis.numero}</h2>
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-10 py-3 px-4 sm:px-6 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href={`/dashboard/devis/${id}`} className="p-1.5 rounded-md hover:bg-gray-100 shrink-0">
+            <ArrowLeft size={18} className="text-[#6b7280]" />
+          </Link>
+          <h2 className="hidden sm:block font-syne font-bold text-lg text-[#1a1a2e] truncate">Modifier devis N° {devis.numero}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-9 px-3 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">Brouillon</button>
-          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-9 px-3 rounded-lg bg-emerald-600 text-white text-sm font-syne font-bold hover:bg-emerald-700 disabled:opacity-50">Enregistrer</button>
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-9 px-3 rounded-lg bg-[#e87a2a] text-white text-sm font-syne font-bold hover:bg-[#f09050] disabled:opacity-50">Envoyer</button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-9 px-3 sm:px-4 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all disabled:opacity-50">Brouillon</button>
+          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-9 px-3 sm:px-5 rounded-xl bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 transition-all disabled:opacity-50">{saving ? '...' : 'Enregistrer'}</button>
+          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-9 px-3 sm:px-4 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] transition-all disabled:opacity-50 flex items-center gap-1.5"><Send size={14} /><span className="hidden sm:inline">Envoyer</span></button>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3"><p className="text-sm text-red-600 font-manrope">{error}</p></div>}
 
-        {/* Dates */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date</label><input type="date" value={dateDevis} onChange={e => setDateDevis(e.target.value)} className={inputCls} /></div>
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Validité</label><input type="date" value={dateValidite} onChange={e => setDateValidite(e.target.value)} className={inputCls} /></div>
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Durée</label><input type="text" value={duree} onChange={e => setDuree(e.target.value)} placeholder="Ex. : 3 jours" className={inputCls} /></div>
-        </div>
-
-        {/* Description */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Description / Chantier</label>
-          <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
-        </div>
-
-        {/* Auto-entrepreneur */}
-        <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
-          <input type="checkbox" checked={autoEntrepreneur} onChange={e => { setAutoEntrepreneur(e.target.checked); if (e.target.checked) setGlobalTvaRate(0) }} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0]" />
-          Auto-entrepreneur (sans TVA)
-        </label>
-
-        {/* Lines table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-[#5ab4e0] text-white grid grid-cols-[55px_1fr_70px_90px_100px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
-            <span className="text-center">N°</span><span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
-          </div>
-          {lines.map(line => (
-            <div key={line.id} className={`grid grid-cols-[55px_1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
-              <span className={`text-xs text-center mt-2 block ${line.type === 'section' ? 'font-bold text-[#0f3d63]' : line.type === 'subsection' ? 'font-semibold text-[#1a6fb5]' : 'text-gray-400'}`}>{liveNumbers[line.id] || ''}</span>
-              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section...' : line.type === 'subsection' ? 'Nom de la sous-section...' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
-              {(line.type === 'section' || line.type === 'subsection') ? (<><span /><span /><span /><span className="text-sm font-bold text-right mt-1.5 text-[#1a6fb5]">{formatCurrency(computeSubtotal(lines.indexOf(line)))}</span></>) : line.type === 'line' ? (<>
-                <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
-                <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
-                  {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-                <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border-0 outline-none bg-transparent mt-1.5" min={0} step={0.01} />
-                <span className="text-sm font-semibold text-right mt-1.5">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '--'}</span>
-              </>) : <><span /><span /><span /><span /></>}
-              <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500 mt-1.5"><Trash2 size={14} /></button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;émission</label><input type="date" value={dateDevis} onChange={e => setDateDevis(e.target.value)} className={inputCls} /></div>
+            <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Valable jusqu&apos;au</label><input type="date" value={dateValidite} onChange={e => setDateValidite(e.target.value)} className={inputCls} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date des travaux</label><input type="date" value={dateTravaux} onChange={e => setDateTravaux(e.target.value)} className={inputCls} /></div>
+              <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Durée estimée</label><input type="text" value={duree} onChange={e => setDuree(e.target.value)} placeholder="Ex. : 3 jours" className={inputCls} /></div>
             </div>
-          ))}
-          <div className="flex flex-wrap gap-2 p-4">
+            <div className="relative">
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Chantier / Prestation{chantierId && <span className="ml-2 text-[10px] font-syne font-bold text-[#1a6fb5] bg-[#e8f4fb] px-2 py-0.5 rounded uppercase tracking-wider">Lié au chantier</span>}</label>
+              <input type="text" value={chantierDesc} onChange={e => handleChantierDescChange(e.target.value)} onBlur={() => setTimeout(() => setChantierDropdownOpen(false), 150)} placeholder="Description de la prestation / chantier..." className={inputCls} autoComplete="off" />
+              {chantierDropdownOpen && chantierSuggestions.length > 0 && (
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border-2 border-[#5ab4e0] shadow-2xl z-50 w-full max-h-60 overflow-y-auto">
+                  {chantierSuggestions.map((nom, i) => (
+                    <button key={i} type="button" onMouseDown={e => { e.preventDefault(); selectChantierSuggestion(nom) }} className="w-full text-left px-4 py-3 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors text-[#1a1a2e] font-medium">{nom}</button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] font-manrope text-gray-400 mt-1">Tapez pour rechercher un chantier existant, ou saisissez librement.</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <label className="block text-sm font-manrope font-semibold text-[#1a1a2e] mb-3">Client</label>
+            <div className="space-y-3">
+              <div className="relative">
+                <div className="flex gap-2">
+                  <select value={clientCivilite} onChange={e => setClientCivilite(e.target.value)} className="w-24 h-11 shrink-0 rounded-xl border-2 border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
+                    <option value="">—</option><option value="M.">M.</option><option value="Mme">Mme</option><option value="Société">Société</option>
+                  </select>
+                  <input type="text" value={clientNom} onChange={e => handleClientNomChange(e.target.value)} onBlur={() => setTimeout(() => { setClientDropdownOpen(false); setClientSuggestions([]) }, 200)} placeholder="Nom (tapez pour rechercher)" className={inputCls} autoComplete="off" />
+                </div>
+                {clientDropdownOpen && clientSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border-2 border-[#5ab4e0] shadow-2xl z-50 w-full max-h-60 overflow-y-auto">
+                    {clientSuggestions.map(c => (
+                      <button key={c.id} type="button" onMouseDown={e => { e.preventDefault(); selectClientSuggestion(c) }} className="w-full text-left px-4 py-3 font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors">
+                        <span className="font-semibold text-[#1a1a2e] text-sm">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</span>
+                        {c.adresse && <span className="text-[#6b7280] text-xs block mt-0.5">{c.adresse}{c.code_postal || c.ville ? ` · ${c.code_postal ?? ''} ${c.ville ?? ''}`.trim() : ''}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
+              <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
+                <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="tel" value={clientTelephone} onChange={e => setClientTelephone(e.target.value)} placeholder="Téléphone" className={inputCls} />
+                <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="Email" className={inputCls} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="sm:hidden p-3 space-y-2">
+            {lines.length === 0 && (
+              <div className="rounded-xl border-2 border-dashed border-[#5ab4e0]/40 bg-[#f8fbfd] px-4 py-6 text-center">
+                <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                <p className="text-[12px] font-manrope text-gray-400 mt-1">Touchez <strong>+ Ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+              </div>
+            )}
+            {lines.map((line, idx) => (
+              <LineCard key={line.id} line={line} subtotal={subtotalAt(idx)} onTap={() => openEditSheet(line)} onDelete={() => removeLine(line.id)} formatCurrency={formatCurrency} />
+            ))}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button type="button" onClick={() => openCreateSheet('line')} className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-[#e8f4fb] border border-[#5ab4e0]/60 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#1a6fb5] active:scale-95 transition-all"><Plus size={16} /> Ligne</button>
+              <button type="button" onClick={() => openCreateSheet('section')} className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-white border border-gray-200 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#0f1a3a] active:scale-95 transition-all"><Plus size={16} /> Section</button>
+              <button type="button" onClick={() => openCreateSheet('subsection')} className="flex-1 min-w-[44%] flex items-center justify-center gap-1.5 bg-white border border-gray-200 rounded-full px-4 py-2.5 text-sm font-syne font-semibold text-[#0f1a3a] active:scale-95 transition-all"><Plus size={16} /> Sous-section</button>
+            </div>
+          </div>
+
+          <div className="hidden sm:block overflow-x-auto">
+            <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+              <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
+            </div>
+            {lines.length === 0 && (
+              <div className="px-4 py-8 text-center border-b border-gray-100">
+                <p className="text-sm font-manrope text-[#5f6c80]">Aucune ligne pour l&apos;instant.</p>
+                <p className="text-[12px] font-manrope text-gray-400 mt-1">Cliquez sur <strong>+ Ajouter une ligne</strong> ou <strong>+ Section</strong> ci-dessous pour commencer.</p>
+              </div>
+            )}
+            {lines.map((line, idx) => {
+              if (line.type === 'section') {
+                return (
+                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#a8d4ec] border-l-4 border-[#1a6fb5] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-bold text-[#0f1a3a] uppercase border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#1a6fb5]/60" placeholder="Nom de la section (ex : Démolition, Maçonnerie...)" />
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-sm font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                )
+              }
+              if (line.type === 'subsection') {
+                return (
+                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-[#dceefa] border-l-4 border-[#5ab4e0] border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-semibold text-[#0f1a3a] border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white/60 focus:border-[#5ab4e0] px-2 h-9 placeholder-[#5ab4e0]/70" placeholder="Nom de la sous-section (ex : Cuisine, Plomberie...)" />
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-sm font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(idx))}</span>
+                      <button onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                )
+              }
+              if (line.type === 'text') {
+                return (
+                  <div key={line.id} className="grid grid-cols-[1fr_36px] min-w-[500px] items-center px-4 py-2 bg-gray-50 border-b border-gray-100">
+                    <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm italic text-gray-600 border border-gray-200 rounded-md outline-none bg-white focus:border-[#5ab4e0] px-2 h-9" placeholder="Texte libre (note, remarque...)" />
+                    <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                  </div>
+                )
+              }
+              return (
+                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 border-b border-gray-100">
+                  <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)} className="text-sm font-manrope border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] px-2 h-9 mr-2" placeholder="Désignation..." />
+                  <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mx-1" min={0} />
+                  <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 mx-1 w-full">
+                    {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                  <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="text-sm text-right border border-[#5ab4e0]/25 hover:border-[#5ab4e0]/50 rounded-md outline-none bg-white focus:border-[#5ab4e0] h-9 px-2 mx-1" min={0} step={0.01} />
+                  <span className="text-sm font-semibold text-right">{line.priceHT > 0 ? formatCurrency(line.qty * line.priceHT) : '—'}</span>
+                  <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="hidden sm:flex flex-wrap gap-2 p-4 border-t border-gray-100">
             <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
             <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#dceefa] border border-[#5ab4e0]/30 rounded-lg hover:bg-[#cde4f5]"><Plus size={14} /> Section</button>
             <button onClick={() => addLine('subsection')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#e8f4fb] border border-[#5ab4e0]/20 rounded-lg hover:bg-[#dceefa]"><Plus size={14} /> Sous-section</button>
+            <button onClick={() => addLine('text')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Texte libre</button>
           </div>
         </div>
 
-        {/* TVA global */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-manrope font-medium">Taux TVA :</label>
-            <select value={globalTvaRate} onChange={e => { const v = Number(e.target.value); setTvaUserOverride(true); setGlobalTvaRate(v); setAutoEntrepreneur(v === 0) }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope bg-white cursor-pointer">
-              <option value={0}>Sans TVA</option><option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
+            <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Taux de TVA applicable :</label>
+            <select value={globalTvaRate} onChange={e => { const v = Number(e.target.value); setTvaUserOverride(true); setGlobalTvaRate(v); setAutoEntrepreneur(v === 0) }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white cursor-pointer">
+              {TVA_RATES.map(r => <option key={r} value={r}>{r === 0 ? 'Sans TVA' : `${r}%`}</option>)}
             </select>
           </div>
-          {autoEntrepreneur && (
-            <span className="text-xs font-manrope text-[#6b7280] italic">TVA non applicable, art. 293 B du CGI</span>
+          {autoEntrepreneur && <span className="text-xs font-manrope text-[#6b7280] italic">TVA non applicable, art. 293 B du CGI</span>}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
+            <input type="checkbox" checked={useForfait} onChange={e => setUseForfait(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
+            Appliquer un prix forfaitaire global
+          </label>
+          {useForfait && (
+            <div className="flex items-center gap-2">
+              <input type="number" value={forfaitHT} onChange={e => setForfaitHT(Number(e.target.value))} className="w-32 h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-right" min={0} step={0.01} />
+              <span className="text-sm font-manrope text-[#6b7280]">€ HT</span>
+              <span className="text-[11px] font-manrope text-gray-400">(remplace le calcul ligne par ligne)</span>
+            </div>
           )}
         </div>
 
-        {/* Totals */}
-        <div className="flex justify-end">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 w-80">
-            <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">Total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span></div>
-            {!autoEntrepreneur && effectiveTva > 0 && <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {effectiveTva}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span></div>}
-            <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{autoEntrepreneur || effectiveTva === 0 ? 'Total' : 'Total TTC'}</span><span className="font-semibold">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span></div>
-            {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={acompteActive} onChange={e => setAcompteActive(e.target.checked)} className="mt-1 w-5 h-5 rounded border-2 border-[#5ab4e0] text-[#1a6fb5] focus:ring-2 focus:ring-[#5ab4e0]/30 cursor-pointer accent-[#1a6fb5]" />
+            <div>
+              <span className="block text-sm font-manrope font-semibold text-[#1a1a2e]">Demander un acompte</span>
+              <span className="block text-[11px] font-manrope text-gray-400 mt-0.5">Cochez si vous souhaitez demander un acompte à la signature du devis. Il sera affiché dans le récapitulatif.</span>
+            </div>
+          </label>
+          {acompteActive && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="block text-[11px] font-manrope font-medium text-gray-500 uppercase tracking-wider mb-1">Pourcentage (%)</label>
+                <input type="number" value={acomptePercent} min={0} max={100} step={1} onChange={e => setAcomptePercent(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-manrope font-medium text-gray-500 uppercase tracking-wider mb-1">Libellé (optionnel)</label>
+                <input type="text" value={acompteLabel} onChange={e => setAcompteLabel(e.target.value)} placeholder="Ex. : à la commande" className={inputCls} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <label className="block text-sm font-manrope font-medium text-[#1a1a2e]">Conditions de paiement</label>
+          <div className="flex flex-wrap gap-2">
+            {PAYMENT_OPTIONS.map(opt => (
+              <button key={opt.id} type="button" onClick={() => togglePayment(opt.id)} className={`px-3 py-1.5 rounded-full text-sm font-manrope border transition-colors ${selectedPayments.has(opt.id) ? 'bg-[#5ab4e0]/10 border-[#5ab4e0] text-[#5ab4e0] font-medium' : 'border-gray-200 text-[#6b7280] hover:border-gray-400'}`}>
+                {selectedPayments.has(opt.id) ? '✓ ' : '☐ '}{opt.label}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Conditions libres<span className="ml-2 text-[10px] font-manrope text-gray-400 font-normal">(éditable, contient les conditions existantes du devis)</span></label>
+            <textarea value={conditionsLibres} onChange={e => setConditionsLibres(e.target.value)} rows={3} placeholder="Ex : Acompte 30% à la commande, solde à réception..." className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
           </div>
         </div>
 
-        {/* Conditions */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <div><label className="block text-sm font-manrope font-medium mb-1">Conditions de paiement</label><textarea value={conditions} onChange={e => setConditions(e.target.value)} rows={2} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
-          <div><label className="block text-sm font-manrope font-medium mb-1">Notes internes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" /></div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Gestion des déchets</label>
+            <span className="text-[9px] font-manrope text-[#e87a2a] border border-[#e87a2a]/40 px-1.5 py-0.5 rounded uppercase tracking-wide font-semibold">Loi AGEC</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Nature des déchets</label>
+              <select value={dechetsNature} onChange={e => setDechetsNature(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                <option value="Déchets non dangereux (câbles, emballages)">Déchets non dangereux (câbles, emballages)</option>
+                <option value="Déchets d'équipements électriques (DEEE)">DEEE (équipements électriques)</option>
+                <option value="Déchets inertes (gravats, plâtre, béton)">Déchets inertes (gravats, plâtre)</option>
+                <option value="Mélange non dangereux">Mélange non dangereux</option>
+                <option value="Déchets dangereux (amiante, peintures)">Déchets dangereux (amiante, peintures)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Quantité estimée</label>
+              <input type="text" value={dechetsQuantite} onChange={e => setDechetsQuantite(e.target.value)} placeholder="Ex : 0.5 tonne, 2 m³" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Enlèvement par</label>
+              <select value={dechetsResponsable} onChange={e => setDechetsResponsable(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                <option value="L'entreprise">L&apos;entreprise</option>
+                <option value="Le client (maître d'ouvrage)">Le client</option>
+                <option value="Prestataire externe">Prestataire externe</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Tri</label>
+              <select value={dechetsTri} onChange={e => setDechetsTri(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                <option value="Tri sur le chantier">Tri sur le chantier</option>
+                <option value="Collecte séparée">Collecte séparée</option>
+                <option value="Évacuation en mélange">Évacuation en mélange</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Coût estimé TTC (€)</label>
+              <input type="number" value={dechetsCout} onChange={e => setDechetsCout(e.target.value)} placeholder="0.00" min={0} step={0.01} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+              <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                <input type="checkbox" checked={dechetsInclureCout} onChange={e => setDechetsInclureCout(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
+                <span className="text-sm font-manrope text-[#1a1a2e]">Inclure dans le prix total</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Point de collecte</label>
+            {!dechetsCollecteNom && ((pointsCollecte && pointsCollecte.length > 0) || dechetteriesProches.length > 0) && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {pointsCollecte?.map(p => (
+                  <button key={p.id} type="button" onClick={() => { setDechetsCollecteNom(p.nom); setDechetsCollecteAdresse(p.adresse || ''); setDechetsCollecteType(p.type_installation || 'Déchetterie') }} className="px-2.5 py-1 rounded-full text-[11px] font-manrope bg-[#5ab4e0]/10 border border-[#5ab4e0]/30 text-[#5ab4e0] hover:bg-[#5ab4e0]/20 transition-colors font-medium">★ {p.nom}</button>
+                ))}
+                {dechetteriesProches.slice(0, 3).map((d, i) => {
+                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${d.nom} ${d.adresse} ${d.code_postal} ${d.commune}`)}`
+                  const acceptePro = d.accepte_pro && d.accepte_pro !== 'Non renseigné' && d.accepte_pro.toLowerCase() !== 'non'
+                  return (
+                    <div key={`api-${i}`} className="inline-flex items-center gap-1 rounded-full border border-gray-200 hover:border-gray-400 transition-colors overflow-hidden">
+                      <button type="button" onClick={() => { setDechetsCollecteNom(d.nom); setDechetsCollecteAdresse(`${d.adresse}, ${d.code_postal} ${d.commune}`); setDechetsCollecteType('Déchetterie') }} className="px-2.5 py-1 text-[11px] font-manrope text-[#6b7280] hover:bg-gray-50 transition-colors">
+                        {d.nom} <span className="text-[#e87a2a] font-semibold">({d.distance_km} km)</span>
+                        {acceptePro && <span title="Accepte les professionnels" className="ml-1 px-1 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">PRO</span>}
+                        {d.accepte_construction && <span title="Accepte les déchets de construction (gravats)" className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">GRAVATS</span>}
+                        {d.accepte_deee && <span title="Accepte les équipements électriques et électroniques" className="ml-1 px-1 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold">DEEE</span>}
+                      </button>
+                      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" title="Voir sur Google Maps" className="px-2 py-1 text-[#5ab4e0] hover:bg-[#5ab4e0]/10 transition-colors border-l border-gray-200">↗</a>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {loadingDechetteries && !dechetsCollecteNom && <p className="text-[11px] font-manrope text-[#9ca3af] mb-2 animate-pulse">Recherche des déchetteries proches...</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="relative">
+                <input type="text" value={dechetsCollecteNom} onChange={e => setDechetsCollecteNom(e.target.value)} placeholder="Nom / raison sociale" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+                {dechetsCollecteNom && <button type="button" onClick={() => { setDechetsCollecteNom(''); setDechetsCollecteAdresse(''); setDechetsCollecteType('Déchetterie') }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>}
+              </div>
+              <input type="text" value={dechetsCollecteAdresse} onChange={e => setDechetsCollecteAdresse(e.target.value)} placeholder="Adresse" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+              <select value={dechetsCollecteType} onChange={e => setDechetsCollecteType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]">
+                <option value="Déchetterie">Déchetterie</option>
+                <option value="Centre de tri">Centre de tri</option>
+                <option value="Plateforme de recyclage">Plateforme de recyclage</option>
+                <option value="Collecteur agréé">Collecteur agréé</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Bottom buttons */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Notes personnalisées<span className="ml-2 text-[10px] text-gray-400 font-normal">(visibles par le client)</span></label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Écrire ici…" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] resize-none" />
+        </div>
+
+        {Boolean(entreprise?.signature_base64) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-2">Signature de l&apos;artisan</label>
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center bg-gray-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={String(entreprise?.signature_base64 || '')} alt="Signature de l'artisan" className="max-h-24 object-contain" />
+            </div>
+            <p className="text-[11px] font-manrope text-gray-400 mt-2">Apparaîtra automatiquement sur le PDF et la page de signature client. Modifiable dans <Link href="/dashboard/parametres" className="text-[#5ab4e0] underline">Paramètres</Link>.</p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 w-full sm:w-80">
+            <div className="flex justify-between py-1.5 text-sm font-manrope"><span className="text-[#5f6c80]">Sous-total HT</span><span className="font-medium">{formatCurrency(totalHT)}</span></div>
+            {!autoEntrepreneur && effectiveTva > 0 && <div className="flex justify-between py-1.5 text-sm font-manrope"><span className="text-[#5f6c80]">TVA {effectiveTva}%</span><span className="font-medium">{formatCurrency(totalTVA)}</span></div>}
+            {dechetsInclureCout && dechetsCoutNum > 0 && <div className="flex justify-between py-1.5 text-sm font-manrope"><span className="text-[#e87a2a]">Gestion déchets TTC</span><span className="font-medium text-[#e87a2a]">{formatCurrency(dechetsCoutNum)}</span></div>}
+            <div className="border-t mt-2 pt-2 flex justify-between py-1.5 text-sm font-manrope"><span className="text-[#0f1a3a] font-bold">{autoEntrepreneur ? 'Total' : 'Total TTC'}</span><span className="font-bold">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span></div>
+            {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
+            {acompteMontant > 0 && (
+              <>
+                <div className="flex justify-between py-1.5 text-sm font-manrope border-t mt-1 pt-2"><span className="text-[#5ab4e0] font-medium">Acompte à verser ({acomptePct}%)</span><span className="text-[#5ab4e0] font-semibold">{formatCurrency(acompteMontant)}</span></div>
+                <div className="flex justify-between py-1.5 text-sm font-manrope"><span className="text-[#6b7280]">Reste à facturer</span><span className="font-semibold text-[#1a1a2e]">{formatCurrency(resteAPayer)}</span></div>
+              </>
+            )}
+            <div className="bg-[#5ab4e0] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
+              <span className="font-syne font-bold text-sm">NET À PAYER</span>
+              <span className="font-syne font-bold text-lg">{formatCurrency(autoEntrepreneur ? totalHT : totalTTC)}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3 justify-end pb-8">
-          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-12 px-6 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">Brouillon</button>
-          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-12 px-6 rounded-lg bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">Enregistrer</button>
+          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-12 px-6 rounded-xl border-2 border-gray-300 text-sm font-syne font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-50">Brouillon</button>
+          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-12 px-8 rounded-xl bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+            Enregistrer
+          </button>
           <div className="w-px h-8 bg-gray-200 mx-1" />
-          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-12 px-8 rounded-lg bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] disabled:opacity-50">Envoyer</button>
+          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-12 px-8 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
+            <Send size={16} /> Envoyer
+          </button>
         </div>
       </div>
 
       {toastMsg && <div className="fixed bottom-6 right-6 bg-[#1a1a2e] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-manrope z-50">{toastMsg}</div>}
+
+      <LineSheet open={sheetOpen} onClose={() => setSheetOpen(false)} line={sheetLine as SheetLine | null} onSave={handleSheetSave} onSaveAndNew={handleSheetSaveAndNew} defaultType={sheetDefaultType} unitOptions={UNIT_SUGGESTIONS} />
+
+      <EnvoyerDevisModal open={envoyerOpen} onClose={() => setEnvoyerOpen(false)} devisId={devis.id} numeroDevis={devis.numero} clientEmail={clientEmail} chantier={chantierDesc} onSuccess={() => { setEnvoyerOpen(false); router.push(`/dashboard/devis/${devis.id}`) }} />
     </div>
   )
 }
