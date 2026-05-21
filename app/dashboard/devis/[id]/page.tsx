@@ -26,7 +26,6 @@ import {
   softDeleteRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
-import { isAutoEntrepreneur } from '@/lib/helpers'
 
 // -------------------------------------------------------------------
 // Types
@@ -347,13 +346,17 @@ export default function DevisDetailPage() {
   }
 
   // Computations
-  // Bug fix (V8.1) — Detection "devis sans TVA" :
-  //   1) toutes les lignes prestation ont taux_tva === 0 (saisi explicitement a Sans TVA)
-  //   2) helper isAutoEntrepreneur (franchise_tva OU forme juridique micro/EI/auto)
-  // Dans ces cas, on NE construit AUCUN groupe TVA — pas de fallback 20% silencieux.
+  // V15 — Detection "devis sans TVA" basee UNIQUEMENT sur les taux saisis.
+  // Regle simplifiee (cf. consigne 21/05) :
+  //   taux === 0 sur toutes les lignes prestation -> sans TVA (mention 293 B affichee)
+  //   sinon -> TVA classique (pas de mention)
+  // Cas tordu couvert : un AE qui depasse le seuil en cours d'annee peut saisir
+  // un taux > 0 — la mention 293 B disparait automatiquement, c'est juridiquement correct.
+  // Le helper isAutoEntrepreneur reste utilise UNIQUEMENT pour pre-cocher le taux 0
+  // dans les formulaires et pour le footer "Entrepreneur individuel".
   const lignesPrestations = lignes.filter(l => l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
   const allLinesZeroTva = lignesPrestations.length > 0 && lignesPrestations.every(l => l.taux_tva === 0)
-  const isSansTva = allLinesZeroTva || isAutoEntrepreneur(entreprise)
+  const isSansTva = allLinesZeroTva
 
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
   let totalHT = 0
@@ -668,8 +671,10 @@ export default function DevisDetailPage() {
                         {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                       </p>
                     )}
-                    {/* Franchise TVA — auto-entrepreneur / micro-entreprise (helper isAutoEntrepreneur) */}
-                    {isAutoEntrepreneur(entreprise) && (
+                    {/* V15 — Franchise TVA : mention basee sur les taux saisis (taux === 0),
+                        pas sur le statut juridique. Coherent avec le recap ci-dessus et avec la
+                        regle juridique : tant qu'aucune TVA n'est collectee, l'article 293 B s'applique. */}
+                    {isSansTva && (
                       <p className="font-semibold">TVA non applicable — art. 293 B du CGI.</p>
                     )}
                     {/* Forme juridique EI → mention obligatoire depuis mai 2022 */}

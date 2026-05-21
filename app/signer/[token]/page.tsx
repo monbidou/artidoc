@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { isAutoEntrepreneur } from '@/lib/helpers'
 
 // ───────────────────────────────────────────────────────────────
 // Types
@@ -353,13 +352,14 @@ export default function SignerDevisPage() {
   const totalTVA = devis.montant_tva || 0
   const totalTTC = devis.montant_ttc || 0
 
-  // Parité stricte avec lib/pdf.ts + dashboard : détection sans TVA via helper unique
-  // OU si toutes les lignes prestations ont taux_tva === 0.
-  // Dans ces cas, on ne construit AUCUN groupe TVA (pas de fallback 10/20% silencieux)
-  // et on affiche la mention art. 293 B du CGI à la place des lignes TVA.
+  // V15 — Detection "sans TVA" basee UNIQUEMENT sur les taux saisis (cf. consigne 21/05).
+  // Regle simplifiee : taux === 0 sur toutes les lignes prestation -> mention 293 B.
+  // Le helper isAutoEntrepreneur ne pilote PLUS l'affichage de la mention (un AE qui depasse
+  // le seuil en cours d'annee peut saisir un taux > 0 -> mention disparait automatiquement).
+  // Garde-fou : totalTVA === 0 (cas legacy avec lignes sans taux_tva en DB).
   const prestNonOpt = lignes.filter(l => l.type === 'prestation' && !l.optionnel)
   const allLinesZeroTva = prestNonOpt.length > 0 && prestNonOpt.every(l => (l.taux_tva ?? 0) === 0)
-  const isSansTva = isAutoEntrepreneur(entreprise) || allLinesZeroTva || totalTVA === 0
+  const isSansTva = allLinesZeroTva || totalTVA === 0
 
   // Group lignes by TVA rate for the summary (uniquement si TVA applicable)
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}

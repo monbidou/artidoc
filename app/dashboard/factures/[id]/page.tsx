@@ -26,7 +26,6 @@ import {
   updateRow,
   LoadingSkeleton,
 } from '@/lib/hooks'
-import { isAutoEntrepreneur } from '@/lib/helpers'
 
 interface FactureRecord {
   id: string
@@ -255,14 +254,15 @@ export default function FactureDetailPage() {
   const formatDate = (d: string | undefined) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
 
   // TVA groups
-  // Bug fix (V8.1) — Detection "facture sans TVA" :
-  //   1) facture.montant_tva explicitement 0 (auto-entrepreneur / franchise art. 293 B)
-  //   2) toutes les lignes ont taux_tva === 0 (saisi explicitement a Sans TVA)
-  //   3) helper isAutoEntrepreneur (franchise_tva OU forme juridique micro/EI/auto)
-  // Dans ces cas, on NE construit AUCUN groupe TVA — pas de fallback 20%.
+  // V15 — Detection "facture sans TVA" basee UNIQUEMENT sur les taux saisis.
+  // Regle simplifiee (cf. consigne 21/05) :
+  //   taux === 0 sur toutes les lignes prestation -> sans TVA (mention 293 B affichee)
+  //   sinon -> TVA classique (pas de mention)
+  // Le helper isAutoEntrepreneur reste utile pour pre-cocher 0 dans les formulaires
+  // et pour le footer "Entrepreneur individuel", mais ne pilote PLUS l'affichage TVA.
   const lignesPrestations = lignes.filter(l => !l.designation?.startsWith('---') && l.type !== 'section' && l.type !== 'sous_section' && l.type !== 'commentaire')
   const allLinesZeroTva = lignesPrestations.length > 0 && lignesPrestations.every(l => l.taux_tva === 0)
-  const isSansTva = facture.montant_tva === 0 || allLinesZeroTva || isAutoEntrepreneur(entreprise)
+  const isSansTva = allLinesZeroTva
 
   const tvaGroups: Record<number, { ht: number; tva: number }> = {}
   if (!isSansTva) {
@@ -668,7 +668,9 @@ export default function FactureDetailPage() {
                     {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                   </p>
                 )}
-                {isAutoEntrepreneur(entreprise) && (
+                {/* V15 — Franchise TVA : mention basee sur les taux saisis (taux === 0),
+                    pas sur le statut juridique. Coherent avec le recap ci-dessus. */}
+                {isSansTva && (
                   <p style={{ fontWeight: 600 }}>TVA non applicable, art. 293 B du Code Général des Impôts.</p>
                 )}
                 {(entreprise?.forme_juridique === 'EI' || entreprise?.forme_juridique === 'Micro-entreprise') && (

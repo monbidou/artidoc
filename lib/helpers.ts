@@ -1,22 +1,31 @@
 /**
  * Helpers transverses Nexartis.
- *
- * NE PAS DUPLIQUER LA LOGIQUE — toute détection de franchise TVA / statut
- * auto-entrepreneur doit passer par `isAutoEntrepreneur(entreprise)`.
  */
 
 /**
- * Détecte si une entreprise est en franchise de TVA (auto-entrepreneur, EI,
- * micro-entreprise). Source de vérité unique — remplace les copies dispersées
- * dans les formulaires devis/facture et les pages de visualisation.
+ * Detecte si une entreprise a un STATUT JURIDIQUE auto-entrepreneur / micro / EI.
  *
- * Règle :
- *   - Si `franchise_tva === true` (case cochée dans Paramètres) → franchise.
- *   - Sinon, si la forme juridique correspond à une micro-entreprise / EI
- *     / auto-entreprise → franchise (sécurité : l'artisan a oublié de cocher).
+ * PERIMETRE STRICT (V15 - decision 21/05/2026) :
+ *   - A utiliser UNIQUEMENT pour :
+ *     1) Pre-cocher le taux TVA a 0 au chargement d'un nouveau devis/facture
+ *        dans les formulaires (UX confort).
+ *     2) Afficher la mention de statut juridique en pied de PDF/HTML
+ *        ("Entrepreneur individuel (Micro-entreprise)").
  *
- * @param entreprise objet entreprise (ou null/undefined si pas encore chargé)
- * @returns true si l'entreprise est en franchise de TVA
+ *   - NE PAS UTILISER pour conditionner l'affichage de la mention
+ *     "TVA non applicable, art. 293 B du CGI". Cette mention doit etre basee
+ *     UNIQUEMENT sur les taux saisis : si toutes les lignes prestation ont
+ *     taux === 0, mention affichee ; sinon, non. Justification : un AE qui
+ *     depasse le seuil de franchise en cours d'annee peut legitimement saisir
+ *     un taux > 0, la mention doit alors disparaitre automatiquement.
+ *
+ * Regle de detection :
+ *   - Si franchise_tva === true (case cochee dans Parametres) -> true.
+ *   - Sinon, si la forme juridique contient micro / EI / auto -> true (securite :
+ *     l'artisan a oublie de cocher).
+ *
+ * @param entreprise objet entreprise (ou null/undefined si pas encore charge)
+ * @returns true si l'entreprise est juridiquement en statut de franchise
  */
 export function isAutoEntrepreneur(
   entreprise:
